@@ -1,0 +1,874 @@
+{
+    "AFGANISTAN": {
+      "value": "A9401AAAAA",
+      "isEuropean": false
+    },
+    "AFRICA": {
+      "value": "A9399AAAAA",
+      "isEuropean": false
+    },
+    "ALBANIA": {
+      "value": "A9102AAAAA",
+      "isEuropean": true
+    },
+    "ALEMANIA": {
+      "value": "A9103AAAAA",
+      "isEuropean": true
+    },
+    "AMERICA": {
+      "value": "A9299AAAAA",
+      "isEuropean": false
+    },
+    "ANDORRA": {
+      "value": "A9133AAAAA",
+      "isEuropean": false
+    },
+    "ANGOLA": {
+      "value": "A9301AAAAA",
+      "isEuropean": false
+    },
+    "ANTIGUA BARBUDA": {
+      "value": "A9255AAAAA",
+      "isEuropean": false
+    },
+    "ANTILLAS NEERLANDESAS": {
+      "value": "A9200AAAAA",
+      "isEuropean": false
+    },
+    "APATRIDA": {
+      "value": "A9600AAAAA",
+      "isEuropean": false
+    },
+    "ARABIA SAUDITA": {
+      "value": "A9403AAA1A",
+      "isEuropean": false
+    },
+    "ARGELIA": {
+      "value": "A9304AAAAA",
+      "isEuropean": false
+    },
+    "ARGENTINA": {
+      "value": "A9202AAAAA",
+      "isEuropean": false
+    },
+    "ARMENIA": {
+      "value": "A9142AAAAA",
+      "isEuropean": false
+    },
+    "ARUBA": {
+      "value": "A9257AAAAA",
+      "isEuropean": false
+    },
+    "ASIA": {
+      "value": "A9499AAAAA",
+      "isEuropean": false
+    },
+    "AUSTRALIA": {
+      "value": "A9500AAAAA",
+      "isEuropean": false
+    },
+    "AUSTRIA": {
+      "value": "A9104AAAAA",
+      "isEuropean": true
+    },
+    "AZERBAYAN": {
+      "value": "A9143AAA2A",
+      "isEuropean": false
+    },
+    "BAHAMAS": {
+      "value": "A9203AAAAA",
+      "isEuropean": false
+    },
+    "BAHREIN": {
+      "value": "A9405AAAAA",
+      "isEuropean": false
+    },
+    "BANGLADESH": {
+      "value": "A9432AAAAA",
+      "isEuropean": false
+    },
+    "BARBADOS": {
+      "value": "A9205AAAAA",
+      "isEuropean": false
+    },
+    "BELGICA": {
+      "value": "A9105AAAAA",
+      "isEuropean": true
+    },
+    "BELICE": {
+      "value": "A9207AAAAA",
+      "isEuropean": false
+    },
+    "BHUTAN": {
+      "value": "A9407AAAAA",
+      "isEuropean": false
+    },
+    "BIELORRUSIA": {
+      "value": "A9144AAAAA",
+      "isEuropean": false
+    },
+    "BOLIVIA": {
+      "value": "A9204AAAAA",
+      "isEuropean": false
+    },
+    "BOSNIA HERZEGOVINA": {
+      "value": "A9156AAAAA",
+      "isEuropean": false
+    },
+    "BOTSWANA": {
+      "value": "A9305AAAAA",
+      "isEuropean": false
+    },
+    "BRASIL": {
+      "value": "A9206AAAAA",
+      "isEuropean": false
+    },
+    "BRUNEI": {
+      "value": "A9409AAAAA",
+      "isEuropean": false
+    },
+    "BULGARIA": {
+      "value": "A9134AAAAA",
+      "isEuropean": true
+    },
+    "BURKINA FASO": {
+      "value": "A9303AAAAA",
+      "isEuropean": false
+    },
+    "BURUNDI": {
+      "value": "A9302AAAAA",
+      "isEuropean": false
+    },
+    "BUTAN": {
+      "value": "A9442AAAAA",
+      "isEuropean": false
+    },
+    "CABO VERDE": {
+      "value": "A9308AAAAA",
+      "isEuropean": false
+    },
+    "CAMERUN": {
+      "value": "A9307AAAAA",
+      "isEuropean": false
+    },
+    "CANADA": {
+      "value": "A9259AAAAA",
+      "isEuropean": false
+    },
+    "CATAR": {
+      "value": "A9408AAAAA",
+      "isEuropean": false
+    },
+    "CENTROAMERICA": {
+      "value": "A9201AAAAA",
+      "isEuropean": false
+    },
+    "CHAD": {
+      "value": "A9306AAAAA",
+      "isEuropean": false
+    },
+    "CHECOSLOVAQUIA": {
+      "value": "A9114AAAAA",
+      "isEuropean": false
+    },
+    "CHILE": {
+      "value": "A9212AAAAA",
+      "isEuropean": false
+    },
+    "CHINA": {
+      "value": "A9433AAAAA",
+      "isEuropean": false
+    },
+    "CHIPRE": {
+      "value": "A9135AAAAA",
+      "isEuropean": true
+    },
+    "COLOMBIA": {
+      "value": "A9213AAAAA",
+      "isEuropean": false
+    },
+    "COMORAS": {
+      "value": "A9309AAAAA",
+      "isEuropean": false
+    },
+    "CONGO": {
+      "value": "A9311AAAAA",
+      "isEuropean": false
+    },
+    "COREA": {
+      "value": "A9450AAAAA",
+      "isEuropean": false
+    },
+    "COREA NORTE": {
+      "value": "A9451AAAAA",
+      "isEuropean": false
+    },
+    "COREA SUR": {
+      "value": "A9452AAAAA",
+      "isEuropean": false
+    },
+    "COSTA DE MARFIL": {
+      "value": "A9310AAAAA",
+      "isEuropean": false
+    },
+    "COSTA RICA": {
+      "value": "A9214AAAAA",
+      "isEuropean": false
+    },
+    "CROACIA": {
+      "value": "A9136AAAAA",
+      "isEuropean": true
+    },
+    "CUBA": {
+      "value": "A9250AAAAA",
+      "isEuropean": false
+    },
+    "DINAMARCA": {
+      "value": "A9106AAAAA",
+      "isEuropean": true
+    },
+    "DJIBOUTI": {
+      "value": "A9312AAAAA",
+      "isEuropean": false
+    },
+    "DOMINICA": {
+      "value": "A9260AAAAA",
+      "isEuropean": false
+    },
+    "ECUADOR": {
+      "value": "A9215AAAAA",
+      "isEuropean": false
+    },
+    "EGIPTO": {
+      "value": "A9313AAAAA",
+      "isEuropean": false
+    },
+    "EL SALVADOR": {
+      "value": "A9216AAAAA",
+      "isEuropean": false
+    },
+    "EMIRATOS ARABES UNIDOS": {
+      "value": "A9411AAAAA",
+      "isEuropean": false
+    },
+    "ERITREA": {
+      "value": "A9314AAAAA",
+      "isEuropean": false
+    },
+    "ESLOVAQUIA": {
+      "value": "A9137AAAAA",
+      "isEuropean": true
+    },
+    "ESLOVENIA": {
+      "value": "A9138AAAAA",
+      "isEuropean": true
+    },
+    "ESPAÑA": {
+      "value": "A9107AAAAA",
+      "isEuropean": true
+    },
+    "ESTADOS UNIDOS": {
+      "value": "A9261AAAAA",
+      "isEuropean": false
+    },
+    "ESTONIA": {
+      "value": "A9139AAAAA",
+      "isEuropean": true
+    },
+    "ETIOPIA": {
+      "value": "A9315AAAAA",
+      "isEuropean": false
+    },
+    "EUROPA": {
+      "value": "A9398AAAAA",
+      "isEuropean": false
+    },
+    "FIJI": {
+      "value": "A9503AAAAA",
+      "isEuropean": false
+    },
+    "FILIPINAS": {
+      "value": "A9444AAAAA",
+      "isEuropean": false
+    },
+    "FINLANDIA": {
+      "value": "A9108AAAAA",
+      "isEuropean": true
+    },
+    "FRANCIA": {
+      "value": "A9109AAAAA",
+      "isEuropean": true
+    },
+    "GABON": {
+      "value": "A9316AAAAA",
+      "isEuropean": false
+    },
+    "GAMBIA": {
+      "value": "A9323AAAAA",
+      "isEuropean": false
+    },
+    "GEORGIA": {
+      "value": "A9145AAAAA",
+      "isEuropean": false
+    },
+    "GHANA": {
+      "value": "A9322AAAAA",
+      "isEuropean": false
+    },
+    "GRECIA": {
+      "value": "A9113AAAAA",
+      "isEuropean": true
+    },
+    "GUATEMALA": {
+      "value": "A9228AAAAA",
+      "isEuropean": false
+    },
+    "GUINEA": {
+      "value": "A9325AAA3A",
+      "isEuropean": false
+    },
+    "GUINEA BISSAU": {
+      "value": "A9328AAA1A",
+      "isEuropean": false
+    },
+    "GUINEA ECUATORIAL": {
+      "value": "A9324AAAAA",
+      "isEuropean": false
+    },
+    "GUYANA": {
+      "value": "A9225AAAAA",
+      "isEuropean": false
+    },
+    "HAITI": {
+      "value": "A9230AAAAA",
+      "isEuropean": false
+    },
+    "HONDURAS": {
+      "value": "A9232AAAAA",
+      "isEuropean": false
+    },
+    "HONG KONG CHINO": {
+      "value": "A9462AAAAA",
+      "isEuropean": false
+    },
+    "HUNGRIA": {
+      "value": "A9114AAAAA",
+      "isEuropean": true
+    },
+    "IFNI": {
+      "value": "A9395AAAAA",
+      "isEuropean": false
+    },
+    "INDIA": {
+      "value": "A9412AAAAA",
+      "isEuropean": false
+    },
+    "INDONESIA": {
+      "value": "A9414AAAAA",
+      "isEuropean": false
+    },
+    "IRAK": {
+      "value": "A9413AAAAA",
+      "isEuropean": false
+    },
+    "IRAN": {
+      "value": "A9415AAAAA",
+      "isEuropean": false
+    },
+    "IRLANDA": {
+      "value": "A9115AAAAA",
+      "isEuropean": true
+    },
+    "ISLANDIA": {
+      "value": "A9116AAAAA",
+      "isEuropean": true
+    },
+    "ISLAS MARIANAS NORTE": {
+      "value": "A9518AAAAA",
+      "isEuropean": false
+    },
+    "ISLAS MARSHALL": {
+      "value": "A9520AAAAA",
+      "isEuropean": false
+    },
+    "ISLAS SALOMON": {
+      "value": "A9551AAA1A",
+      "isEuropean": false
+    },
+    "ISRAEL": {
+      "value": "A9417AAAAA",
+      "isEuropean": false
+    },
+    "ITALIA": {
+      "value": "A9117AAAAA",
+      "isEuropean": true
+    },
+    "JAMAICA": {
+      "value": "A9233AAAAA",
+      "isEuropean": false
+    },
+    "JAPON": {
+      "value": "A9416AAAAA",
+      "isEuropean": false
+    },
+    "JORDANIA": {
+      "value": "A9419AAAAA",
+      "isEuropean": false
+    },
+    "KAZAJSTAN": {
+      "value": "A9465AAAAA",
+      "isEuropean": false
+    },
+    "KENIA": {
+      "value": "A9336AAAAA",
+      "isEuropean": false
+    },
+    "KIRIBATI": {
+      "value": "A9501AAAAA",
+      "isEuropean": false
+    },
+    "KUWAIT": {
+      "value": "A9421AAAAA",
+      "isEuropean": false
+    },
+    "LAOS": {
+      "value": "A9418AAAAA",
+      "isEuropean": false
+    },
+    "LESOTHO": {
+      "value": "A9337AAAAA",
+      "isEuropean": false
+    },
+    "LETONIA": {
+      "value": "A9138AAAAA",
+      "isEuropean": true
+    },
+    "LIBANO": {
+      "value": "A9423AAAAA",
+      "isEuropean": false
+    },
+    "LIBERIA": {
+      "value": "A9342AAAAA",
+      "isEuropean": false
+    },
+    "LIBIA": {
+      "value": "A9344AAAAA",
+      "isEuropean": false
+    },
+    "LIECHTENSTEIN": {
+      "value": "A9118AAAAA",
+      "isEuropean": false
+    },
+    "LITUANIA": {
+      "value": "A9139AAAAA",
+      "isEuropean": true
+    },
+    "LUXEMBURGO": {
+      "value": "A9119AAAAA",
+      "isEuropean": true
+    },
+    "MACAO": {
+      "value": "A9463AAAAA",
+      "isEuropean": false
+    },
+    "MACEDONIA": {
+      "value": "A9159AAAAA",
+      "isEuropean": false
+    },
+    "MADAGASCAR": {
+      "value": "A9354AAAAA",
+      "isEuropean": false
+    },
+    "MALASIA": {
+      "value": "A9425AAAAA",
+      "isEuropean": false
+    },
+    "MALAWI": {
+      "value": "A9346AAAAA",
+      "isEuropean": false
+    },
+    "MALDIVAS": {
+      "value": "A9436AAAAA",
+      "isEuropean": false
+    },
+    "MALI": {
+      "value": "A9347AAAAA",
+      "isEuropean": false
+    },
+    "MALTA": {
+      "value": "A9120AAAAA",
+      "isEuropean": true
+    },
+    "MARRUECOS": {
+      "value": "A9348AAAAA",
+      "isEuropean": false
+    },
+    "MAURICIO": {
+      "value": "A9349AAAAA",
+      "isEuropean": false
+    },
+    "MAURITANIA": {
+      "value": "A9350AAAAA",
+      "isEuropean": false
+    },
+    "MEXICO": {
+      "value": "A9234AAA1A",
+      "isEuropean": false
+    },
+    "MOLDAVIA": {
+      "value": "A9148AAAAA",
+      "isEuropean": false
+    },
+    "MONACO": {
+      "value": "A9121AAAAA",
+      "isEuropean": false
+    },
+    "MONGOLIA": {
+      "value": "A9427AAAAA",
+      "isEuropean": false
+    },
+    "MONTENEGRO": {
+      "value": "A9160AAAAA",
+      "isEuropean": false
+    },
+    "MOZAMBIQUE": {
+      "value": "A9351AAAAA",
+      "isEuropean": false
+    },
+    "MYANMAR": {
+      "value": "A9400AAAAA",
+      "isEuropean": false
+    },
+    "NAMIBIA": {
+      "value": "A9353AAAAA",
+      "isEuropean": false
+    },
+    "NAURU": {
+      "value": "A9541AAAAA",
+      "isEuropean": false
+    },
+    "NEPAL": {
+      "value": "A9541AAAAA",
+      "isEuropean": false
+    },
+    "NICARAGUA": {
+      "value": "A9236AAAAA",
+      "isEuropean": false
+    },
+    "NIGER": {
+      "value": "A9360AAAAA",
+      "isEuropean": false
+    },
+    "NIGERIA": {
+      "value": "A9352AAAAA",
+      "isEuropean": false
+    },
+    "NORUEGA": {
+      "value": "A9122AAAAA",
+      "isEuropean": true
+    },
+    "NUEVA ZELANDA": {
+      "value": "A9540AAAAA",
+      "isEuropean": false
+    },
+    "OCEANIA": {
+      "value": "A9599AAAAA",
+      "isEuropean": false
+    },
+    "OMAN": {
+      "value": "A9444AAAAA",
+      "isEuropean": false
+    },
+    "PAÍSES BAJOS": {
+      "value": "A9123AAA1A",
+      "isEuropean": true
+    },
+    "PAKISTAN": {
+      "value": "A9424AAA1A",
+      "isEuropean": false
+    },
+    "PALESTINA": {
+      "value": "A9440AAAAA",
+      "isEuropean": false
+    },
+    "PANAMA": {
+      "value": "A9238AAAAA",
+      "isEuropean": false
+    },
+    "PAPUA NUEVA GUINEA": {
+      "value": "A9542AAAAA",
+      "isEuropean": false
+    },
+    "PARAGUAY": {
+      "value": "A9240AAAAA",
+      "isEuropean": false
+    },
+    "PERU": {
+      "value": "A9242AAAAA",
+      "isEuropean": false
+    },
+    "POLONIA": {
+      "value": "A9124AAAAA",
+      "isEuropean": true
+    },
+    "PORTUGAL": {
+      "value": "A9125AAAAA",
+      "isEuropean": true
+    },
+    "PUERTO RICO": {
+      "value": "A9244AAAAA",
+      "isEuropean": false
+    },
+    "QATAR": {
+      "value": "A9431AAAAA",
+      "isEuropean": false
+    },
+    "REINO UNIDO": {
+      "value": "A9112AAA1A",
+      "isEuropean": true
+    },
+    "REPUBLICA BENIN": {
+      "value": "A9302AAA1A",
+      "isEuropean": false
+    },
+    "REPUBLICA CENTROAFRICANA": {
+      "value": "A9310AAA1A",
+      "isEuropean": false
+    },
+    "REPUBLICA CHECA": {
+      "value": "A9157AAAAA",
+      "isEuropean": true
+    },
+    "REPUBLICA CONGO": {
+      "value": "A9312AAA1A",
+      "isEuropean": false
+    },
+    "REPUBLICA DEMOCRATICA CONGO": {
+      "value": "A9380AAAAA",
+      "isEuropean": false
+    },
+    "REPUBLICA DOMINICANA": {
+      "value": "A9218AAA1A",
+      "isEuropean": false
+    },
+    "REPUBLICA GRANADA": {
+      "value": "A9229AAAAA",
+      "isEuropean": false
+    },
+    "REPUBLICA KIRGUISTAN": {
+      "value": "A9466AAA1A",
+      "isEuropean": false
+    },
+    "REPUBLICA SUDAN SUR": {
+      "value": "A9369AAAAA",
+      "isEuropean": false
+    },
+    "RIO MUNI": {
+      "value": "A9397AAAAA",
+      "isEuropean": false
+    },
+    "RUANDA": {
+      "value": "A9306AAAAA",
+      "isEuropean": false
+    },
+    "RUMANIA": {
+      "value": "A9127AAAAA",
+      "isEuropean": true
+    },
+    "RUSIA": {
+      "value": "A9149AAAAA",
+      "isEuropean": false
+    },
+    "SAHARA": {
+      "value": "A9398AAAAA",
+      "isEuropean": false
+    },
+    "SAINT KITTS NEVIS": {
+      "value": "A9256AAA1A",
+      "isEuropean": false
+    },
+    "SALVADOR": {
+      "value": "A9220AAAAA",
+      "isEuropean": false
+    },
+    "SAMOA OCCIDENTAL": {
+      "value": "A9552AAAAA",
+      "isEuropean": false
+    },
+    "SAN MARINO": {
+      "value": "A9135AAAAA",
+      "isEuropean": false
+    },
+    "SAN MARTIN": {
+      "value": "A9259AAAAA",
+      "isEuropean": false
+    },
+    "SAN VICENTE GRANADINAS": {
+      "value": "A9254AAA1A",
+      "isEuropean": false
+    },
+    "SANTA LUCIA": {
+      "value": "A9253AAAAA",
+      "isEuropean": false
+    },
+    "SANTA SEDE": {
+      "value": "A9136AAA2A",
+      "isEuropean": false
+    },
+    "SANTO TOME PRINCIPE": {
+      "value": "A9361AAAAA",
+      "isEuropean": false
+    },
+    "SENEGAL": {
+      "value": "A9362AAAAA",
+      "isEuropean": false
+    },
+    "SERBIA": {
+      "value": "A9155AAAAA",
+      "isEuropean": false
+    },
+    "SEYCHELLES": {
+      "value": "A9363AAAAA",
+      "isEuropean": false
+    },
+    "SIERRA LEONA": {
+      "value": "A9364AAAAA",
+      "isEuropean": false
+    },
+    "SINGAPUR": {
+      "value": "A9426AAAAA",
+      "isEuropean": false
+    },
+    "SIRIA": {
+      "value": "A9433AAAAA",
+      "isEuropean": false
+    },
+    "SOMALIA": {
+      "value": "A9365AAAAA",
+      "isEuropean": false
+    },
+    "SRI LANKA": {
+      "value": "A9404AAAAA",
+      "isEuropean": false
+    },
+    "SUDAFRICA": {
+      "value": "A9367AAAAA",
+      "isEuropean": false
+    },
+    "SUDAN": {
+      "value": "A9368AAAAA",
+      "isEuropean": false
+    },
+    "SUDAN SUR": {
+      "value": "A9369AAA1A",
+      "isEuropean": false
+    },
+    "SUECIA": {
+      "value": "A9128AAAAA",
+      "isEuropean": true
+    },
+    "SUIZA": {
+      "value": "A9129AAAAA",
+      "isEuropean": false
+    },
+    "SURINAM": {
+      "value": "A9250AAAAA",
+      "isEuropean": false
+    },
+    "SWAZILANDIA": {
+      "value": "A9371AAAAA",
+      "isEuropean": false
+    },
+    "TADJIKISTAN": {
+      "value": "A9469AAAAA",
+      "isEuropean": false
+    },
+    "TAILANDIA": {
+      "value": "A9428AAA1A",
+      "isEuropean": false
+    },
+    "TAIWAN TAIPEI": {
+      "value": "A9408AAA3A",
+      "isEuropean": false
+    },
+    "TANZANIA": {
+      "value": "A9370AAAAA",
+      "isEuropean": false
+    },
+    "TIMOR ORIENTAL": {
+      "value": "A9464AAAAA",
+      "isEuropean": false
+    },
+    "TOGO": {
+      "value": "A9374AAAAA",
+      "isEuropean": false
+    },
+    "TONGA": {
+      "value": "A9554AAAAA",
+      "isEuropean": false
+    },
+    "TRINIDAD TOBAGO": {
+      "value": "A9245AAAAA",
+      "isEuropean": false
+    },
+    "TUNEZ": {
+      "value": "A9378AAAAA",
+      "isEuropean": false
+    },
+    "TURKMENISTAN": {
+      "value": "A9467AAA1A",
+      "isEuropean": false
+    },
+    "TURQUIA": {
+      "value": "A9130AAAAA",
+      "isEuropean": false
+    },
+    "TUVALU": {
+      "value": "A9560AAAAA",
+      "isEuropean": false
+    },
+    "UCRANIA": {
+      "value": "A9152AAAAA",
+      "isEuropean": false
+    },
+    "UGANDA": {
+      "value": "A9358AAAAA",
+      "isEuropean": false
+    },
+    "UNION EUROPEA": {
+      "value": "A9190AAA1A",
+      "isEuropean": false
+    },
+    "URUGUAY": {
+      "value": "A9246AAAAA",
+      "isEuropean": false
+    },
+    "UZBEKISTAN": {
+      "value": "A9468AAAAA",
+      "isEuropean": false
+    },
+    "VANUATU": {
+      "value": "A9565AAAAA",
+      "isEuropean": false
+    },
+    "VENEZUELA": {
+      "value": "A9248AAAAA",
+      "isEuropean": false
+    },
+    "VIETNAM": {
+      "value": "A9430AAAAA",
+      "isEuropean": false
+    },
+    "YEMEN": {
+      "value": "A9434AAAAA",
+      "isEuropean": false
+    },
+    "ZAMBIA": {
+      "value": "A9382AAAAA",
+      "isEuropean": false
+    },
+    "ZIMBABWE": {
+      "value": "A9357AAAAA",
+      "isEuropean": false
+    }
+  }

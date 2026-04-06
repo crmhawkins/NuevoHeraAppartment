@@ -1,0 +1,249 @@
+name: "Apartamentos Hawkins · ERP turístico (Laravel)"
+description: |
+  Reglas operativas para el monolito Laravel con Blade + Livewire (v3),
+  gestión de apartamentos, reservas, limpieza, inventario, incidencias,
+  facturación, comunicaciones (WhatsApp/Email) e integraciones (OpenAI, Channex, IMAP).
+  Política estricta de migraciones: NO ejecutar migraciones antiguas; solo las nuevas.
+
+goals:
+  - Mantener un código limpio, testeado y documentado.
+  - Aplicar siempre estilos UI consistentes (Bootstrap + componentes apple-*).
+  - Seguridad y auditoría por defecto (auth, roles, logs).
+  - Controlar migraciones: baseline legacy y solo migraciones nuevas.
+  - Preparar terreno para CI en siguiente iteración.
+
+tech_stack:
+  backend:
+    framework: "Laravel 10.48.22"
+    php: "8.3.24"
+    packages_core:
+      - "laravel/sanctum"
+      - "livewire/livewire (3.5.12)"
+      - "maatwebsite/excel"
+      - "barryvdh/laravel-dompdf"
+      - "yajra/laravel-datatables"
+      - "realrashid/sweet-alert"
+      - "opcodesio/log-viewer"
+      - "openai-php/client"
+      - "webklex/laravel-imap"
+    queues_cache: ["sync","file"] # TODO: evaluar redis en futuro
+  frontend:
+    ui: "Blade"
+    style: "Bootstrap"
+    build: "Vite"
+    node: "20.19.4"
+  database:
+    engine: "MySQL"
+    version: "unknown" # TODO: anotar versión exacta
+  tooling: ["Laravel Pint","PHPUnit","Spatie Laravel Ignition"]
+
+project_structure:
+  key_dirs:
+    - "app/Models"
+    - "app/Http/Controllers"
+    - "app/Http/Controllers/Admin"
+    - "app/Http/Requests"
+    - "resources/views"
+    - "database/migrations"
+  modules:
+    - "Apartamentos"
+    - "Reservas"
+    - "Clientes"
+    - "Limpieza"
+    - "Inventario"
+    - "Incidencias"
+    - "Facturación"
+    - "WhatsApp"
+    - "Email"
+    - "Amenities"
+    - "Zonas Comunes"
+    - "Fichajes"
+    - "Gastos"
+    - "Ingresos"
+    - "Bancos"
+    - "Metálicos"
+    - "Holidays"
+    - "Webhooks"
+    - "Presupuestos"
+    - "Tarifas"
+
+style_and_design:
+  ui_framework: "Bootstrap"
+  tokens:
+    colors:
+      brand_primary: "TODO"   # p.ej. #08414F si aplica a Hawkins
+      brand_secondary: "TODO"
+    fonts: ["Nunito","system"]
+  components_base:
+    - "apple-btn"
+    - "apple-card"
+    - "apple-list-item"
+    - "apple-content"
+  rules:
+    - "No estilos inline salvo excepciones justificadas."
+    - "Reutilizar utilidades Bootstrap y componentes apple-*."
+    - "Mantener consistencia en toasts/alerts (SweetAlert)."
+
+roles_and_permissions:
+  roles:
+    - "ADMIN"
+    - "LIMPIEZA"
+    - "USER"
+  policies:
+    - "TODO: definir Policies por entidad con PII (clientes, reservas, facturas)."
+  middleware_hints:
+    - "auth"
+    - "role:ADMIN"
+    - "role:LIMPIEZA"
+  notes:
+    - "Añadir Gates/Policies granulares (actualmente ausentes)."
+
+business_rules_core:
+  reservas:
+    - "Reserva con cliente y apartamento; estados por workflow."
+  limpieza:
+    - "Asignaciones por apartamento; estado y tiempos."
+  inventario:
+    - "Artículos con stock mínimo y proveedor; avisos por umbral."
+  facturacion:
+    - "Facturas PDF (DomPDF) y exportaciones (Excel)."
+  comunicaciones:
+    - "IMAP para ingesta; WhatsApp y OpenAI para asistencia; email transaccional."
+  reportes:
+    - "Gastos/ingresos/bancos/metálicos por período, con DataTables."
+  holidays:
+    - "Calendario y bloqueos operativos."
+  webhooks:
+    - "Endpoints entrantes; validar payloads y loguear."
+
+database_guidelines:
+  tables_examples:
+    - name: "apartamentos"
+      soft_deletes: true
+      fks_sample: [{"edificio_id":"edificios.id"}]
+    - name: "reservas"
+      soft_deletes: true
+      fks_sample: [{"cliente_id":"clientes.id"},{"apartamento_id":"apartamentos.id"}]
+    - name: "users"
+      soft_deletes: false
+  rules:
+    - "DECIMAL(12,2) para importes."
+    - "Índices en FKs y columnas de búsqueda."
+    - "Enums preferiblemente como tablas diccionario."
+  notes: "179 migraciones detectadas históricas; ver política de baseline."
+
+security:
+  auth:
+    sanctum: true
+    guards: ["web","api"]
+  rate_limit:
+    - "TODO: aplicar throttle a /auth*, /export*, /webhooks/*"
+  uploads:
+    validation: "TODO: validar MIME/size + almacenamiento privado si hay PII"
+    storage: "public"
+  logging:
+    channel: "daily"
+    redactions_present: false # TODO: redactar datos sensibles en logs
+  compliance:
+    - "Minimización de PII en tickets/exports."
+    - "Separar logs de negocio y de errores si es necesario."
+
+apis:
+  routes_sample:
+    - { method: "GET", uri: "/admin", name: "inicio", middleware: ["auth","role:ADMIN"] }
+    - { method: "GET", uri: "/apartamentos", name: "apartamentos.admin.index", middleware: ["auth","role:ADMIN"] }
+    - { method: "GET", uri: "/gestion", name: "gestion.index", middleware: ["auth","role:LIMPIEZA"] }
+    - { method: "GET", uri: "/reservas", name: "reservas.index", middleware: ["auth"] }
+
+integrations:
+  - { name: "OpenAI", purpose: "AI chat assistance", env_vars: ["OPENAI_API_KEY"] }
+  - { name: "WhatsApp", purpose: "Messaging", env_vars: ["WHATSAPP_*"] }
+  - { name: "Channex", purpose: "Channel manager", env_vars: ["CHANNEX_*"] }
+  - { name: "IMAP", purpose: "Email processing", env_vars: ["IMAP_*"] }
+
+testing_policy:
+  automated:
+    - "Unit/Feature mínimos (actual: 2+2). Añadir pruebas de autorización y validaciones."
+    - "Pint obligatorio en cada PR."
+  manual_checklist:
+    - "Vistas con estilos aplicados (apple-*)."
+    - "Listados grandes con paginación/ordenación (DataTables)."
+    - "Descargas/exports verificados (PDF/Excel)."
+    - "Logs de acciones clave (creación/edición/borrado)."
+
+commit_and_pr_rules:
+  commits:
+    - "Conventional Commits (feat:, fix:, refactor:, chore:, docs:)."
+    - "Un commit por cambio lógico."
+  pull_requests:
+    - "Descripción: qué/por qué/cómo probar."
+    - "Checklist de pruebas (auto + manual)."
+    - "Capturas UI cuando afecte a vistas."
+  ci_gate:
+    - "TODO: habilitar CI (build+test+pint) y bloquear merge si falla."
+
+env_and_config:
+  required:
+    - "APP_ENV, APP_KEY, APP_URL"
+    - "DB_*"
+    - "MAIL_*"
+    - "OPENAI_API_KEY"
+    - "WHATSAPP_*"
+    - "CHANNEX_*"
+    - "IMAP_*"
+
+required_files_to_validate:
+  - "resources/views/layouts/appAdmin.blade.php"
+  - "app/Http/Requests/**"
+  - "app/Policies/**"
+  - "app/Http/Resources/**"
+  - "database/migrations/ (NUEVAS únicamente; ver política)"
+  - "docs/ (añadir README técnico de módulos cuando sea posible)"
+
+# --- POLÍTICA DE MIGRACIONES (Legacy Baseline) ---
+migration_policy:
+  objective: "NO ejecutar migraciones antiguas. Solo nuevas migraciones a partir del baseline."
+  strategy_preferred: "schema_dump"
+  options:
+    - name: "schema_dump (recomendado)"
+      steps:
+        - "En una BD con el estado actual correcto: php artisan schema:dump --prune"
+        - "Commit del dump en database/schema/mysql-schema.sql"
+        - "A partir de ahora, SOLO se ejecutarán migraciones creadas después del dump."
+      notes:
+        - "No borra tu BD; solo elimina archivos de migración antiguos del repo y deja el volcado del esquema."
+    - name: "baseline_in_migrations_table (marcar como ejecutadas)"
+      steps:
+        - "Insertar en tabla migrations todas las migraciones legacy como 'ya aplicadas' (batch=0/1)."
+        - "Mantener esos archivos fuera de la carpeta activa o ignorados."
+      sql_example: |
+        -- ejemplo orientativo (ajustar a tus nombres):
+        -- INSERT INTO migrations (migration, batch) VALUES ('2019_01_01_000000_create_users_table', 1);
+      bash_hint: |
+        # ejemplo (Linux) para marcar todas las actuales como ejecutadas con el batch actual
+        for f in database/migrations/*.php; do b=$(basename "$f" .php); \
+        mysql -u$DB_USERNAME -p$DB_PASSWORD -D$DB_DATABASE \
+        -e "INSERT IGNORE INTO migrations (migration,batch) VALUES ('$b',1)"; done
+    - name: "quarantine_folder"
+      steps:
+        - "Mover todos los *.php legacy a database/_legacy_migrations/ (Laravel no los ejecuta)."
+        - "Crear NUEVAS migraciones solo para cambios futuros."
+  ci_rule:
+    - "Bloquear merge si se detecta un *.php legacy en database/migrations/ con timestamp < BASELINE"
+    - "Permitir solo migraciones con fecha posterior al schema dump/baseline"
+  developer_guidelines:
+    - "Nunca modifiques migraciones antiguas; crea una nueva."
+    - "Para cambios de esquema, nueva migration con up()/down() correcto."
+    - "Test: php artisan migrate:fresh --seed en local de desarrollo, usando el schema dump."
+
+acceptance_definition_of_done:
+  - "Pint OK, tests mínimos OK."
+  - "Sin migraciones legacy en database/migrations/ (cumple política)."
+  - "UI con componentes apple-* aplicados."
+  - "Endpoints críticos con auth + (próximo) throttle."
+  - "Logs razonables sin PII sensible (o redactados)."
+
+cursor_behavior:
+  - "Proponer siempre la opción más segura; marcar TODOs explícitos."
+  - "No introducir dependencias pesadas sin justificación."
+  - "Si falta información (tokens de marca, policies exactas), usar placeholders claros."

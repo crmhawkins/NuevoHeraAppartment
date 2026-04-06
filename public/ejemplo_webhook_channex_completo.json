@@ -1,0 +1,186 @@
+{
+    "timestamp": "2025-08-30T12:02:18.272877Z",
+    "event": "booking",
+    "user_id": null,
+    "payload": {
+        "property_id": "0c58587d-990c-44c2-8144-d131fbe44b73",
+        "booking_id": "2555579d-345e-4368-a7d6-84bbdfd79f1d",
+        "revision_id": "280c27d8-6e86-4739-9e87-710a329e0dfd"
+    },
+    "property_id": "0c58587d-990c-44c2-8144-d131fbe44b73"
+}
+
+// Después de procesar el webhook inicial, se hace una llamada a la API de Channex
+// para obtener los datos completos de la reserva. Aquí está un ejemplo de la respuesta:
+
+{
+    "data": {
+        "type": "booking",
+        "id": "2555579d-345e-4368-a7d6-84bbdfd79f1d",
+        "attributes": {
+            "status": "new",
+            "ota_name": "Booking.com",
+            "ota_reservation_code": "BK123456789",
+            "amount": "450.00",
+            "ota_commission": "45.00",
+            "customer": {
+                "name": "Juan",
+                "surname": "Pérez",
+                "mail": "juan.perez@email.com",
+                "phone": "+34 612 345 678",
+                "address": "Calle Mayor 123, Madrid",
+                "country": "ES"
+            },
+            "rooms": [
+                {
+                    "rate_plan_id": "rate_plan_123",
+                    "checkin_date": "2025-09-15",
+                    "checkout_date": "2025-09-18",
+                    "amount": "450.00",
+                    "occupancy": {
+                        "adults": 2,
+                        "children": 2,
+                        "infants": 0,
+                        "ages": [5, 8]
+                    }
+                }
+            ],
+            "occupancy": {
+                "adults": 2,
+                "children": 2,
+                "infants": 0,
+                "ages": [5, 8]
+            }
+        }
+    }
+}
+
+// Ejemplo con bebés (infants):
+{
+    "data": {
+        "type": "booking",
+        "id": "2555579d-345e-4368-a7d6-84bbdfd79f1d",
+        "attributes": {
+            "status": "new",
+            "ota_name": "Airbnb",
+            "ota_reservation_code": "AB987654321",
+            "amount": "380.00",
+            "ota_commission": "38.00",
+            "customer": {
+                "name": "María",
+                "surname": "García",
+                "mail": "maria.garcia@email.com",
+                "phone": "+34 698 765 432",
+                "address": "Avenida Principal 456, Barcelona",
+                "country": "ES"
+            },
+            "rooms": [
+                {
+                    "rate_plan_id": "rate_plan_456",
+                    "checkin_date": "2025-09-20",
+                    "checkout_date": "2025-09-22",
+                    "amount": "380.00",
+                    "occupancy": {
+                        "adults": 2,
+                        "children": 0,
+                        "infants": 1,
+                        "ages": [0]
+                    }
+                }
+            ],
+            "occupancy": {
+                "adults": 2,
+                "children": 0,
+                "infants": 1,
+                "ages": [0]
+            }
+        }
+    }
+}
+
+// Ejemplo con adolescentes:
+{
+    "data": {
+        "type": "booking",
+        "id": "2555579d-345e-4368-a7d6-84bbdfd79f1d",
+        "attributes": {
+            "status": "new",
+            "ota_name": "Expedia",
+            "ota_reservation_code": "EX555666777",
+            "amount": "520.00",
+            "ota_commission": "52.00",
+            "customer": {
+                "name": "Carlos",
+                "surname": "López",
+                "mail": "carlos.lopez@email.com",
+                "phone": "+34 611 222 333",
+                "address": "Plaza Central 789, Valencia",
+                "country": "ES"
+            },
+            "rooms": [
+                {
+                    "rate_plan_id": "rate_plan_789",
+                    "checkin_date": "2025-09-25",
+                    "checkout_date": "2025-09-28",
+                    "amount": "520.00",
+                    "occupancy": {
+                        "adults": 2,
+                        "children": 2,
+                        "infants": 0,
+                        "ages": [14, 16]
+                    }
+                }
+            ],
+            "occupancy": {
+                "adults": 2,
+                "children": 2,
+                "infants": 0,
+                "ages": [14, 16]
+            }
+        }
+    }
+}
+
+// Ejemplo real de la reserva que me pasaste:
+{
+    "data": {
+        "type": "booking",
+        "id": "2555579d-345e-4368-a7d6-84bbdfd79f1d",
+        "attributes": {
+            "status": "new",
+            "ota_name": "BookingCom",
+            "ota_reservation_code": "5232019990",
+            "amount": "201.60",
+            "ota_commission": "30.24",
+            "customer": {
+                "name": "touhami",
+                "surname": "chakir alaoui",
+                "mail": "talaou.322284@guest.booking.com",
+                "phone": "+212 631196532",
+                "address": "Av Mohamed Kharraz Zkt Anoual N60 Tetouan",
+                "country": "MA",
+                "city": "Tetouan"
+            },
+            "rooms": [
+                {
+                    "rate_plan_id": "d0fdc8ed-e4b1-403f-83a9-9c81087f69c6",
+                    "checkin_date": "2025-09-01",
+                    "checkout_date": "2025-09-05",
+                    "amount": "201.60",
+                    "occupancy": {
+                        "adults": 1,
+                        "children": 1,
+                        "infants": 0,
+                        "ages": [2]
+                    }
+                }
+            ],
+            "occupancy": {
+                "adults": 1,
+                "children": 1,
+                "infants": 0,
+                "ages": [2]
+            }
+        }
+    }
+}

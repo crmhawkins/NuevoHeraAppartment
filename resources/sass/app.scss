@@ -1,0 +1,213 @@
+// Fonts
+@import url('https://fonts.bunny.net/css?family=Nunito');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600;1,700;1,800;1,900&family=Prata&display=swap');// Variables
+@import 'variables';
+
+// Bootstrap
+@import 'bootstrap/scss/bootstrap';
+
+@import 'footer';
+@import 'global';
+@import 'gestion';
+@import 'reservas';
+@import 'dni';
+
+body {
+    background-color: white;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: 'Nunito';
+}
+.icon-container2 {
+    width: 62px; /* Tamaño del contenedor */
+    height: 62px; /* Tamaño del contenedor */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 50%; /* Hace el círculo perfecto */
+    background-color: #fff; /* Color de fondo del círculo */
+    margin: auto; /* Centrado horizontal */
+    position: relative; /* Para el posicionamiento absoluto del borde */
+}
+
+.icon-container2::before {
+    content: ''; /* Necesario para que se muestre */
+    position: absolute; /* Posicionamiento absoluto respecto al contenedor */
+    top: -2px; /* Espacio entre el borde exterior y el círculo */
+    left: -2px; /* Espacio entre el borde exterior y el círculo */
+    right: -2px; /* Espacio entre el borde exterior y el círculo */
+    bottom: -2px; /* Espacio entre el borde exterior y el círculo */
+    border: 3px solid #0F1739; /* El borde propiamente dicho */
+    border-radius: 50%; /* Hace que el borde sea redondo */
+    z-index: 0; /* Para que quede detrás del contenido */
+}
+
+.icon2 {
+    width: 51px; /* Tamaño del icono */
+    height: 52px; /* Tamaño del icono */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 50%; /* Hace el círculo perfecto */
+    background-color: #0F1739; /* Color de fondo del icono */
+    z-index: 1; /* Asegura que el contenido esté por encima del borde */
+}
+
+.icon2 i {
+    font-size: 1.2rem;
+    color: white;
+}
+
+.primer-color {
+    color: #0F1739;
+}
+
+
+/* Small devices (landscape phones, 576px and up)*/
+@media (min-width: 576px) {
+    .w-sm-100 {
+        width: 100% !important;
+    }
+
+    .w-sm-75 {
+        width: 75% !important;
+    }
+
+    .w-sm-50 {
+        width: 50% !important;
+    }
+
+    .w-sm-25 {
+        width: 25% !important;
+    }
+
+    .h-sm-100 {
+        height: 100% !important;
+    }
+
+    .h-sm-75 {
+        height: 75% !important;
+    }
+
+    .h-sm-50 {
+        height: 50% !important;
+    }
+
+    .h-sm-25 {
+        height: 25% !important;
+    }
+}
+
+
+/* Medium devices (tablets, 768px and up)*/
+@media (min-width: 768px) {
+    .w-md-100 {
+        width: 100% !important;
+    }
+
+    .w-md-75 {
+        width: 75% !important;
+    }
+
+    .w-md-50 {
+        width: 50% !important;
+    }
+
+    .w-md-25 {
+        width: 25% !important;
+    }
+
+    .h-md-100 {
+        height: 100% !important;
+    }
+
+    .h-md-75 {
+        height: 75% !important;
+    }
+
+    .h-md-50 {
+        height: 50% !important;
+    }
+
+    .h-md-25 {
+        height: 25% !important;
+    }
+}
+
+/* Large devices (desktops, 992px and up)*/
+@media (min-width: 992px) {
+    .w-lg-100 {
+        width: 100% !important;
+    }
+
+    .w-lg-75 {
+        width: 75% !important;
+    }
+
+    .w-lg-50 {
+        width: 50% !important;
+    }
+
+    .w-lg-25 {
+        width: 25% !important;
+    }
+
+    .h-lg-100 {
+        height: 100% !important;
+    }
+
+    .h-lg-75 {
+        height: 75% !important;
+    }
+
+    .h-lg-50 {
+        height: 50% !important;
+    }
+
+    .h-lg-25 {
+        height: 25% !important;
+    }
+}
+
+/* Extra large devices (large desktops, 1200px and up)*/
+@media (min-width: 1200px) {
+    .w-xl-100 {
+        width: 100% !important;
+    }
+
+    .w-xl-75 {
+        width: 75% !important;
+    }
+
+    .w-xl-50 {
+        width: 50% !important;
+    }
+
+    .w-xl-25 {
+        width: 25% !important;
+    }
+
+    .h-xl-100 {
+        height: 100% !important;
+    }
+
+    .h-xl-75 {
+        height: 75% !important;
+    }
+
+    .h-xl-50 {
+        height: 50% !important;
+    }
+
+    .h-xl-25 {
+        height: 25% !important;
+    }
+}
+
+.btn-guardar:hover {
+    // opacity: 1;
+    color: #0F1739;
+    background-color: transparent;
+    border-color: #545f8f;
+}

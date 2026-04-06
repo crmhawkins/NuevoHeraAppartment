@@ -1,0 +1,257 @@
+.contendor {
+    margin-bottom: 90px;
+}
+.bg-color-primero {
+    background-color: $color-primero;
+    color: white;
+}
+
+.bg-color-segundo {
+    background-color: $color-segundo;
+    color:  $color-primero;
+    font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
+}
+
+.bg-color-tercero {
+    background-color: $color-tercero;
+    color:  white;
+}
+
+.bg-color-cuarto {
+    background-color: $color-cuarto;
+    color:  white;
+}
+.bg-color-quinto {
+    background-color: $color-quinto;
+    color:  white;
+}
+.bg-color-quinto:hover {
+    background-color: #514f69;
+    color:  white;
+
+}
+.bg-color-sexto {
+    background-color: $color-sexto;
+    color:  white;
+}
+.bg-color-sexto:hover {
+    background-color: #e3e5e9 ;
+    color:  $color-sexto;
+}
+.btn-guardar {
+    --bs-btn-color: #fff;
+    --bs-btn-bg: #0F1739;
+    --bs-btn-border-color: #0F1739;
+    --bs-btn-hover-color: #0F1739;
+    --bs-btn-hover-bg: #BBB6D4;
+    --bs-btn-hover-border-color: #BBB6D4;
+    --bs-btn-focus-shadow-rgb: 49, 132, 253;
+    --bs-btn-active-color: #fff;
+    --bs-btn-active-bg: #0F1739;
+    --bs-btn-active-border-color: #0F1739;
+    --bs-btn-active-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
+    --bs-btn-disabled-color: #fff;
+    --bs-btn-disabled-bg: #0F1739;
+    --bs-btn-disabled-border-color: #3B3F64;
+    transition: all 0.5s ease-in-out;
+}
+.btn-terminar {
+    --bs-btn-color: #fff;
+    --bs-btn-bg: #757191;
+    --bs-btn-border-color: #757191;
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-bg: #3B3F64;
+    --bs-btn-hover-border-color: #757191;
+    --bs-btn-focus-shadow-rgb: 49, 132, 253;
+    --bs-btn-active-color: #fff;
+    --bs-btn-active-bg: #757191;
+    --bs-btn-active-border-color: #757191;
+    --bs-btn-active-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
+    --bs-btn-disabled-color: #fff;
+    --bs-btn-disabled-bg: #757191;
+    --bs-btn-disabled-border-color: #757191;
+    height: max-content;
+}
+
+.btn-foto {
+    --bs-btn-color: #fff;
+    --bs-btn-bg: #3B3F64;
+    --bs-btn-border-color: #3B3F64;
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-bg: #3B3F64;
+    --bs-btn-hover-border-color: #3B3F64;
+    --bs-btn-focus-shadow-rgb: 49, 132, 253;
+    --bs-btn-active-color: #fff;
+    --bs-btn-active-bg: #3B3F64;
+    --bs-btn-active-border-color: #3B3F64;
+    --bs-btn-active-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
+    --bs-btn-disabled-color: #fff;
+    --bs-btn-disabled-bg: #3B3F64;
+    --bs-btn-disabled-border-color: #3B3F64;
+}
+
+.btn-foto-apartamento {
+    --bs-btn-color: #fff;
+    --bs-btn-bg: #4862d3;
+    --bs-btn-border-color: #4862d3;
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-bg: #3B3F64;
+    --bs-btn-hover-border-color: #3B3F64;
+    --bs-btn-focus-shadow-rgb: 49, 132, 253;
+    --bs-btn-active-color: #fff;
+    --bs-btn-active-bg: #4862d3;
+    --bs-btn-active-border-color: #4862d3;
+    --bs-btn-active-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
+    --bs-btn-disabled-color: #fff;
+    --bs-btn-disabled-bg: #4862d3;
+    --bs-btn-disabled-border-color: #4862d3;
+}
+
+.btn-secundario {
+    --bs-btn-color: #3B3F64;
+    --bs-btn-bg: #BBB6D4;
+    --bs-btn-border-color: #BBB6D4;
+    --bs-btn-hover-color: #3B3F64;
+    --bs-btn-hover-bg: #BBB6D4;
+    --bs-btn-hover-border-color: #BBB6D4;
+    --bs-btn-focus-shadow-rgb: 49, 132, 253;
+    --bs-btn-active-color: #3B3F64;
+    --bs-btn-active-bg: #BBB6D4;
+    --bs-btn-active-border-color: #BBB6D4;
+    --bs-btn-active-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
+    --bs-btn-disabled-color: #3B3F64;
+    --bs-btn-disabled-bg: #BBB6D4;
+    --bs-btn-disabled-border-color: #BBB6D4;
+}
+
+.back {
+    background-color: transparent;
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+}
+
+.form-check-input:checked {
+    background-color: #3B3F64;
+    border-color: #3B3F64;
+}
+.form-label{
+    font-weight: bold;
+    color: gray;
+}
+
+.encabezado_top {
+    font-weight: bold;
+    font-size: 1.7rem;
+}
+.icon_encabezado{
+    font-size: 1.2rem;
+    margin-right: 30px;
+}
+
+.page-link.active, .active > .page-link {
+    color: white;
+    background-color: $color-primero;
+    border-color: $color-primero;
+}
+
+.page-link {
+    color: $color-primero;
+}
+
+.bg-color-primero-table th{
+    background-color: $color-primero;
+    color: white;
+}
+
+.fondo_dropdraw {
+    background-color: #1a2657;
+}
+
+.font-titulo{
+    font-family:Arial, Helvetica, sans-serif;
+}
+.nav-pills .nav-link{
+    color: #cecece
+}
+.nav-pills .nav-link.active, .nav-pills .show > .nav-link{
+    background-color: #3B3F64;
+    color: white;
+    border-color: #3B3F64;
+}
+.nav-pills .nav-link:hover{
+    background-color: #3B3F64;
+    color: white !important;
+    border-color: #3B3F64;
+}
+ /* Estilos para mantener fijo el sidebar y permitir el scroll en contenedor principal */
+.sidebar {
+    //position: fixed; /* Hace el sidebar fijo */
+    // width: 20%; /* Ajusta el ancho del sidebar */
+    height: 100vh; /* Altura completa de la ventana */
+    overflow-y: auto; /* Permite scroll solo si es necesario */
+}
+.contenedor-principal {
+    //margin-left: 20%; /* Desplaza el contenedor principal para no solaparse con el sidebar */
+    //width: 80%; /* Ajusta el ancho del contenedor principal */
+    // overflow-y: auto; /* Permite scroll en el contenedor principal */
+    // height: 100vh; /* Altura completa de la ventana */
+}
+
+.nav-pills li {
+    margin: 3px 0;
+}
+.nav-pills {
+    padding-right: 8px
+}
+.nav-pills::-webkit-scrollbar {
+    -webkit-appearance: none;
+}
+
+.nav-pills::-webkit-scrollbar:vertical {
+    width: 5px;
+}
+
+.nav-pills::-webkit-scrollbar-button:increment,.contenedor::-webkit-scrollbar-button {
+    display: none;
+}
+
+.nav-pills::-webkit-scrollbar:horizontal {
+    height: 10px;
+}
+
+.nav-pills::-webkit-scrollbar-thumb {
+    background-color: #ffffff;
+    border-radius: 20px;
+}
+
+.nav-pills::-webkit-scrollbar-track {
+    border-radius: 10px;
+}
+
+
+
+/* Media queries para dispositivos móviles, tabletas y escritorios */
+@media (max-width: 576px) { /* Móviles */
+    .width-auto {
+        width: 100%;
+    }
+}
+
+@media (min-width: 577px) and (max-width: 768px) { /* Tabletas */
+    .width-auto {
+        width: 100%;
+    }
+}
+
+@media (min-width: 769px) { /* Escritorios */
+    .width-auto {
+        width: auto;
+    }
+}
+
+.link-breadcrumb {
+    color: $color-octavo;
+    text-decoration: none;
+}
+

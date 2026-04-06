@@ -1,0 +1,182 @@
+[
+    {
+        "role": "user",
+        "content": "tengo una reserva"
+    },
+    {
+        "role": "assistant",
+        "content": "\u00a1Perfecto! Para poder asistirte mejor con tu reserva, necesito algunos detalles adicionales. \u00bfPodr\u00edas decirme tu nombre completo y las fechas de tu reserva?"
+    },
+    {
+        "role": "user",
+        "content": "tengo una reserva"
+    },
+    {
+        "role": "assistant",
+        "content": "\u00a1Genial! Voy a necesitar un poco m\u00e1s de informaci\u00f3n para ayudarte con eso. \u00bfMe podr\u00edas proporcionar tu nombre completo y la fecha de la reserva? \u00bfO si tienes un n\u00famero de confirmaci\u00f3n de reserva, tambi\u00e9n ser\u00eda \u00fatil."
+    },
+    {
+        "role": "user",
+        "content": "tengo una reserva"
+    },
+    {
+        "role": "assistant",
+        "content": "Lo siento si he entendido mal, pero parece que est\u00e1s indicando que tienes una reserva y necesitas ayuda con algo relacionado con ella. \u00bfPodr\u00edas proporcionarme m\u00e1s detalles para que pueda ayudarte de mejor manera? Un n\u00famero de reserva ser\u00eda especialmente \u00fatil."
+    },
+    {
+        "role": "user",
+        "content": "tengo una reserva"
+    },
+    {
+        "role": "assistant",
+        "content": "{\n'aviso': false,\n'Tipo': null,\n'mensaje': 'Entiendo que tienes una reserva. \u00bfPodr\u00edas proporcionarme el n\u00famero de confirmaci\u00f3n de la reserva para que pueda asistirte mejor?'\n}"
+    },
+    {
+        "role": "user",
+        "content": "tengo una reserva"
+    },
+    {
+        "role": "assistant",
+        "content": "{\n'aviso': true,\n'Tipo': 2,\n'mensaje': 'Parece que necesitas ayuda con tu reserva. \u00bfPodr\u00edas proporcionarme el n\u00famero de confirmaci\u00f3n de tu reserva para poder ayudarte mejor?' \n}"
+    },
+    {
+        "role": "user",
+        "content": "tengo una reserva"
+    },
+    {
+        "role": "assistant",
+        "content": "{\n'aviso': true,\n'Tipo': 2,\n'mensaje': 'Entiendo, vas a necesitar informaci\u00f3n sobre tu reserva. \u00bfPodr\u00edas proporcionarme el n\u00famero de confirmaci\u00f3n de la reserva?'\n}"
+    },
+    {
+        "role": "user",
+        "content": "tengo una reserva"
+    },
+    {
+        "role": "assistant",
+        "content": "{\n'aviso': true,\n'Tipo': 2,\n'mensaje': 'Para ayudarte con tu reserva necesito que me proporciones el n\u00famero de confirmaci\u00f3n de la misma, por favor.'\n}"
+    },
+    {
+        "role": "user",
+        "content": "HM4BS3RHS3"
+    },
+    {
+        "role": "assistant",
+        "content": "{\n'aviso': true,\n'Tipo': 2,\n'codigo': 'HM4BS3RHS3',\n'mensaje': 'Estoy obteniendo los detalles de tu reserva. Por favor, dame un momento.'\n}"
+    },
+    {
+        "role": "user",
+        "content": "{\"codigo_reserva\":\"HM4BS3RHS3\",\"cliente\":\"Jose Alcazar\",\"apartamento\":\"Edificio Hawkins BA\",\"edificio\":\"Edificio Hawkins Suite\",\"fecha_entrada\":\"2023-12-22\"}"
+    },
+    {
+        "role": "assistant",
+        "content": "{\n'aviso': false,\n'Tipo': null,\n'mensaje': 'Tengo los detalles de tu reserva. Has reservado el apartamento BA en el Edificio Hawkins Suite. Tu fecha de entrada es el 22 de diciembre de 2023. \u00bfC\u00f3mo puedo ayudarte con tu reserva?'\n}"
+    },
+    {
+        "role": "user",
+        "content": "a que nombre esta la reserva"
+    },
+    {
+        "role": "assistant",
+        "content": "{\n'aviso': false,\n'Tipo': null,\n'mensaje': 'La reserva con el c\u00f3digo HM4BS3RHS3 est\u00e1 a nombre de Jose Alcazar. \u00bfNecesitas algo m\u00e1s?'\n}"
+    },
+    {
+        "role": "user",
+        "content": "donde estan los apartamentos"
+    },
+    {
+        "role": "assistant",
+        "content": "{\n'aviso': false,\n'Tipo': null,\n'mensaje': 'Tenemos dos edificios de apartamentos. Los apartamentos Hawkins Suites est\u00e1n en la Calle Sant\u00edsimo n\u00ba 2, junto a la Iglesia de La Palma en el centro de Algeciras. Aqu\u00ed tienes un video de la ubicaci\u00f3n: https:\/\/goo.gl\/maps\/qb7AxP1JAxx5yg3N9. Por otro lado, los apartamentos Hawkins Costa est\u00e1n ubicados en Calle Joaqu\u00edn Costa n\u00ba 5, junto a la tienda La Alicantina de Algeciras. Aqu\u00ed puedes ver un video de la ubicaci\u00f3n: https:\/\/maps.app.goo.gl\/k2b3WQoza66JqhZH8.'\n}"
+    },
+    {
+        "role": "user",
+        "content": "donde estan los apartamentos"
+    },
+    {
+        "role": "assistant",
+        "content": "{\n'aviso': false,\n'Tipo': null,\n'mensaje': 'Tenemos dos ubicaciones para nuestros apartamentos. Los apartamentos Hawkins Suites est\u00e1n ubicados en la Calle Sant\u00edsimo n\u00ba 2, junto a la Iglesia de La Palma en el centro de Algeciras. Puedes ver la ubicaci\u00f3n en este enlace: https:\/\/goo.gl\/maps\/qb7AxP1JAxx5yg3N9. Y los apartamentos Hawkins Costa est\u00e1n en la Calle Joaqu\u00edn Costa n\u00ba 5, junto a la tienda La Alicantina en Algeciras. Aqu\u00ed est\u00e1 el enlace para esta ubicaci\u00f3n: https:\/\/maps.app.goo.gl\/k2b3WQoza66JqhZH8.'\n}"
+    },
+    {
+        "role": "user",
+        "content": "donde estan los apartamentos"
+    },
+    {
+        "role": "assistant",
+        "content": "{\n'aviso': false,\n'Tipo': null,\n'mensaje': 'Los Apartamentos Hawkins tienen dos ubicaciones principales. El edificio Hawkins Suites est\u00e1 ubicado en la Calle Sant\u00edsimo n\u00ba 2, junto a la Iglesia de La Palma en el centro de Algeciras. Aqu\u00ed tienes un enlace a la ubicaci\u00f3n: https:\/\/goo.gl\/maps\/qb7AxP1JAxx5yg3N9. Por otro lado, el edificio Hawkins Costa, nuestro edificio m\u00e1s nuevo, se encuentra en la Calle Joaqu\u00edn Costa n\u00ba 5, junto a la tienda La Alicantina en Algeciras. Aqu\u00ed tienes un enlace a esa ubicaci\u00f3n: https:\/\/maps.app.goo.gl\/k2b3WQoza66JqhZH8. \u00bfNecesitas ayuda con algo m\u00e1s?'\n}"
+    },
+    {
+        "role": "user",
+        "content": "donde estan los apartamentos"
+    },
+    {
+        "role": "assistant",
+        "content": "{\n'aviso': false,\n'Tipo': null,\n'mensaje': 'Nuestros apartamentos est\u00e1n ubicados en dos edificios principales. El Edificio Hawkins Suites est\u00e1 en la Calle Sant\u00edsimo n\u00ba 2, junto a la Iglesia de La Palma en el centro de Algeciras (ver ubicaci\u00f3n: https:\/\/goo.gl\/maps\/qb7AxP1JAxx5yg3N9). El Edificio Hawkins Costa est\u00e1 en la Calle Joaqu\u00edn Costa n\u00ba 5, junto a la tienda La Alicantina en Algeciras (ver ubicaci\u00f3n: https:\/\/maps.app.goo.gl\/k2b3WQoza66JqhZH8).'\n}"
+    },
+    {
+        "role": "user",
+        "content": "Hay wifi?"
+    },
+    {
+        "role": "assistant",
+        "content": "{\n'aviso': false,\n'Tipo': null,\n'mensaje': 'S\u00ed, todos nuestros apartamentos tienen WiFi. En el edificio Hawkins Suites, tenemos tres redes diferentes: \\'Edificio Hawkins\\', \\'Edificio Hawkins 2\\', \\'Edificio Hawkins 3\\', o \\'Aticohawkins\\'. La contrase\u00f1a es \\'H4wk1N52021\\'. En el edificio Hawkins Costa, la red se llama \\'HAWKINSCOSTA\\' y la contrase\u00f1a es \\'HAWKINS2025\\'. Ambas conexiones tienen una velocidad de 1gb.'\n}"
+    },
+    {
+        "role": "user",
+        "content": "Hay wifi?"
+    },
+    {
+        "role": "assistant",
+        "content": "{\n'aviso': false,\n'Tipo': null,\n'mensaje': 'S\u00ed, todos nuestros apartamentos ofrecen WiFi. En los apartamentos Hawkins Suites, tenemos tres redes diferentes: \\'Edificio Hawkins\\', \\'Edificio Hawkins 2\\', \\'Edificio Hawkins 3\\', o \\'Aticohawkins\\'. La contrase\u00f1a para cualquiera de estas redes es \\'H4wk1N52021\\'. En los apartamentos Hawkins Costa, la red se llama \\'HAWKINSCOSTA\\', y la contrase\u00f1a es \\'HAWKINS2025\\'. Ambas conexiones son de alta velocidad (1gb).'}\n"
+    },
+    {
+        "role": "user",
+        "content": "Hay wifi?"
+    },
+    {
+        "role": "assistant",
+        "content": "{\n'aviso': false,\n'Tipo': null,\n'mensaje': 'S\u00ed, ofrecemos WiFi gratuito en todos nuestros apartamentos. En el edificio Hawkins Suites, disponemos de tres redes diferentes: \\'Edificio Hawkins\\', \\'Edificio Hawkins 2\\', \\'Edificio Hawkins 3\\', y \\'Aticohawkins\\'. La contrase\u00f1a para todas ellas es \\'H4wk1N52021\\'. En el edificio Hawkins Costa, la red se llama \\'HAWKINSCOSTA\\' y la contrase\u00f1a es \\'HAWKINS2025\\'. Las conexiones ofrecen alta velocidad de 1gb.'\n}"
+    },
+    {
+        "role": "user",
+        "content": "Hay wifi?"
+    },
+    {
+        "role": "assistant",
+        "content": "{\n'aviso': false,\n'Tipo': null,\n'mensaje': 'S\u00ed, en todos nuestros apartamentos contamos con conexi\u00f3n a internet WiFi. En el edificio Hawkins Suites, tendr\u00e1s acceso a tres redes diferentes: \\'Edificio Hawkins\\', \\'Edificio Hawkins 2\\', \\'Edificio Hawkins 3\\', o \\'Aticohawkins\\'. La contrase\u00f1a es \\'H4wk1N52021\\'. Por otro lado, en el edificio Hawkins Costa, la red es \\'HAWKINSCOSTA\\' y la contrase\u00f1a \\'HAWKINS2025\\'. Ambas conexiones son de alta velocidad, con una capacidad de 1gb.'\n}"
+    },
+    {
+        "role": "user",
+        "content": "Hay wifi?"
+    },
+    {
+        "role": "assistant",
+        "content": "{\n'aviso': false,\n'Tipo': null,\n'mensaje': 'S\u00ed, todos nuestros apartamentos disponen de WiFi. En el Edificio Hawkins Suites, las opciones de red son: \\'Edificio Hawkins\\', \\'Edificio Hawkins 2\\', \\'Edificio Hawkins 3\\', y \\'Aticohawkins\\'. La contrase\u00f1a para todas las redes es \\'H4wk1N52021\\'. En el Edificio Hawkins Costa, la red es \\'HAWKINSCOSTA\\' y su contrase\u00f1a es \\'HAWKINS2025\\'. Ambas conexiones tienen una velocidad de 1gb.'\n}"
+    },
+    {
+        "role": "user",
+        "content": "Hay wifi?"
+    },
+    {
+        "role": "assistant",
+        "content": "{\n'aviso': false,\n'Tipo': null,\n'mensaje': 'S\u00ed, disponemos de WiFi en todos nuestros apartamentos. En el caso de Hawkins Suites, puedes conectarte a redes como \\'Edificio Hawkins\\', \\'Edificio Hawkins 2\\', \\'Edificio Hawkins 3\\', o \\'Aticohawkins\\' usando la contrase\u00f1a \\'H4wk1N52021\\'. En el edificio Hawkins Costa, la red es \\'HAWKINSCOSTA\\' y la contrase\u00f1a es \\'HAWKINS2025\\'. Ambos edificios disfrutan de una conexi\u00f3n de alta velocidad de 1gb.'\n}"
+    },
+    {
+        "role": "user",
+        "content": "Hay wifi?"
+    },
+    {
+        "role": "assistant",
+        "content": "{\n'aviso': false,\n'Tipo': null,\n'mensaje': 'S\u00ed, todos nuestros apartamentos cuentan con conexi\u00f3n WiFi gratuita. En el edificio Hawkins Suites disponemos de tres redes diferentes: \\'Edificio Hawkins\\', \\'Edificio Hawkins 2\\', \\'Edificio Hawkins 3\\', y \\'Aticohawkins\\'. La contrase\u00f1a para estas redes es \\'H4wk1N52021\\'. En el edificio Hawkins Costa, la red es \\'HAWKINSCOSTA\\' y la contrase\u00f1a es \\'HAWKINS2025\\'. Ambas conexiones ofrecen una velocidad de 1gb.'\n}"
+    },
+    {
+        "role": "user",
+        "content": "Hay wifi?"
+    },
+    {
+        "role": "user",
+        "content": "Hay wifi?"
+    },
+    {
+        "role": "assistant",
+        "content": "{\n'aviso': false,\n'Tipo': null,\n'mensaje': 'S\u00ed, ofrecemos WiFi en todos nuestros apartamentos. En el edificio Hawkins Suites, puedes encontrar tres redes diferentes: \\'Edificio Hawkins\\', \\'Edificio Hawkins 2\\', \\'Edificio Hawkins 3\\', o \\'Aticohawkins\\'. La contrase\u00f1a para cualquier red es \\'H4wk1N52021\\'. En el Hawkins Costa, la red se llama \\'HAWKINSCOSTA\\' con la contrase\u00f1a \\'HAWKINS2025\\'. Ambas conexiones tienen una velocidad de 1gb.'\n}"
+    }
+]

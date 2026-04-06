@@ -1,0 +1,59 @@
+2026-01-06 20:27:26	local.INFO: HTTP Request {"type":"REQUEST","user_id":null,"user_name":"Guest","user_email":null,"user_role":null,"method":"POST","url":"https://crm.apartamentosalgeciras.com/api/webhooks/7/booking-any","path":"api/webhooks/7/booking-any","ip_address":"134.209.134.83","user_agent":"hackney/1.24.1","referer":null,"content_type":"application/json","content_length":"299","timestamp":"2026-01-06T19:27:26.757321Z","request_data":{"timestamp":"2026-01-06T19:27:26.074370Z","event":"booking","user_id":null,"payload":{"property_id":"c2536888-bf89-490b-ab13-c0420b8588e5","booking_id":"81fbdbc5-ba70-452b-bf6f-d5dc0dd0a700","revision_id":"23ff99b9-97e4-4f31-ac3f-5d92e345d9ba"},"property_id":"c2536888-bf89-490b-ab13-c0420b8588e5"}}
+2026-01-06 20:27:27	local.INFO: Procesando webhook de reserva {"evento":"booking","booking_id":"81fbdbc5-ba70-452b-bf6f-d5dc0dd0a700","revision_id":"23ff99b9-97e4-4f31-ac3f-5d92e345d9ba","codigo_reserva":"5980190602","es_modificacion":false,"estado_channex":"new"}
+2026-01-06 20:27:27	local.INFO: Creando nueva reserva {"codigo_reserva":"5980190602","booking_id":"81fbdbc5-ba70-452b-bf6f-d5dc0dd0a700"}
+2026-01-06 20:27:27	local.INFO: Nueva reserva creada {"codigo_reserva":"5980190602","booking_id":"81fbdbc5-ba70-452b-bf6f-d5dc0dd0a700","fecha_entrada":"2026-01-06","fecha_salida":"2026-01-07","precio":50.4,"numero_personas":2,"numero_ninos":0,"edades_ninos":[]}
+2026-01-06 22:59:12	#59 /var/www/vhosts/apartamentosalgeciras.com/crm.apartamentosalgeciras.com/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(183): Illuminate\\Foundation\\Http\\Middleware\\PreventRequestsDuringMaintenance->handle()
+#60 /var/www/vhosts/apartamentosalgeciras.com/crm.apartamentosalgeciras.com/vendor/laravel/framework/src/Illuminate/Http/Middleware/HandleCors.php(49): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#61 /var/www/vhosts/apartamentosalgeciras.com/crm.apartamentosalgeciras.com/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(183): Illuminate\\Http\\Middleware\\HandleCors->handle()
+#62 /var/www/vhosts/apartamentosalgeciras.com/crm.apartamentosalgeciras.com/vendor/laravel/framework/src/Illuminate/Http/Middleware/TrustProxies.php(39): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#63 /var/www/vhosts/apartamentosalgeciras.com/crm.apartamentosalgeciras.com/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(183): Illuminate\\Http\\Middleware\\TrustProxies->handle()
+#64 /var/www/vhosts/apartamentosalgeciras.com/crm.apartamentosalgeciras.com/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(119): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#65 /var/www/vhosts/apartamentosalgeciras.com/crm.apartamentosalgeciras.com/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(175): Illuminate\\Pipeline\\Pipeline->then()
+#66 /var/www/vhosts/apartamentosalgeciras.com/crm.apartamentosalgeciras.com/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(144): Illuminate\\Foundation\\Http\\Kernel->sendRequestThroughRouter()
+#67 /var/www/vhosts/apartamentosalgeciras.com/crm.apartamentosalgeciras.com/public/index.php(51): Illuminate\\Foundation\\Http\\Kernel->handle()
+#68 {main}
+Más >>
+2026-01-06 22:59:12	#17 /var/www/vhosts/apartamentosalgeciras.com/crm.apartamentosalgeciras.com/vendor/laravel/framework/src/Illuminate/Routing/ControllerDispatcher.php(43): Illuminate\\Routing\\Controller->callAction()
+#18 /var/www/vhosts/apartamentosalgeciras.com/crm.apartamentosalgeciras.com/vendor/laravel/framework/src/Illuminate/Routing/Route.php(259): Illuminate\\Routing\\ControllerDispatcher->dispatch()
+#19 /var/www/vhosts/apartamentosalgeciras.com/crm.apartamentosalgeciras.com/vendor/laravel/framework/src/Illuminate/Routing/Route.php(205): Illuminate\\Routing\\Route->runController()
+#20 /var/www/vhosts/apartamentosalgeciras.com/crm.apartamentosalgeciras.com/vendor/laravel/framework/src/Illuminate/Routing/Router.php(806): Illuminate\\Routing\\Route->run()
+#21 /var/www/vhosts/apartamentosalgeciras.com/crm.apartamentosalgeciras.com/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(144): Illuminate\\Routing\\Router->Illuminate\\Routing\\{closure}()
+#22 /var/www/vhosts/apartamentosalgeciras.com/crm.apartamentosalgeciras.com/app/Http/Middleware/LogUserActivity.php(25): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#23 /var/www/vhosts/apartamentosalgeciras.com/crm.apartamentosalgeciras.com/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(183): App\\Http\\Middleware\\LogUserActivity->handle()
+#24 /var/www/vhosts/apartamentosalgeciras.com/crm.apartamentosalgeciras.com/app/Http/Middleware/Idioma.php(78): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#25 /var/www/vhosts/apartamentosalgeciras.com/crm.apartamentosalgeciras.com/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(183): App\\Http\\Middleware\\Idioma->handle()
+#26 /var/www/vhosts/apartamentosalgeciras.com/crm.apartamentosalgeciras.com/vendor/laravel/framework/src/Illuminate/Routing/Middleware/SubstituteBindings.php(50): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+Más >>
+2026-01-06 20:27:27	local.INFO: HTTP Response {"type":"RESPONSE","user_id":null,"user_name":"Guest","user_email":null,"user_role":null,"method":"POST","url":"https://crm.apartamentosalgeciras.com/api/webhooks/7/booking-any","path":"api/webhooks/7/booking-any","status_code":200,"response_size":172,"execution_time_ms":1191.64,"ip_address":"134.209.134.83","timestamp":"2026-01-06T19:27:27.948954Z"}
+2026-01-06 20:28:12	local.INFO: CheckOverlappingReservations: inicio de comando {"from":"2026-01-06 20:28:12","to":"2026-02-06 20:28:12"}
+2026-01-06 20:28:12	local.INFO: ReservationOverlapService: iniciando detección de solapes {"from":"2026-01-06","to":"2026-02-06"}
+2026-01-06 20:28:12	local.INFO: ReservationOverlapService: reservas candidatas encontradas {"total":33}
+2026-01-06 20:28:12	local.INFO: ReservationOverlapService: procesando apartamento {"apartamento_id":1,"reservas":{"Illuminate\\Support\\Collection":[5255,5106,5250,5162]}}
+2026-01-06 20:28:12	local.INFO: ReservationOverlapService: procesando apartamento {"apartamento_id":2,"reservas":{"Illuminate\\Support\\Collection":[4688,5253,3864]}}
+2026-01-06 20:28:12	local.INFO: ReservationOverlapService: procesando apartamento {"apartamento_id":3,"reservas":{"Illuminate\\Support\\Collection":[5230,5029,5254]}}
+2026-01-06 20:28:12	local.INFO: ReservationOverlapService: procesando apartamento {"apartamento_id":4,"reservas":{"Illuminate\\Support\\Collection":[5256]}}
+2026-01-06 20:28:12	local.INFO: ReservationOverlapService: procesando apartamento {"apartamento_id":5,"reservas":{"Illuminate\\Support\\Collection":[5236]}}
+2026-01-06 20:28:12	local.INFO: ReservationOverlapService: procesando apartamento {"apartamento_id":6,"reservas":{"Illuminate\\Support\\Collection":[5243,4756,4758,4757,4759,4760]}}
+2026-01-06 20:28:12	local.INFO: ReservationOverlapService: procesando apartamento {"apartamento_id":7,"reservas":{"Illuminate\\Support\\Collection":[5252,5258]}}
+2026-01-06 20:28:12	local.INFO: ReservationOverlapService: procesando apartamento {"apartamento_id":11,"reservas":{"Illuminate\\Support\\Collection":[4912,5222]}}
+2026-01-06 20:28:12	local.INFO: ReservationOverlapService: procesando apartamento {"apartamento_id":12,"reservas":{"Illuminate\\Support\\Collection":[5257,5224,4895,5050,5247]}}
+2026-01-06 20:28:12	local.INFO: ReservationOverlapService: procesando apartamento {"apartamento_id":13,"reservas":{"Illuminate\\Support\\Collection":[5248]}}
+2026-01-06 20:28:12	local.INFO: ReservationOverlapService: procesando apartamento {"apartamento_id":14,"reservas":{"Illuminate\\Support\\Collection":[5251,5240]}}
+2026-01-06 20:28:12	local.INFO: ReservationOverlapService: procesando apartamento {"apartamento_id":15,"reservas":{"Illuminate\\Support\\Collection":[5232,5181]}}
+2026-01-06 20:28:12	local.INFO: ReservationOverlapService: procesando apartamento {"apartamento_id":21,"reservas":{"Illuminate\\Support\\Collection":[4983]}}
+2026-01-06 20:28:12	local.INFO: ReservationOverlapService: detección terminada {"conflictos":1}
+2026-01-06 20:28:12	local.INFO: CheckOverlappingReservations: conflictos detectados {"total_conflictos":1,"detalles":[{"apartamento_id":7,"apartamento_nombre":"Apartamento BB Centro Algeciras","reserva_ids":[5252,5258],"rango_inicio":"2026-01-06 00:00:00","rango_fin":"2026-01-07 00:00:00"}]}
+2026-01-06 20:28:12	local.INFO: CheckOverlappingReservations: envío pendiente para conflicto {"conflict_key":"apt:7:ids:5252-5258","apartamento_id":7,"reserva_ids":[5252,5258]}
+2026-01-06 20:28:12	local.INFO: WhatsappNotificationService: iniciando envío a responsables {"total_destinatarios":4,"ids":{"Illuminate\\Support\\Collection":[1,2,3,4]}}
+2026-01-06 20:28:12	local.INFO: WhatsappNotificationService: preparando envío {"destinatario_id":1,"telefono":"34622440984","nombre":"David"}
+2026-01-06 20:28:12	local.INFO: WhatsappNotificationService: enviando template {"telefono":"34622440984","template":"alerta_doble_reserva","variables":["Apartamento BB Centro Algeciras","06/01/2026","07/01/2026","#5252, #5258"]}
+2026-01-06 20:28:13	local.INFO: WhatsappNotificationService: template enviado correctamente {"telefono":"34622440984","response_id":"wamid.HBgLMzQ2MjI0NDA5ODQVAgARGBJFNDdGOTRFMzFBMzU1Q0E0MzMA"}
+2026-01-06 20:28:13	local.INFO: WhatsappNotificationService: preparando envío {"destinatario_id":2,"telefono":"34605621704","nombre":"Ivan"}
+2026-01-06 20:28:13	local.INFO: WhatsappNotificationService: enviando template {"telefono":"34605621704","template":"alerta_doble_reserva","variables":["Apartamento BB Centro Algeciras","06/01/2026","07/01/2026","#5252, #5258"]}
+2026-01-06 20:28:14	local.INFO: WhatsappNotificationService: template enviado correctamente {"telefono":"34605621704","response_id":"wamid.HBgLMzQ2MDU2MjE3MDQVAgARGBI2Qzc4MjVCMDg3REM4QjcwQkIA"}
+2026-01-06 20:28:14	local.INFO: WhatsappNotificationService: preparando envío {"destinatario_id":3,"telefono":"34664368232","nombre":"elena"}
+2026-01-06 20:28:14	local.INFO: WhatsappNotificationService: enviando template {"telefono":"34664368232","template":"alerta_doble_reserva","variables":["Apartamento BB Centro Algeciras","06/01/2026","07/01/2026","#5252, #5258"]}
+2026-01-06 20:28:15	local.DEBUG: Middleware Idioma: usando locale por defecto {"locale":"es"}
+2026-01-06 20:28:15	local.INFO: Middleware Idioma ejecutado {"locale_establecido":"es","locale_aplicacion":"es","session_locale":"es","session_id":"4d3LsUcJSF4gyfB91xJN9HiqbwrXlWDXm6TEQtvB","url":"https://crm.apartamentosalgeciras.com/whatsapp"}
+2026-01-06 20:28:15	local.INFO: HTTP Request {"type":"REQUEST","user_id":null,"user_name":"Guest","user_email":null,"user_role":null,"method":"POST","url":"https://crm.apartamentosalgeciras.com/whatsapp","path":"whatsapp","ip_address":"173.252.95.34","user_agent":"facebookexternalua","referer":null,"content_type":"application/json","content_length":"593","timestamp":"2026-01-06T19:28:15.616752Z","request_data":{"object":"whatsapp_business_account","entry":[{"id":"113437731696576","changes":[{"value":{"messaging_product":"whatsapp","metadata":{"display_phone_number":"34605379329","phone_number_id":"102360642838173"},"statuses":[{"id":"Over 9 levels deep, aborting normalization","status":"Over 9 levels deep, aborting normalization","timestamp":"Over 9 levels deep, aborting normalization","recipient_id":"Over 9 levels deep, aborting normalization","conversation":"Over 9 levels deep, aborting normalization","pricing":"Over 9 levels deep, aborting normalization"}]},"field":"messages"}]}]}}
+2026-01-06 20:28:15	local.WARNING: ⚠️ No se encontró mensaje con recipient_id = wamid.HBgLMzQ2MjI0NDA5ODQVAgARGBJFNDdGOTRFMzFBMzU1Q0E0MzMA para guardar estado

@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, orientation=portrait">
+    <title>Scanner DNI - Detección SIMPLIFICADA v6</title>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background: #000;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        .scanner-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        
+        /* Contenedor de cámara - Proporción real DNI */
+        .camera-container {
+            width: 90vw;
+            max-width: 400px;
+            height: 56.7vw;
+            max-height: 252px;
+            border: 2px solid #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            background: #000;
+            position: relative;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+        }
+        
+        #camera {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            background: #000;
+        }
+        
+        
+        /* Marco de guía - DENTRO del contenedor SIN padding */
+        .guide-frame {
+            position: absolute;
+            top: 0px; /* SIN padding - MÁXIMO tamaño */
+            left: 0px; /* SIN padding - MÁXIMO tamaño */
+            right: 0px; /* SIN padding - MÁXIMO tamaño */
+            bottom: 0px; /* SIN padding - MÁXIMO tamaño */
+            border: 3px solid #fff; /* Borde más visible */
+            border-radius: 8px; /* Redondeado */
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.05); /* Más visible */
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        /* Mensaje centrado sobre el guide-frame */
+        .guide-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(5px);
+            pointer-events: none;
+            z-index: 15;
+        }
+        
+        .guide-frame.detected {
+            border-color: #4CAF50;
+            box-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
+            animation: pulse-green 2s infinite;
+        }
+        
+        @keyframes pulse-green {
+            0%, 100% { border-color: #4CAF50; }
+            50% { border-color: #66BB6A; }
+        }
+        
+        /* Tipos de documento */
+        .camera-container.dni-type {
+            width: 80vw; /* Más estrecho para DNI */
+            max-width: 350px;
+            height: 50.4vw; /* Proporción DNI CORREGIDA: 1.586:1 */
+            max-height: 220px;
+        }
+        
+        .camera-container.passport-type {
+            width: 60vw; /* Más estrecho para Pasaporte */
+            max-width: 240px;
+            height: 85.2vw; /* Proporción Pasaporte CORREGIDA: 0.704:1 */
+            max-height: 340px;
+        }
+        
+        /* Media queries para móvil */
+        @media (max-width: 768px) {
+            .camera-container.dni-type {
+                width: 85vw; /* 85% del ancho en móvil */
+                max-width: 320px;
+                height: 53.6vw; /* Proporción DNI CORREGIDA para móvil */
+                max-height: 202px;
+            }
+            
+            .camera-container.passport-type {
+                width: 65vw; /* 65% del ancho en móvil */
+                max-width: 220px;
+                height: 92.3vw; /* Proporción Pasaporte CORREGIDA para móvil */
+                max-height: 312px;
+            }
+            
+            .guide-frame {
+                top: 0px; /* SIN padding en móvil */
+                left: 0px;
+                right: 0px;
+                bottom: 0px;
+                border: 2px solid #fff; /* Borde más fino en móvil */
+            }
+            
+            .guide-message {
+                font-size: 12px; /* Texto más pequeño en móvil */
+                padding: 6px 10px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .camera-container.dni-type {
+                width: 90vw; /* 90% del ancho en móviles pequeños */
+                max-width: 300px;
+                height: 56.7vw; /* Proporción DNI CORREGIDA para móviles pequeños */
+                max-height: 189px;
+            }
+            
+            .camera-container.passport-type {
+                width: 70vw; /* 70% del ancho en móviles pequeños */
+                max-width: 200px;
+                height: 99.4vw; /* Proporción Pasaporte CORREGIDA para móviles pequeños */
+                max-height: 284px;
+            }
+            
+            .guide-frame {
+                top: 0px; /* SIN padding en móviles pequeños */
+                left: 0px;
+                right: 0px;
+                bottom: 0px;
+                border: 1px solid #fff; /* Borde muy fino */
+            }
+            
+            .guide-message {
+                font-size: 11px; /* Texto aún más pequeño */
+                padding: 4px 8px;
+            }
+        }
+        
+        /* Indicadores de estado */
+        .status-indicators {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 20;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 2px solid #FF9800;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        /* Instrucciones - ARREGLADO */
+        .instructions {
+            position: absolute;
+            bottom: 160px; /* MUCHO MÁS ESPACIO */
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.95); /* MÁS OPACIDAD */
+            color: white;
+            padding: 18px 30px; /* MÁS PADDING */
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.5); /* BORDE MÁS VISIBLE */
+            z-index: 20;
+            transition: all 0.3s ease;
+            max-width: 90%;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.8);
+            display: none; /* Oculto porque el mensaje está en el guide-frame */
+        }
+        
+        .instructions.detected {
+            background: rgba(76, 175, 80, 0.95);
+            border-color: #4CAF50;
+        }
+        
+        /* Selector de documento - ARREGLADO */
+        .document-selector {
+            position: absolute;
+            bottom: 120px; /* MÁS ESPACIO */
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px; /* MÁS ESPACIO entre botones */
+            z-index: 20;
+        }
+        
+        .doc-btn {
+            padding: 12px 20px; /* MÁS PADDING */
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 100px; /* ANCHO MÍNIMO */
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .doc-btn.active {
+            background: #4CAF50;
+            color: white;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+        }
+        
+        .doc-btn:not(.active) {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        /* Controles - ARREGLADO */
+        .controls {
+            position: absolute;
+            bottom: 60px; /* MÁS ESPACIO */
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px; /* MÁS ESPACIO entre botones */
+            z-index: 20;
+        }
+        
+        .controls button {
+            padding: 15px 25px; /* MÁS PADDING */
+            border: none;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 120px; /* ANCHO MÍNIMO */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        .controls button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        #captureBtn {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        #captureBtn:disabled {
+            background: #666;
+        }
+        
+        #flipBtn {
+            background: #2196F3;
+            color: white;
+        }
+        
+        #retryBtn {
+            background: #FF9800;
+            color: white;
+        }
+        
+        /* Overlay de guía */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+            z-index: 15;
+        }
+    </style>
+</head>
+<body>
+    <div class="scanner-container">
+        <!-- Contenedor de cámara -->
+        <div class="camera-container">
+            <video id="camera" autoplay muted playsinline></video>
+            <canvas id="captureCanvas"></canvas>
+            
+            <!-- Guide frame DENTRO del contenedor -->
+            <div class="guide-frame" id="guideFrame">
+                <div class="corner top-left"></div>
+                <div class="corner top-right"></div>
+                <div class="corner bottom-left"></div>
+                <div class="corner bottom-right"></div>
+                
+                <!-- Mensaje centrado sobre el guide-frame -->
+                <div class="guide-message" id="guideMessage">
+                    Coloca el DNI dentro del marco
+                </div>
+            </div>
+        </div>
+        
+        <!-- Overlay de guía -->
+        <div class="overlay">
+            
+            <!-- Indicadores de estado -->
+            <div class="status-indicators">
+                <div class="status-item" id="positionStatus">
+                    <span class="icon">📍</span>
+                    <span class="text">Posición</span>
+                </div>
+                <div class="status-item" id="angleStatus">
+                    <span class="icon">📐</span>
+                    <span class="text">Ángulo</span>
+                </div>
+                <div class="status-item" id="lightingStatus">
+                    <span class="icon">💡</span>
+                    <span class="text">Luz</span>
+                </div>
+                <div class="status-item" id="cameraStatus">
+                    <span class="icon">📹</span>
+                    <span class="text">Cámara</span>
+                </div>
+                <div class="status-item" id="connectionStatus">
+                    <span class="icon">📶</span>
+                    <span class="text">Conexión</span>
+                </div>
+            </div>
+            
+            <!-- Instrucciones -->
+            <div class="instructions" id="instructions">
+                <!-- Mensaje movido al guide-frame -->
+            </div>
+        </div>
+        
+        <!-- Selector de documento -->
+        <div class="document-selector">
+            <button id="dniBtn" class="doc-btn active">🆔 DNI</button>
+            <button id="passportBtn" class="doc-btn">📘 Pasaporte</button>
+        </div>
+        
+        <!-- Controles -->
+        <div class="controls">
+            <button id="captureBtn" disabled>📸 Capturar</button>
+            <button id="flipBtn">🔄 Cambiar cámara</button>
+            <button id="retryBtn" style="display: none;">🔄 Reintentar</button>
+        </div>
+    </div>
+
+    <script>
+        class DNIScanner {
+            constructor() {
+                this.video = document.getElementById('camera');
+                this.canvas = document.getElementById('captureCanvas');
+                this.stream = null;
+                this.currentFacingMode = 'environment';
+                this.isInitialized = false;
+                
+                this.guideFrame = document.getElementById('guideFrame');
+                this.instructions = document.getElementById('instructions');
+                this.guideMessage = document.getElementById('guideMessage');
+                this.captureBtn = document.getElementById('captureBtn');
+                this.flipBtn = document.getElementById('flipBtn');
+                this.retryBtn = document.getElementById('retryBtn');
+                this.cameraStatus = document.getElementById('cameraStatus');
+                
+                this.dniBtn = document.getElementById('dniBtn');
+                this.passportBtn = document.getElementById('passportBtn');
+                this.currentDocumentType = 'dni';
+                
+                this.statusItems = {
+                    position: document.getElementById('positionStatus'),
+                    angle: document.getElementById('angleStatus'),
+                    lighting: document.getElementById('lightingStatus'),
+                    camera: document.getElementById('cameraStatus'),
+                    connection: document.getElementById('connectionStatus')
+                };
+                
+                this.setupEventListeners();
+                this.updateConnectionStatus(navigator.onLine);
+                this.setDocumentType('dni'); // Inicializar con DNI
+            }
+            
+            setupEventListeners() {
+                this.captureBtn.addEventListener('click', () => this.captureImage());
+                this.flipBtn.addEventListener('click', () => this.flipCamera());
+                this.retryBtn.addEventListener('click', () => this.retryCamera());
+                
+                // Selector de documento
+                this.dniBtn.addEventListener('click', () => this.setDocumentType('dni'));
+                this.passportBtn.addEventListener('click', () => this.setDocumentType('passport'));
+                
+                // Event listeners para conexión
+                window.addEventListener('online', () => this.updateConnectionStatus(true));
+                window.addEventListener('offline', () => this.updateConnectionStatus(false));
+                
+                // Detectar cambios de orientación
+                window.addEventListener('orientationchange', () => {
+                    setTimeout(() => this.handleOrientationChange(), 100);
+                });
+                
+                // Detectar cambios de tamaño de ventana
+                window.addEventListener('resize', () => {
+                    setTimeout(() => this.handleOrientationChange(), 100);
+                });
+            }
+            
+            async initialize() {
+                try {
+                    console.log('Inicializando scanner SIN PADDING...');
+                    
+                    await this.initializeCamera();
+                    this.startBasicDetection();
+                    
+                } catch (error) {
+                    console.error('Error inicializando scanner:', error);
+                    this.updateCameraStatus('❌ Error: No se pudo inicializar la cámara');
+                    this.retryBtn.style.display = 'block';
+                    this.captureBtn.style.display = 'none';
+                    this.flipBtn.style.display = 'none';
+                }
+            }
+            
+            async initializeCamera() {
+                try {
+                    console.log('Iniciando cámara...');
+                    this.updateCameraStatus('🔄 Iniciando cámara...');
+                    
+                    const constraints = {
+                        video: {
+                            facingMode: this.currentFacingMode,
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        }
+                    };
+                    
+                    this.stream = await navigator.mediaDevices.getUserMedia(constraints);
+                    this.video.srcObject = this.stream;
+                    
+                    await new Promise((resolve, reject) => {
+                        this.video.onloadedmetadata = () => {
+                            this.video.play();
+                            resolve();
+                        };
+                        this.video.onerror = reject;
+                    });
+                    
+                    this.isInitialized = true;
+                    this.updateCameraStatus('✅ Cámara activa');
+                    this.retryBtn.style.display = 'none';
+                    this.captureBtn.style.display = 'flex';
+                    this.flipBtn.style.display = 'flex';
+                    
+                    console.log('Cámara inicializada correctamente');
+                    
+                } catch (error) {
+                    console.error('Error inicializando cámara:', error);
+                    this.updateCameraStatus('❌ Error: No se pudo acceder a la cámara');
+                    this.retryBtn.style.display = 'block';
+                    this.captureBtn.style.display = 'none';
+                    this.flipBtn.style.display = 'none';
+                    throw error;
+                }
+            }
+            
+            updateCameraStatus(message) {
+                const cameraStatusItem = this.statusItems.camera;
+                
+                if (message.includes('✅')) {
+                    this.updateStatus('camera', true, 'Activa');
+                } else if (message.includes('❌')) {
+                    this.updateStatus('camera', false, 'Error');
+                } else {
+                    this.updateStatus('camera', false, 'Iniciando...');
+                }
+            }
+            
+            startBasicDetection() {
+                // Detección real con Computer Vision
+                this.detectionInterval = setInterval(() => {
+                    this.performRealDetection();
+                }, 500); // Cada 500ms para mejor rendimiento
+            }
+            
+            performRealDetection() {
+                if (!this.video || this.video.videoWidth === 0) return;
+                
+                try {
+                    // Crear canvas temporal para análisis
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = this.video.videoWidth;
+                    canvas.height = this.video.videoHeight;
+                    
+                    // Dibujar frame actual
+                    ctx.drawImage(this.video, 0, 0);
+                    
+                    // Obtener datos de imagen
+                    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                    
+                    // Análisis de iluminación real
+                    const lightingAnalysis = this.analyzeLighting(imageData);
+                    this.updateStatus('lighting', lightingAnalysis.isGood, lightingAnalysis.level);
+                    
+                    // Detección de documento real
+                    const documentDetection = this.detectDocument(imageData, canvas.width, canvas.height);
+                    
+                    if (documentDetection.isScreen) {
+                        this.showScreenDetected();
+                    } else if (documentDetection.isDocument && documentDetection.isDNI) {
+                        this.showDocumentDetected();
+                    } else if (documentDetection.isDocument && !documentDetection.isDNI) {
+                        this.showNoDocument(); // Documento detectado pero no es DNI
+                    } else {
+                        this.showNoDocument();
+                    }
+                    
+                } catch (error) {
+                    console.error('Error en detección real:', error);
+                    this.showNoDocument();
+                }
+            }
+            
+            analyzeLighting(imageData) {
+                const data = imageData.data;
+                let totalBrightness = 0;
+                let pixelCount = 0;
+                
+                // Analizar cada 4 píxeles (R, G, B, A)
+                for (let i = 0; i < data.length; i += 16) { // Muestrear cada 4 píxeles
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+                    
+                    // Calcular brillo (luminancia)
+                    const brightness = (r * 0.299 + g * 0.587 + b * 0.114);
+                    totalBrightness += brightness;
+                    pixelCount++;
+                }
+                
+                const averageBrightness = totalBrightness / pixelCount;
+                let level, isGood;
+                
+                if (averageBrightness < 50) {
+                    level = `Muy oscuro (${Math.round(averageBrightness)})`;
+                    isGood = false;
+                } else if (averageBrightness < 80) {
+                    level = `Oscuro (${Math.round(averageBrightness)})`;
+                    isGood = false;
+                } else if (averageBrightness < 200) {
+                    level = `Buena (${Math.round(averageBrightness)})`;
+                    isGood = true;
+                } else if (averageBrightness < 220) {
+                    level = `Muy brillante (${Math.round(averageBrightness)})`;
+                    isGood = false;
+                } else {
+                    level = `Demasiado brillante (${Math.round(averageBrightness)})`;
+                    isGood = false;
+                }
+                
+                return { level, isGood, brightness: averageBrightness };
+            }
+            
+            detectDocument(imageData, width, height) {
+                const data = imageData.data;
+                
+                // Detectar si es una pantalla primero
+                const isScreen = this.detectScreen(data, width, height);
+                if (isScreen) {
+                    return { isDocument: false, isDNI: false, isScreen: true };
+                }
+                
+                // Detección SIMPLIFICADA: buscar contraste y bordes básicos
+                const hasGoodContrast = this.detectContrast(data, width, height);
+                const hasRectangularShape = this.detectRectangularShape(data, width, height);
+                
+                // Si hay buen contraste y forma rectangular = probable DNI
+                const isDNI = hasGoodContrast && hasRectangularShape;
+                
+                return {
+                    isDocument: isDNI,
+                    isDNI: isDNI,
+                    isScreen: false,
+                    rectangle: isDNI ? { x: 0, y: 0, width: width, height: height } : null
+                };
+            }
+            
+            detectScreen(data, width, height) {
+                // Detectar si es una pantalla: muchos píxeles brillantes y uniformes
+                let brightPixels = 0;
+                let totalPixels = 0;
+                let colorVariation = 0;
+                
+                for (let i = 0; i < data.length; i += 16) { // Muestrear
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+                    
+                    const brightness = (r + g + b) / 3;
+                    if (brightness > 200) brightPixels++;
+                    
+                    // Calcular variación de color
+                    const avg = (r + g + b) / 3;
+                    colorVariation += Math.abs(r - avg) + Math.abs(g - avg) + Math.abs(b - avg);
+                    
+                    totalPixels++;
+                }
+                
+                const brightRatio = brightPixels / totalPixels;
+                const avgColorVariation = colorVariation / totalPixels;
+                
+                // Si hay muchos píxeles brillantes y poca variación de color = pantalla
+                return brightRatio > 0.3 && avgColorVariation < 30;
+            }
+            
+            detectContrast(data, width, height) {
+                // Detectar si hay buen contraste (diferencias entre píxeles claros y oscuros)
+                let contrastSum = 0;
+                let sampleCount = 0;
+                
+                // Muestrear píxeles en una cuadrícula
+                for (let y = 0; y < height; y += 10) {
+                    for (let x = 0; x < width; x += 10) {
+                        const idx = (y * width + x) * 4;
+                        const r = data[idx];
+                        const g = data[idx + 1];
+                        const b = data[idx + 2];
+                        const brightness = (r + g + b) / 3;
+                        
+                        // Comparar con píxeles vecinos
+                        let localContrast = 0;
+                        for (let dy = -1; dy <= 1; dy++) {
+                            for (let dx = -1; dx <= 1; dx++) {
+                                if (dx === 0 && dy === 0) continue;
+                                const nx = x + dx;
+                                const ny = y + dy;
+                                if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                                    const nIdx = (ny * width + nx) * 4;
+                                    const nr = data[nIdx];
+                                    const ng = data[nIdx + 1];
+                                    const nb = data[nIdx + 2];
+                                    const nBrightness = (nr + ng + nb) / 3;
+                                    localContrast += Math.abs(brightness - nBrightness);
+                                }
+                            }
+                        }
+                        contrastSum += localContrast / 8; // Promedio de 8 vecinos
+                        sampleCount++;
+                    }
+                }
+                
+                const avgContrast = contrastSum / sampleCount;
+                // Buen contraste si hay diferencias significativas entre píxeles (más sensible)
+                return avgContrast > 15;
+            }
+            
+            detectRectangularShape(data, width, height) {
+                // Detectar si hay una forma rectangular (bordes más oscuros que el centro)
+                const centerX = Math.floor(width / 2);
+                const centerY = Math.floor(height / 2);
+                const margin = Math.min(width, height) * 0.1; // 10% de margen
+                
+                // Calcular brillo promedio del centro
+                let centerBrightness = 0;
+                let centerCount = 0;
+                for (let y = centerY - margin; y < centerY + margin; y += 5) {
+                    for (let x = centerX - margin; x < centerX + margin; x += 5) {
+                        if (x >= 0 && x < width && y >= 0 && y < height) {
+                            const idx = (y * width + x) * 4;
+                            const r = data[idx];
+                            const g = data[idx + 1];
+                            const b = data[idx + 2];
+                            centerBrightness += (r + g + b) / 3;
+                            centerCount++;
+                        }
+                    }
+                }
+                centerBrightness /= centerCount;
+                
+                // Calcular brillo promedio de los bordes
+                let edgeBrightness = 0;
+                let edgeCount = 0;
+                
+                // Bordes superior e inferior
+                for (let x = 0; x < width; x += 10) {
+                    for (let y = 0; y < margin; y += 5) {
+                        const idx = (y * width + x) * 4;
+                        const r = data[idx];
+                        const g = data[idx + 1];
+                        const b = data[idx + 2];
+                        edgeBrightness += (r + g + b) / 3;
+                        edgeCount++;
+                    }
+                    for (let y = height - margin; y < height; y += 5) {
+                        const idx = (y * width + x) * 4;
+                        const r = data[idx];
+                        const g = data[idx + 1];
+                        const b = data[idx + 2];
+                        edgeBrightness += (r + g + b) / 3;
+                        edgeCount++;
+                    }
+                }
+                
+                // Bordes izquierdo y derecho
+                for (let y = 0; y < height; y += 10) {
+                    for (let x = 0; x < margin; x += 5) {
+                        const idx = (y * width + x) * 4;
+                        const r = data[idx];
+                        const g = data[idx + 1];
+                        const b = data[idx + 2];
+                        edgeBrightness += (r + g + b) / 3;
+                        edgeCount++;
+                    }
+                    for (let x = width - margin; x < width; x += 5) {
+                        const idx = (y * width + x) * 4;
+                        const r = data[idx];
+                        const g = data[idx + 1];
+                        const b = data[idx + 2];
+                        edgeBrightness += (r + g + b) / 3;
+                        edgeCount++;
+                    }
+                }
+                
+                edgeBrightness /= edgeCount;
+                
+                // Si el centro es más brillante que los bordes = forma rectangular (más sensible)
+                return centerBrightness > edgeBrightness + 10;
+            }
+            
+            
+            showDocumentDetected() {
+                this.guideMessage.textContent = '¡DNI detectado! Presiona Capturar';
+                this.guideMessage.style.background = 'rgba(76, 175, 80, 0.8)';
+                this.guideMessage.style.borderColor = 'rgba(76, 175, 80, 0.6)';
+                this.captureBtn.disabled = false;
+                this.guideFrame.classList.add('detected');
+                
+                this.updateStatus('position', true, 'Centrado');
+                this.updateStatus('angle', true, 'Ángulo correcto');
+            }
+            
+            showNoDocument() {
+                this.guideMessage.textContent = 'Coloca el DNI dentro del marco';
+                this.guideMessage.style.background = 'rgba(0, 0, 0, 0.7)';
+                this.guideMessage.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+                this.captureBtn.disabled = true;
+                this.guideFrame.classList.remove('detected');
+                
+                this.updateStatus('position', false, 'Ajustar');
+                this.updateStatus('angle', false, 'Ajustar');
+            }
+            
+            showScreenDetected() {
+                this.guideMessage.textContent = 'No apuntes a una pantalla';
+                this.guideMessage.style.background = 'rgba(255, 152, 0, 0.8)';
+                this.guideMessage.style.borderColor = 'rgba(255, 152, 0, 0.6)';
+                this.captureBtn.disabled = true;
+                this.guideFrame.classList.remove('detected');
+                
+                this.updateStatus('position', false, 'Pantalla detectada');
+                this.updateStatus('angle', false, 'Ajustar');
+            }
+            
+            updateStatus(type, isGood, text) {
+                const item = this.statusItems[type];
+                if (item) {
+                    item.style.borderColor = isGood ? '#4CAF50' : '#FF9800';
+                    item.style.background = isGood ? 'rgba(76, 175, 80, 0.9)' : 'rgba(255, 152, 0, 0.9)';
+                    item.querySelector('.text').textContent = text;
+                }
+            }
+            
+            updateConnectionStatus(isConnected) {
+                if (isConnected) {
+                    this.updateStatus('connection', true, 'Conectado');
+                } else {
+                    this.updateStatus('connection', false, 'Sin conexión');
+                }
+            }
+            
+            async captureImage() {
+                try {
+                    console.log('Capturando imagen...');
+                    this.captureBtn.disabled = true;
+                    
+                    // Limpiar detección
+                    if (this.detectionInterval) {
+                        clearInterval(this.detectionInterval);
+                    }
+                    this.captureBtn.textContent = '📸 Procesando...';
+                    
+                    // Usar el canvas existente para capturar
+                    const canvas = document.getElementById('captureCanvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    // Configurar canvas con el tamaño del video
+                    canvas.width = this.video.videoWidth;
+                    canvas.height = this.video.videoHeight;
+                    
+                    // Dibujar el frame actual del video
+                    ctx.drawImage(this.video, 0, 0);
+                    
+                    // Convertir a base64
+                    const imageData = canvas.toDataURL('image/jpeg', 0.8);
+                    
+                    console.log('Imagen capturada:', imageData.substring(0, 50) + '...');
+                    
+                    // Simular envío al servidor
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    alert('¡Imagen capturada correctamente!');
+                    
+                    // Restaurar botón
+                    this.captureBtn.disabled = false;
+                    this.captureBtn.textContent = '📸 Capturar';
+                    
+                    // Reiniciar detección
+                    this.startBasicDetection();
+                    
+                } catch (error) {
+                    console.error('Error capturando imagen:', error);
+                    alert('Error al capturar la imagen');
+                    
+                    // Restaurar botón
+                    this.captureBtn.disabled = false;
+                    this.captureBtn.textContent = '📸 Capturar';
+                    
+                    // Reiniciar detección
+                    this.startBasicDetection();
+                }
+            }
+            
+            async flipCamera() {
+                try {
+                    console.log('Cambiando cámara...');
+                    this.flipBtn.disabled = true;
+                    this.flipBtn.textContent = '🔄 Cambiando...';
+                    
+                    // Detener stream actual
+                    if (this.stream) {
+                        this.stream.getTracks().forEach(track => track.stop());
+                    }
+                    
+                    // Cambiar modo de cámara
+                    this.currentFacingMode = this.currentFacingMode === 'environment' ? 'user' : 'environment';
+                    
+                    // Reinicializar cámara
+                    await this.initializeCamera();
+                    
+                    // Restaurar botón
+                    this.flipBtn.disabled = false;
+                    this.flipBtn.textContent = '🔄 Cambiar cámara';
+                    
+                } catch (error) {
+                    console.error('Error cambiando cámara:', error);
+                    alert('Error al cambiar la cámara');
+                    
+                    // Restaurar botón
+                    this.flipBtn.disabled = false;
+                    this.flipBtn.textContent = '🔄 Cambiar cámara';
+                }
+            }
+            
+            async retryCamera() {
+                try {
+                    console.log('Reintentando cámara...');
+                    this.retryBtn.disabled = true;
+                    this.retryBtn.textContent = '🔄 Reintentando...';
+                    
+                    await this.initializeCamera();
+                    
+                    // Restaurar botón
+                    this.retryBtn.disabled = false;
+                    this.retryBtn.textContent = '🔄 Reintentar';
+                    
+                } catch (error) {
+                    console.error('Error reintentando cámara:', error);
+                    alert('Error al acceder a la cámara. Verifica los permisos.');
+                    
+                    // Restaurar botón
+                    this.retryBtn.disabled = false;
+                    this.retryBtn.textContent = '🔄 Reintentar';
+                }
+            }
+            
+            setDocumentType(type) {
+                this.currentDocumentType = type;
+                
+                // Actualizar botones
+                this.dniBtn.classList.toggle('active', type === 'dni');
+                this.passportBtn.classList.toggle('active', type === 'passport');
+                
+                // Actualizar contenedor según el tipo
+                const cameraContainer = document.querySelector('.camera-container');
+                const guideFrame = document.querySelector('.guide-frame');
+                
+                if (type === 'dni') {
+                    // DNI: 85.6mm x 53.98mm = 1.586:1
+                    // Usar CSS responsive en lugar de tamaños fijos
+                    cameraContainer.style.width = '';
+                    cameraContainer.style.height = '';
+                    cameraContainer.className = 'camera-container dni-type';
+                    this.guideMessage.textContent = 'Coloca el DNI dentro del marco';
+                } else {
+                    // Pasaporte: 88mm x 125mm = 0.704:1
+                    // Usar CSS responsive en lugar de tamaños fijos
+                    cameraContainer.style.width = '';
+                    cameraContainer.style.height = '';
+                    cameraContainer.className = 'camera-container passport-type';
+                    this.guideMessage.textContent = 'Coloca el pasaporte dentro del marco';
+                }
+                
+                console.log(`Tipo de documento cambiado a: ${type}`);
+            }
+            
+            handleOrientationChange() {
+                console.log('Cambio de orientación detectado');
+                // El CSS responsive se encarga automáticamente
+            }
+        }
+        
+        // Inicializar cuando se carga la página
+        document.addEventListener('DOMContentLoaded', () => {
+            const scanner = new DNIScanner();
+            scanner.initialize();
+        });
+    </script>
+</body>
+</html>

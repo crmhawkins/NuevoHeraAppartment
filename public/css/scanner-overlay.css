@@ -1,0 +1,590 @@
+/* Scanner Overlay Styles */
+.scanner-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background: #000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+/* Contenedor específico para la cámara - Proporción DNI */
+.camera-container {
+    width: 200px;
+    height: 60px; /* Reducido de 100px a 60px para mejor proporción DNI */
+    border: 2px solid #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    background: #000;
+    position: relative;
+    margin-bottom: 20px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+}
+
+#camera {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Cover para llenar el contenedor pequeño */
+    object-position: center;
+    transform: scaleX(-1); /* Espejo para mejor UX */
+    background: #000;
+}
+
+.overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 10;
+}
+
+/* Marco de guía - Proporción DNI */
+.guide-frame {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 180px;
+    height: 54px; /* Reducido de 90px a 54px para mejor proporción DNI (3:1 ratio) */
+    border: 3px solid #fff;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.guide-frame.detected {
+    border-color: #4CAF50;
+    box-shadow: 0 0 20px rgba(76, 175, 80, 0.5), 0 0 0 9999px rgba(0, 0, 0, 0.5);
+    animation: pulse-green 2s infinite;
+}
+
+.guide-frame.almost-detected {
+    border-color: #FF9800;
+    box-shadow: 0 0 20px rgba(255, 152, 0, 0.5), 0 0 0 9999px rgba(0, 0, 0, 0.5);
+    animation: pulse-orange 2s infinite;
+}
+
+.guide-frame.error {
+    border-color: #f44336;
+    box-shadow: 0 0 20px rgba(244, 67, 54, 0.5), 0 0 0 9999px rgba(0, 0, 0, 0.5);
+    animation: pulse-red 1s infinite;
+}
+
+/* Esquinas del marco */
+.corner {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border: 3px solid #fff;
+    transition: all 0.3s ease;
+}
+
+.corner.top-left {
+    top: -3px;
+    left: -3px;
+    border-right: none;
+    border-bottom: none;
+    border-top-left-radius: 8px;
+}
+
+.corner.top-right {
+    top: -3px;
+    right: -3px;
+    border-left: none;
+    border-bottom: none;
+    border-top-right-radius: 8px;
+}
+
+.corner.bottom-left {
+    bottom: -3px;
+    left: -3px;
+    border-right: none;
+    border-top: none;
+    border-bottom-left-radius: 8px;
+}
+
+.corner.bottom-right {
+    bottom: -3px;
+    right: -3px;
+    border-left: none;
+    border-top: none;
+    border-bottom-right-radius: 8px;
+}
+
+/* Indicadores de estado */
+.status-indicators {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 20;
+}
+
+.status-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.9);
+    border-radius: 20px;
+    color: white;
+    font-size: 14px;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    min-width: 120px;
+}
+
+.status-item.success {
+    background: rgba(76, 175, 80, 0.9);
+    box-shadow: 0 2px 10px rgba(76, 175, 80, 0.3);
+}
+
+.status-item.warning {
+    background: rgba(255, 152, 0, 0.9);
+    box-shadow: 0 2px 10px rgba(255, 152, 0, 0.3);
+}
+
+.status-item.error {
+    background: rgba(244, 67, 54, 0.9);
+    box-shadow: 0 2px 10px rgba(244, 67, 54, 0.3);
+}
+
+.status-item .icon {
+    font-size: 18px;
+}
+
+.status-item .value {
+    font-size: 12px;
+    opacity: 0.8;
+    margin-left: 5px;
+}
+
+.status-item .text {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Instrucciones */
+.instructions {
+    position: absolute;
+    bottom: 120px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 15px 25px;
+    border-radius: 25px;
+    font-size: 16px;
+    text-align: center;
+    max-width: 90%;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+}
+
+.instructions.success {
+    background: rgba(76, 175, 80, 0.9);
+    border-color: rgba(76, 175, 80, 0.5);
+}
+
+.instructions.warning {
+    background: rgba(255, 152, 0, 0.9);
+    border-color: rgba(255, 152, 0, 0.5);
+}
+
+.instructions.error {
+    background: rgba(244, 67, 54, 0.9);
+    border-color: rgba(244, 67, 54, 0.5);
+}
+
+/* Barra de progreso */
+.progress-container {
+    position: absolute;
+    bottom: 120px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    max-width: 300px;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4CAF50, #8BC34A);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
+.progress-text {
+    text-align: center;
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Controles */
+.controls {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 15px;
+    z-index: 20;
+}
+
+.controls button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    padding: 12px 16px;
+    border: none;
+    border-radius: 25px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(10px);
+    min-width: 80px;
+}
+
+.btn-capture {
+    background: rgba(76, 175, 80, 0.9);
+    color: white;
+    border: 2px solid rgba(76, 175, 80, 0.5);
+}
+
+.btn-capture:disabled {
+    background: rgba(100, 100, 100, 0.7);
+    border-color: rgba(100, 100, 100, 0.5);
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.btn-capture:not(:disabled):hover {
+    background: rgba(76, 175, 80, 1);
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+}
+
+.btn-flip {
+    background: rgba(33, 150, 243, 0.9);
+    color: white;
+    border: 2px solid rgba(33, 150, 243, 0.5);
+}
+
+.btn-flip:hover {
+    background: rgba(33, 150, 243, 1);
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(33, 150, 243, 0.4);
+}
+
+.btn-icon {
+    font-size: 20px;
+}
+
+.btn-text {
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Información de la reserva */
+.reserva-info {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px 15px;
+    border-radius: 15px;
+    font-size: 12px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    z-index: 20;
+}
+
+.info-item {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 5px;
+}
+
+.info-item:last-child {
+    margin-bottom: 0;
+}
+
+.info-item .label {
+    font-weight: 600;
+    color: #ccc;
+}
+
+.info-item .value {
+    font-weight: 500;
+    color: white;
+}
+
+/* Guías de posición */
+.position-guide {
+    position: absolute;
+    color: #FF9800;
+    font-size: 24px;
+    font-weight: bold;
+    animation: pulse-guide 1s infinite;
+    z-index: 15;
+}
+
+.arrow-x {
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.arrow-y {
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+/* Modales */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(5px);
+}
+
+.modal-content {
+    background: white;
+    border-radius: 15px;
+    max-width: 400px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.modal-header {
+    padding: 20px 20px 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-body p {
+    margin: 0;
+    font-size: 16px;
+    line-height: 1.5;
+}
+
+.modal-footer {
+    padding: 10px 20px 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.modal-footer .btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.modal-footer .btn-primary {
+    background: #2196F3;
+    color: white;
+}
+
+.modal-footer .btn-primary:hover {
+    background: #1976D2;
+    transform: translateY(-1px);
+}
+
+/* Animaciones */
+@keyframes pulse-green {
+    0%, 100% { 
+        box-shadow: 0 0 20px rgba(76, 175, 80, 0.5), 0 0 0 9999px rgba(0, 0, 0, 0.5);
+    }
+    50% { 
+        box-shadow: 0 0 30px rgba(76, 175, 80, 0.8), 0 0 0 9999px rgba(0, 0, 0, 0.5);
+    }
+}
+
+@keyframes pulse-orange {
+    0%, 100% { 
+        box-shadow: 0 0 20px rgba(255, 152, 0, 0.5), 0 0 0 9999px rgba(0, 0, 0, 0.5);
+    }
+    50% { 
+        box-shadow: 0 0 30px rgba(255, 152, 0, 0.8), 0 0 0 9999px rgba(0, 0, 0, 0.5);
+    }
+}
+
+@keyframes pulse-red {
+    0%, 100% { 
+        box-shadow: 0 0 20px rgba(244, 67, 54, 0.5), 0 0 0 9999px rgba(0, 0, 0, 0.5);
+    }
+    50% { 
+        box-shadow: 0 0 30px rgba(244, 67, 54, 0.8), 0 0 0 9999px rgba(0, 0, 0, 0.5);
+    }
+}
+
+@keyframes pulse-guide {
+    0%, 100% { 
+        opacity: 1; 
+        transform: scale(1);
+    }
+    50% { 
+        opacity: 0.5; 
+        transform: scale(1.1);
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .guide-frame {
+        width: 250px;
+        height: 160px;
+    }
+    
+    .status-indicators {
+        top: 10px;
+        left: 10px;
+    }
+    
+    .status-item {
+        padding: 6px 10px;
+        font-size: 12px;
+    }
+    
+    .instructions {
+        bottom: 100px;
+        font-size: 14px;
+        padding: 12px 20px;
+    }
+    
+    .controls {
+        bottom: 15px;
+        gap: 10px;
+    }
+    
+    .controls button {
+        padding: 12px 15px;
+        min-width: 70px;
+    }
+    
+    .btn-icon {
+        font-size: 18px;
+    }
+    
+    .btn-text {
+        font-size: 11px;
+    }
+    
+    .reserva-info {
+        top: 10px;
+        right: 10px;
+        padding: 8px 12px;
+        font-size: 11px;
+    }
+}
+
+@media (max-width: 480px) {
+    .guide-frame {
+        width: 220px;
+        height: 140px;
+    }
+    
+    .corner {
+        width: 15px;
+        height: 15px;
+    }
+    
+    .status-indicators {
+        flex-direction: row;
+        flex-wrap: wrap;
+        gap: 5px;
+    }
+    
+    .status-item {
+        padding: 4px 8px;
+        font-size: 10px;
+    }
+    
+    .instructions {
+        bottom: 80px;
+        font-size: 13px;
+        padding: 10px 15px;
+    }
+    
+    .controls {
+        flex-direction: column;
+        gap: 8px;
+        bottom: 10px;
+    }
+    
+    .controls button {
+        padding: 10px 12px;
+        min-width: 60px;
+    }
+}
+
+/* Estados de carga */
+.loading {
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.loading .guide-frame {
+    animation: pulse-loading 1.5s infinite;
+}
+
+@keyframes pulse-loading {
+    0%, 100% { 
+        border-color: #fff;
+        box-shadow: 0 0 20px rgba(255, 255, 255, 0.5), 0 0 0 9999px rgba(0, 0, 0, 0.5);
+    }
+    50% { 
+        border-color: #2196F3;
+        box-shadow: 0 0 30px rgba(33, 150, 243, 0.8), 0 0 0 9999px rgba(0, 0, 0, 0.5);
+    }
+}

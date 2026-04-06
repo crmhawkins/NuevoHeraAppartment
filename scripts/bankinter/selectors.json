@@ -1,0 +1,157 @@
+{
+  "_version": "1.0.0",
+  "_updated_at": "2026-04-05",
+  "_description": "Selectores CSS/XPath para navegacion Bankinter empresas. Actualizable por IA si cambian.",
+
+  "homepage": {
+    "url": "https://www.bankinter.com/empresas/",
+    "popup_close": [
+      "button.close-popup",
+      "button[aria-label='Cerrar']",
+      ".modal-close",
+      ".popup-overlay .close",
+      "button.cookie-close",
+      "[data-dismiss='modal']",
+      ".icon-close",
+      "a.cerrar"
+    ],
+    "cookie_banner_reject": [
+      "#onetrust-reject-all-handler",
+      "button[id*='reject']",
+      "button:has-text('Rechazar')",
+      "button:has-text('Rechazar todas')",
+      ".cookie-banner button.reject"
+    ],
+    "acceso_clientes": [
+      "a:has-text('Acceso clientes')",
+      "a[href*='login']",
+      "a[href*='acceso']",
+      ".acceso-clientes",
+      "a.btn-acceso"
+    ]
+  },
+
+  "login": {
+    "wait_for": "input[type='text'], input[name*='user'], input[name*='usuario']",
+    "username_field": [
+      "input[name='usuario']",
+      "input[name='user']",
+      "input[id*='usuario']",
+      "input[id*='user']",
+      "input[type='text'][placeholder*='usuario']",
+      "input[type='text']:first-of-type"
+    ],
+    "password_field": [
+      "input[name='password']",
+      "input[name='clave']",
+      "input[type='password']",
+      "input[id*='password']",
+      "input[id*='clave']"
+    ],
+    "submit_button": [
+      "button[type='submit']",
+      "input[type='submit']",
+      "button:has-text('Entrar')",
+      "button:has-text('Acceder')",
+      "a:has-text('Entrar')",
+      ".btn-login"
+    ]
+  },
+
+  "post_login": {
+    "ad_banner_close": [
+      "button.close-banner",
+      ".banner-publicitario .close",
+      "button[aria-label='Cerrar']",
+      ".modal .close",
+      ".overlay-close",
+      "[data-dismiss='modal']",
+      "button:has-text('Cerrar')",
+      "button:has-text('No, gracias')",
+      ".icon-close"
+    ],
+    "wait_for_dashboard": [
+      ".saldo-cuenta",
+      ".resumen-cuentas",
+      "[class*='account']",
+      "[class*='cuenta']",
+      "table",
+      ".dashboard"
+    ]
+  },
+
+  "cuenta": {
+    "iban_link": [
+      "a[href*='movimientos']",
+      "a:has-text('ES')",
+      "td a:has-text('ES')",
+      ".cuenta-iban a",
+      "a[title*='cuenta']",
+      "a[href*='cuenta']"
+    ]
+  },
+
+  "movimientos": {
+    "wait_for": ".filtro-fechas, [class*='date'], input[type='date'], .date-picker",
+    "fecha_desde": [
+      "input[name*='desde']",
+      "input[name*='fechaDesde']",
+      "input[name*='from']",
+      "input[id*='desde']",
+      "input[id*='fechaDesde']",
+      "input[placeholder*='desde']",
+      ".fecha-desde input",
+      "input[type='date']:first-of-type"
+    ],
+    "fecha_hasta": [
+      "input[name*='hasta']",
+      "input[name*='fechaHasta']",
+      "input[name*='to']",
+      "input[id*='hasta']",
+      "input[id*='fechaHasta']",
+      "input[placeholder*='hasta']",
+      ".fecha-hasta input",
+      "input[type='date']:last-of-type"
+    ],
+    "aplicar_button": [
+      "button:has-text('Aplicar')",
+      "button:has-text('Buscar')",
+      "button:has-text('Consultar')",
+      "input[type='submit'][value*='Aplicar']",
+      "a:has-text('Aplicar')",
+      ".btn-aplicar",
+      "button[type='submit']"
+    ],
+    "formato_excel": [
+      "a:has-text('Excel')",
+      "a[href*='excel']",
+      "a[href*='xls']",
+      "button:has-text('Excel')",
+      "select option[value*='excel']",
+      ".download-excel",
+      "a[title*='Excel']",
+      "a[title*='Descargar']",
+      "a[download]",
+      ".icon-download",
+      "a:has-text('Descargar')"
+    ],
+    "download_button": [
+      "a:has-text('Descargar')",
+      "button:has-text('Descargar')",
+      "a[download]",
+      ".btn-download",
+      "a[href*='download']",
+      "a[href*='export']"
+    ]
+  },
+
+  "common": {
+    "loading_indicator": [
+      ".loading",
+      ".spinner",
+      ".loader",
+      "[class*='loading']",
+      "[class*='spinner']"
+    ]
+  }
+}

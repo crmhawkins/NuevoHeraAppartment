@@ -1,0 +1,17 @@
+# Perfiles de Chrome con sesion persistente (uno por cuenta)
+chrome-profiles/
+chrome-profile/
+
+# Dependencias Node
+node_modules/
+
+# Screenshots de reparacion IA
+screenshots/
+
+# Log de reparaciones
+repair-log.json
+
+# Archivos descargados
+*.xlsx
+*.xls
+*.csv

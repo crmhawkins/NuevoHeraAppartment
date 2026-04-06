@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Layout - Cámara Pequeña</title>
+    <link rel="stylesheet" href="css/scanner-overlay.css?v=<?php echo time(); ?>">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        .test-info {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-info">
+        <div>Test Layout - Cámara 200x100px</div>
+        <div>Timestamp: <?php echo date('H:i:s'); ?></div>
+    </div>
+
+    <div class="scanner-container">
+        <!-- Contenedor pequeño para la cámara -->
+        <div class="camera-container">
+            <video id="camera" autoplay muted playsinline style="background: #333;"></video>
+        </div>
+        
+        <!-- Overlay de guía -->
+        <div class="overlay">
+            <div class="guide-frame" id="guideFrame">
+                <div class="corner top-left"></div>
+                <div class="corner top-right"></div>
+                <div class="corner bottom-left"></div>
+                <div class="corner bottom-right"></div>
+            </div>
+            
+            <!-- Indicadores de estado -->
+            <div class="status-indicators">
+                <div class="status-item" id="positionStatus">
+                    <span class="icon">📍</span>
+                    <span class="text">Posición</span>
+                </div>
+                <div class="status-item" id="angleStatus">
+                    <span class="icon">📐</span>
+                    <span class="text">Ángulo</span>
+                </div>
+                <div class="status-item" id="lightingStatus">
+                    <span class="icon">💡</span>
+                    <span class="text">Luz</span>
+                </div>
+            </div>
+            
+            <!-- Instrucciones -->
+            <div class="instructions" id="instructions">
+                Coloca el DNI dentro del marco
+            </div>
+        </div>
+        
+        <!-- Controles -->
+        <div class="controls">
+            <button id="captureBtn" disabled>
+                <span>📸</span>
+                <span>Capturar</span>
+            </button>
+            <button id="flipBtn">
+                <span>🔄</span>
+                <span>Cambiar</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Simular cámara con un div de color
+        const camera = document.getElementById('camera');
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        canvas.width = 200;
+        canvas.height = 100;
+        
+        // Dibujar un patrón de prueba
+        ctx.fillStyle = '#444';
+        ctx.fillRect(0, 0, 200, 100);
+        
+        ctx.fillStyle = '#666';
+        ctx.fillRect(10, 10, 180, 80);
+        
+        ctx.fillStyle = '#888';
+        ctx.fillRect(20, 20, 160, 60);
+        
+        ctx.fillStyle = '#aaa';
+        ctx.fillRect(30, 30, 140, 40);
+        
+        // Convertir a video stream
+        const stream = canvas.captureStream(30);
+        camera.srcObject = stream;
+        
+        console.log('Test layout cargado - Cámara 200x100px');
+    </script>
+</body>
+</html>
+
+
+

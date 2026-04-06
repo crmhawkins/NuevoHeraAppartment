@@ -1,0 +1,13 @@
+{
+  "name": "bankinter-scraper",
+  "version": "1.0.0",
+  "description": "Scraper automatizado para descarga de movimientos de Bankinter",
+  "private": true,
+  "scripts": {
+    "scrape": "node bankinter-scraper.js",
+    "install-browsers": "npx playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "^1.45.0"
+  }
+}

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Permisos de Cámara</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .warning { background: #fff3cd; color: #856404; }
+        video {
+            width: 100%;
+            max-width: 300px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 16px;
+        }
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .info {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Test de Permisos de Cámara</h1>
+        
+        <div id="status" class="status warning">
+            Iniciando test...
+        </div>
+        
+        <div class="info">
+            <strong>Instrucciones:</strong><br>
+            1. Presiona "Iniciar Cámara"<br>
+            2. Permite el acceso cuando te lo solicite<br>
+            3. Si no aparece el popup, ve a Configuración → Permisos
+        </div>
+        
+        <video id="camera" autoplay muted playsinline style="display: none;"></video>
+        
+        <div>
+            <button id="startBtn">Iniciar Cámara</button>
+            <button id="stopBtn" disabled>Detener Cámara</button>
+        </div>
+        
+        <div id="info"></div>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const status = document.getElementById('status');
+        const info = document.getElementById('info');
+        const camera = document.getElementById('camera');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const results = document.getElementById('results');
+        
+        let stream = null;
+        
+        function updateStatus(message, type = 'warning') {
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+        
+        function updateInfo() {
+            const support = {
+                getUserMedia: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+                getUserMediaLegacy: !!(navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia || navigator.msGetUserMedia),
+                canvas: !!document.createElement('canvas').getContext,
+                webRTC: !!(window.RTCPeerConnection || window.webkitRTCPeerConnection),
+                mobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
+                https: location.protocol === 'https:',
+                localhost: location.hostname === 'localhost' || location.hostname === '127.0.0.1' || location.hostname.startsWith('192.168.')
+            };
+            
+            info.innerHTML = `
+                <h3>Información del Navegador:</h3>
+                <ul>
+                    <li>getUserMedia: ${support.getUserMedia ? '✅' : '❌'}</li>
+                    <li>getUserMedia Legacy: ${support.getUserMediaLegacy ? '✅' : '❌'}</li>
+                    <li>Canvas: ${support.canvas ? '✅' : '❌'}</li>
+                    <li>WebRTC: ${support.webRTC ? '✅' : '❌'}</li>
+                    <li>Móvil: ${support.mobile ? '✅' : '❌'}</li>
+                    <li>HTTPS: ${support.https ? '✅' : '❌'}</li>
+                    <li>Red Local: ${support.localhost ? '✅' : '❌'}</li>
+                </ul>
+                <p><strong>URL:</strong> ${location.href}</p>
+                <p><strong>User Agent:</strong> ${navigator.userAgent}</p>
+            `;
+            
+            if (!support.getUserMedia && !support.getUserMediaLegacy) {
+                updateStatus('❌ getUserMedia no soportado en este navegador', 'error');
+                startBtn.disabled = true;
+            } else if (!support.getUserMedia && support.getUserMediaLegacy) {
+                updateStatus('⚠️ Usando getUserMedia legacy (puede requerir HTTPS)', 'warning');
+            } else if (!support.https && !support.localhost) {
+                updateStatus('⚠️ Se recomienda HTTPS para acceso a cámara', 'warning');
+            } else {
+                updateStatus('✅ Navegador compatible', 'success');
+            }
+        }
+        
+        async function startCamera() {
+            try {
+                updateStatus('Solicitando permisos de cámara...', 'warning');
+                
+                const constraints = {
+                    video: {
+                        facingMode: 'environment',
+                        width: { ideal: 640, min: 320 },
+                        height: { ideal: 480, min: 240 }
+                    }
+                };
+                
+                // Intentar con la API moderna primero
+                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                    stream = await navigator.mediaDevices.getUserMedia(constraints);
+                } else {
+                    // Fallback a API legacy
+                    stream = await new Promise((resolve, reject) => {
+                        const getUserMedia = navigator.getUserMedia || 
+                                           navigator.webkitGetUserMedia || 
+                                           navigator.mozGetUserMedia || 
+                                           navigator.msGetUserMedia;
+                        
+                        if (!getUserMedia) {
+                            reject(new Error('getUserMedia no soportado'));
+                            return;
+                        }
+                        
+                        getUserMedia.call(navigator, constraints, resolve, reject);
+                    });
+                }
+                
+                camera.srcObject = stream;
+                camera.style.display = 'block';
+                
+                startBtn.disabled = true;
+                stopBtn.disabled = false;
+                
+                updateStatus('✅ Cámara iniciada correctamente', 'success');
+                
+                // Mostrar información del stream
+                const videoTrack = stream.getVideoTracks()[0];
+                const settings = videoTrack.getSettings();
+                
+                results.innerHTML = `
+                    <h3>Información de la Cámara:</h3>
+                    <ul>
+                        <li>Resolución: ${settings.width}x${settings.height}</li>
+                        <li>FPS: ${settings.frameRate || 'N/A'}</li>
+                        <li>Facing Mode: ${settings.facingMode || 'N/A'}</li>
+                        <li>Device ID: ${settings.deviceId || 'N/A'}</li>
+                    </ul>
+                `;
+                
+            } catch (error) {
+                console.error('Error:', error);
+                updateStatus(`❌ Error: ${error.message}`, 'error');
+                
+                let errorMsg = 'Error desconocido';
+                switch (error.name) {
+                    case 'NotAllowedError':
+                        errorMsg = 'Acceso a la cámara denegado. Ve a Configuración → Permisos y permite el acceso a la cámara.';
+                        break;
+                    case 'NotFoundError':
+                        errorMsg = 'No se encontró ninguna cámara.';
+                        break;
+                    case 'NotReadableError':
+                        errorMsg = 'La cámara está siendo usada por otra aplicación.';
+                        break;
+                    case 'OverconstrainedError':
+                        errorMsg = 'La cámara no soporta las características solicitadas.';
+                        break;
+                    case 'SecurityError':
+                        errorMsg = 'Error de seguridad. Intenta con HTTPS.';
+                        break;
+                }
+                
+                results.innerHTML = `<div class="status error">${errorMsg}</div>`;
+            }
+        }
+        
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            
+            camera.srcObject = null;
+            camera.style.display = 'none';
+            
+            startBtn.disabled = false;
+            stopBtn.disabled = true;
+            
+            updateStatus('Cámara detenida', 'warning');
+            results.innerHTML = '';
+        }
+        
+        // Event listeners
+        startBtn.addEventListener('click', startCamera);
+        stopBtn.addEventListener('click', stopCamera);
+        
+        // Inicializar
+        updateInfo();
+    </script>
+</body>
+</html>
+
+
+

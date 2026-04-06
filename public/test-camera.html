@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Cámara DNI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .camera-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin: 20px auto;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        #camera {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+        }
+        .guide-frame {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            height: 60%;
+            border: 3px solid #00ff00;
+            border-radius: 10px;
+        }
+        .corner {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #00ff00;
+        }
+        .corner.top-left {
+            top: -3px;
+            left: -3px;
+            border-right: none;
+            border-bottom: none;
+        }
+        .corner.top-right {
+            top: -3px;
+            right: -3px;
+            border-left: none;
+            border-bottom: none;
+        }
+        .corner.bottom-left {
+            bottom: -3px;
+            left: -3px;
+            border-right: none;
+            border-top: none;
+        }
+        .corner.bottom-right {
+            bottom: -3px;
+            right: -3px;
+            border-left: none;
+            border-top: none;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+        }
+        .error {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+            color: #721c24;
+        }
+        .success {
+            background: #d4edda;
+            border-left-color: #28a745;
+            color: #155724;
+        }
+        .preview {
+            margin: 20px 0;
+            text-align: center;
+        }
+        .preview img {
+            max-width: 100%;
+            max-height: 300px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test Cámara DNI Scanner</h1>
+        
+        <div class="status" id="status">
+            Iniciando cámara...
+        </div>
+        
+        <div class="camera-container">
+            <video id="camera" autoplay muted playsinline></video>
+            <div class="overlay">
+                <div class="guide-frame">
+                    <div class="corner top-left"></div>
+                    <div class="corner top-right"></div>
+                    <div class="corner bottom-left"></div>
+                    <div class="corner bottom-right"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button id="startBtn" onclick="startCamera()">Iniciar Cámara</button>
+            <button id="captureBtn" onclick="captureImage()" disabled>Capturar Imagen</button>
+            <button id="stopBtn" onclick="stopCamera()" disabled>Detener Cámara</button>
+        </div>
+        
+        <div class="preview" id="preview" style="display: none;">
+            <h3>Imagen Capturada:</h3>
+            <img id="capturedImage" alt="Imagen capturada">
+            <div>
+                <button onclick="processImage()">Procesar con IA</button>
+                <button onclick="clearPreview()">Limpiar</button>
+            </div>
+        </div>
+        
+        <div class="status" id="result" style="display: none;">
+            <h3>Resultado del Procesamiento:</h3>
+            <pre id="resultText"></pre>
+        </div>
+    </div>
+
+    <script>
+        let stream = null;
+        let canvas = null;
+        let ctx = null;
+        
+        function updateStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+        }
+        
+        function updateButtons(start, capture, stop) {
+            document.getElementById('startBtn').disabled = !start;
+            document.getElementById('captureBtn').disabled = !capture;
+            document.getElementById('stopBtn').disabled = !stop;
+        }
+        
+        async function startCamera() {
+            try {
+                updateStatus('Solicitando acceso a la cámara...');
+                
+                // Verificar soporte
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('getUserMedia no soportado en este navegador');
+                }
+                
+                // Configuración de la cámara
+                const constraints = {
+                    video: {
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: 'environment' // Cámara trasera en móviles
+                    }
+                };
+                
+                stream = await navigator.mediaDevices.getUserMedia(constraints);
+                const camera = document.getElementById('camera');
+                camera.srcObject = stream;
+                
+                // Crear canvas para captura
+                canvas = document.createElement('canvas');
+                ctx = canvas.getContext('2d');
+                
+                updateStatus('✅ Cámara iniciada correctamente', 'success');
+                updateButtons(false, true, true);
+                
+            } catch (error) {
+                console.error('Error iniciando cámara:', error);
+                updateStatus(`❌ Error: ${error.message}`, 'error');
+                updateButtons(true, false, false);
+            }
+        }
+        
+        function captureImage() {
+            try {
+                const camera = document.getElementById('camera');
+                const preview = document.getElementById('preview');
+                const capturedImage = document.getElementById('capturedImage');
+                
+                // Configurar canvas con las dimensiones del video
+                canvas.width = camera.videoWidth;
+                canvas.height = camera.videoHeight;
+                
+                // Dibujar el frame actual del video en el canvas
+                ctx.drawImage(camera, 0, 0, canvas.width, canvas.height);
+                
+                // Convertir a imagen
+                const imageData = canvas.toDataURL('image/jpeg', 0.8);
+                capturedImage.src = imageData;
+                preview.style.display = 'block';
+                
+                updateStatus('✅ Imagen capturada correctamente', 'success');
+                
+                // Guardar para procesamiento
+                window.capturedImageData = imageData;
+                
+            } catch (error) {
+                console.error('Error capturando imagen:', error);
+                updateStatus(`❌ Error capturando: ${error.message}`, 'error');
+            }
+        }
+        
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            
+            const camera = document.getElementById('camera');
+            camera.srcObject = null;
+            
+            updateStatus('Cámara detenida');
+            updateButtons(true, false, false);
+        }
+        
+        async function processImage() {
+            if (!window.capturedImageData) {
+                updateStatus('❌ No hay imagen para procesar', 'error');
+                return;
+            }
+            
+            try {
+                updateStatus('Procesando imagen con IA...');
+                
+                // Simular procesamiento con IA
+                const result = await simulateAIProcessing(window.capturedImageData);
+                
+                const resultDiv = document.getElementById('result');
+                const resultText = document.getElementById('resultText');
+                
+                resultText.textContent = JSON.stringify(result, null, 2);
+                resultDiv.style.display = 'block';
+                
+                updateStatus('✅ Procesamiento completado', 'success');
+                
+            } catch (error) {
+                console.error('Error procesando imagen:', error);
+                updateStatus(`❌ Error procesando: ${error.message}`, 'error');
+            }
+        }
+        
+        async function simulateAIProcessing(imageData) {
+            // Simular delay de procesamiento
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Simular resultado de IA
+            return {
+                success: true,
+                confidence: Math.floor(Math.random() * 30) + 70, // 70-100%
+                detected: {
+                    document_type: 'DNI',
+                    side: 'front',
+                    text_regions: [
+                        { text: 'ESPANA', confidence: 95 },
+                        { text: 'DOCUMENTO NACIONAL DE IDENTIDAD', confidence: 92 },
+                        { text: '12345678A', confidence: 88 },
+                        { text: 'NOMBRE APELLIDOS', confidence: 85 }
+                    ],
+                    quality: {
+                        brightness: 'good',
+                        contrast: 'good',
+                        sharpness: 'good',
+                        angle: 'acceptable'
+                    }
+                },
+                recommendations: [
+                    'Documento detectado correctamente',
+                    'Calidad de imagen aceptable',
+                    'Proceder con captura trasera'
+                ]
+            };
+        }
+        
+        function clearPreview() {
+            document.getElementById('preview').style.display = 'none';
+            document.getElementById('result').style.display = 'none';
+            window.capturedImageData = null;
+            updateStatus('Previsualización limpiada');
+        }
+        
+        // Inicializar al cargar la página
+        window.addEventListener('load', () => {
+            updateStatus('Página cargada. Haz clic en "Iniciar Cámara" para comenzar.');
+            updateButtons(true, false, false);
+        });
+    </script>
+</body>
+</html>

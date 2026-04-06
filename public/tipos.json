@@ -1,0 +1,26 @@
+[
+  {
+    "codigo": "P",
+    "descripcion": "PASAPORTE"
+  },
+  {
+    "codigo": "I",
+    "descripcion": "CARTA DE IDENTIDAD EXTRANJERA"
+  },
+  {
+    "codigo": "N",
+    "descripcion": "NIE O TARJETA ESPAÑOLA DE EXTRANJEROS"
+  },
+  {
+    "codigo": "X",
+    "descripcion": "PERMISO DE RESIDENCIA DE ESTADO MIEMBRO DE LA UE"
+  },
+  {
+    "codigo": "C",
+    "descripcion": "PERMISO CONDUCIR ESPAÑOL"
+  },
+  {
+    "codigo": "D",
+    "descripcion": "DNI"
+  }
+]

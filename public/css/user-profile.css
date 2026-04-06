@@ -1,0 +1,552 @@
+/* Estilos para el Perfil de Usuario */
+.user-profile-container {
+    max-width: 1200px !important;
+    margin: 0 auto !important;
+    padding: 20px !important;
+}
+
+/* Header del Perfil */
+.user-profile-container .profile-header {
+    background: linear-gradient(135deg, #007AFF 0%, #0056CC 100%) !important;
+    border-radius: 20px !important;
+    padding: 30px !important;
+    margin-bottom: 30px !important;
+    color: white !important;
+    text-align: center !important;
+    box-shadow: 0 8px 25px rgba(0, 122, 255, 0.3) !important;
+}
+
+.user-profile-container .profile-avatar {
+    margin-bottom: 20px !important;
+}
+
+.user-profile-container .profile-avatar i {
+    font-size: 80px !important;
+    color: rgba(255, 255, 255, 0.9) !important;
+}
+
+.user-profile-container .user-avatar {
+    width: 120px !important;
+    height: 120px !important;
+    border-radius: 50% !important;
+    object-fit: cover !important;
+    border: 4px solid rgba(255, 255, 255, 0.3) !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Avatar Preview */
+.user-profile-container .avatar-preview {
+    text-align: center !important;
+    margin-bottom: 20px !important;
+}
+
+.user-profile-container .current-avatar {
+    width: 100px !important;
+    height: 100px !important;
+    border-radius: 50% !important;
+    object-fit: cover !important;
+    border: 3px solid #007AFF !important;
+    box-shadow: 0 4px 15px rgba(0, 122, 255, 0.3) !important;
+}
+
+.user-profile-container .default-avatar {
+    width: 100px !important;
+    height: 100px !important;
+    border-radius: 50% !important;
+    background: #f8f9fa !important;
+    border: 3px solid #e9ecef !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin: 0 auto !important;
+}
+
+.user-profile-container .default-avatar i {
+    font-size: 50px !important;
+    color: #6C6C70 !important;
+}
+
+/* Botones adicionales */
+.user-profile-container .apple-btn-info {
+    background: linear-gradient(135deg, #17a2b8 0%, #138496 100%) !important;
+    color: white !important;
+}
+
+/* Form text */
+.user-profile-container .form-text {
+    font-size: 12px !important;
+    color: #6C6C70 !important;
+    margin-top: 5px !important;
+}
+
+.user-profile-container .profile-name {
+    font-size: 28px !important;
+    font-weight: 700 !important;
+    margin-bottom: 10px !important;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+}
+
+.user-profile-container .profile-role {
+    font-size: 16px !important;
+    opacity: 0.9 !important;
+    margin-bottom: 8px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+}
+
+.user-profile-container .profile-email {
+    font-size: 14px !important;
+    opacity: 0.8 !important;
+    margin: 0 !important;
+}
+
+/* Secciones */
+.user-profile-container .stats-section,
+.user-profile-container .profile-section,
+.user-profile-container .vacations-section,
+.user-profile-container .vacations-history {
+    background: white !important;
+    border-radius: 20px !important;
+    padding: 25px !important;
+    margin-bottom: 25px !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
+}
+
+.user-profile-container .section-title {
+    font-size: 20px !important;
+    font-weight: 600 !important;
+    color: #1D1D1F !important;
+    margin-bottom: 20px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 12px !important;
+}
+
+.user-profile-container .section-title i {
+    color: #007AFF !important;
+    font-size: 18px !important;
+}
+
+.user-profile-container .section-header {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    margin-bottom: 20px !important;
+}
+
+/* Grid de Estadísticas */
+.user-profile-container .stats-grid {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)) !important;
+    gap: 20px !important;
+}
+
+.user-profile-container .stat-card {
+    background: #f8f9fa !important;
+    border-radius: 15px !important;
+    padding: 20px !important;
+    display: flex !important;
+    align-items: center !important;
+    transition: transform 0.3s ease, box-shadow 0.3s ease !important;
+}
+
+.user-profile-container .stat-card:hover {
+    transform: translateY(-3px) !important;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1) !important;
+}
+
+.user-profile-container .stat-icon {
+    width: 50px !important;
+    height: 50px !important;
+    border-radius: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin-right: 15px !important;
+    font-size: 20px !important;
+    color: white !important;
+}
+
+.user-profile-container .stat-primary { background: linear-gradient(135deg, #007AFF 0%, #0056CC 100%) !important; }
+.user-profile-container .stat-success { background: linear-gradient(135deg, #28a745 0%, #20c997 100%) !important; }
+.user-profile-container .stat-warning { background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%) !important; }
+
+.user-profile-container .stat-content {
+    flex: 1 !important;
+}
+
+.user-profile-container .stat-number {
+    font-size: 24px !important;
+    font-weight: 700 !important;
+    color: #1D1D1F !important;
+    margin: 0 0 5px 0 !important;
+}
+
+.user-profile-container .stat-label {
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    color: #1D1D1F !important;
+    margin: 0 0 3px 0 !important;
+}
+
+.user-profile-container .stat-detail {
+    font-size: 12px !important;
+    color: #6C6C70 !important;
+    opacity: 0.8 !important;
+    margin: 0 !important;
+}
+
+/* Formularios */
+.profile-form,
+.vacation-form {
+    background: #f8f9fa;
+    border-radius: 15px;
+    padding: 20px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.form-group label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1D1D1F;
+    margin-bottom: 8px;
+}
+
+.form-control {
+    padding: 12px 16px;
+    border: 2px solid #e9ecef;
+    border-radius: 10px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #007AFF;
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.1);
+}
+
+.form-control:disabled {
+    background: #f8f9fa;
+    color: #6C6C70;
+    cursor: not-allowed;
+}
+
+.form-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: flex-end;
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid #e9ecef;
+}
+
+/* Estadísticas de Vacaciones */
+.vacation-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 25px;
+}
+
+.vacation-stat {
+    text-align: center;
+    padding: 20px;
+    background: white;
+    border-radius: 15px;
+    border: 2px solid #e9ecef;
+}
+
+.vacation-number {
+    font-size: 32px;
+    font-weight: 700;
+    color: #007AFF;
+    margin-bottom: 8px;
+}
+
+.vacation-label {
+    font-size: 14px;
+    color: #6C6C70;
+    font-weight: 500;
+}
+
+/* Próximo Período de Vacaciones */
+.next-vacation {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    border-radius: 15px;
+    padding: 20px;
+    color: white;
+    margin-top: 20px;
+}
+
+.next-vacation h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.vacation-period {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+}
+
+.vacation-date,
+.vacation-days {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+/* Historial de Vacaciones */
+.vacations-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.vacation-item {
+    background: #f8f9fa;
+    border-radius: 15px;
+    padding: 20px;
+    border-left: 4px solid #007AFF;
+}
+
+.vacation-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.vacation-dates {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600;
+    color: #1D1D1F;
+}
+
+.vacation-dates i {
+    color: #007AFF;
+}
+
+.vacation-status {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-aprobada { background: #d4edda; color: #155724; }
+.status-pendiente { background: #fff3cd; color: #856404; }
+.status-rechazada { background: #f8d7da; color: #721c24; }
+
+.vacation-details {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.vacation-days,
+.vacation-reason {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #6C6C70;
+}
+
+.vacation-days i,
+.vacation-reason i {
+    color: #6C6C70;
+    width: 16px;
+}
+
+/* Estado Vacío */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #6C6C70;
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+/* Botones */
+.apple-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+    justify-content: center;
+}
+
+.apple-btn-primary {
+    background: linear-gradient(135deg, #007AFF 0%, #0056CC 100%);
+    color: white;
+}
+
+.apple-btn-success {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+}
+
+.apple-btn-warning {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+    color: white;
+}
+
+.apple-btn-secondary {
+    background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+    color: white;
+}
+
+.apple-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+}
+
+/* Alertas */
+.alert {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 9999;
+    border-radius: 10px;
+    border: none;
+    padding: 15px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    max-width: 400px;
+}
+
+.alert-success {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+}
+
+.alert-danger {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    color: white;
+}
+
+.alert i {
+    font-size: 16px;
+}
+
+.btn-close {
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 18px;
+    cursor: pointer;
+    margin-left: auto;
+    opacity: 0.7;
+}
+
+.btn-close:hover {
+    opacity: 1;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .user-profile-container {
+        padding: 15px;
+    }
+    
+    .profile-header {
+        padding: 20px;
+        border-radius: 15px;
+    }
+    
+    .profile-name {
+        font-size: 24px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .form-row {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .vacation-stats {
+        grid-template-columns: 1fr;
+        gap: 15px;
+    }
+    
+    .vacation-period {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .section-header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: stretch;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+    }
+    
+    .alert {
+        left: 15px;
+        right: 15px;
+        max-width: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .profile-header {
+        padding: 15px;
+    }
+    
+    .profile-avatar i {
+        font-size: 60px;
+    }
+    
+    .profile-name {
+        font-size: 20px;
+    }
+    
+    .stats-section,
+    .profile-section,
+    .vacations-section,
+    .vacations-history {
+        padding: 20px;
+        border-radius: 15px;
+    }
+}

@@ -1,0 +1,284 @@
+@extends('layouts.appPersonal')
+
+@section('title')
+    {{ __('Subidas de fotos de la categoría ') . $checklist->nombre }}
+@endsection
+
+@section('volver')
+    <button class="back" type="button" onclick="history.back()"><i class="fa-solid fa-angle-left"></i></button>
+@endsection
+
+@section('content')
+
+<div class="apple-container">
+    <form action="{{ route('gestion.edit', $id) }}" method="GET" enctype="multipart/form-data" id="uploadForm">
+        @csrf
+        @foreach ($categorias as $categoria)
+            <div class="apple-photo-section">
+                <div class="apple-photo-header">
+                    <div class="apple-photo-title">
+                        <i class="fa-solid fa-camera"></i>
+                        <span>{{ strtoupper($categoria->nombre) }}</span>
+                    </div>
+                    <div class="apple-photo-status" id="status-{{ $categoria->id }}">
+                        <i class="fa-solid fa-circle"></i>
+                    </div>
+                </div>
+                <div class="apple-photo-content">
+                    <input type="file"
+                        accept="image/*"
+                        class="apple-file-input"
+                        capture="camera"
+                        name="image_{{ $categoria->id }}"
+                        id="image_{{ $categoria->id }}">
+                    <button type="button"
+                            class="apple-camera-btn"
+                            onclick="document.getElementById('image_{{ $categoria->id }}').click()">
+                        <i class="fa-solid fa-camera"></i>
+                        <span>CÁMARA</span>
+                    </button>
+                    <div class="apple-preview-container" id="preview-container-{{ $categoria->id }}">
+                        <img id="preview_{{ $categoria->id }}"
+                            class="apple-preview-image"
+                            src="{{ isset($imagenes[$categoria->id]) ? asset($imagenes[$categoria->id]->photo_url) : '' }}">
+                    </div>
+                </div>
+            </div>
+        @endforeach
+
+        <div class="apple-continue-section">
+            <div class="terminar-message" id="terminarMessage" style="display: none;">
+                <div class="message-content">
+                    <i class="fa-solid fa-info-circle"></i>
+                    <span>Para activar el botón "Continuar", debes subir todas las fotos requeridas de cada sección.</span>
+                </div>
+            </div>
+            <button id="btn_continuar" class="apple-continue-btn" type="button" onclick="continuarProceso()">
+                <i class="fa-solid fa-arrow-right"></i>
+                <span>CONTINUAR</span>
+            </button>
+        </div>
+    </form>
+</div>
+@endsection
+
+<!-- Overlay de Carga -->
+<div id="loadingOverlay" class="loading-overlay" style="display: none;">
+    <div class="loading-content">
+        <div class="loading-spinner">
+            <div class="spinner"></div>
+        </div>
+        <div class="loading-text">
+            <h3>Subiendo foto...</h3>
+            <p>Por favor, espera mientras se procesa tu imagen</p>
+            <div class="loading-progress">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <span class="progress-text" id="progressText">0%</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // Verificar estado inicial de las fotos
+    checkInitialPhotoStatus();
+    
+    // El botón continuar ahora usa onclick="continuarProceso()"
+    
+            @foreach ($categorias as $categoria)
+        const input{{ $categoria->id }} = document.getElementById('image_{{ $categoria->id }}');
+        input{{ $categoria->id }}.addEventListener('change', function (event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Mostrar overlay de carga
+            showLoadingOverlay('Subiendo foto...');
+
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                const previewElement = document.getElementById('preview_{{ $categoria->id }}');
+                const containerElement = document.getElementById('preview-container-{{ $categoria->id }}');
+                
+                previewElement.src = e.target.result;
+                containerElement.classList.add('has-image');
+                
+                // Actualizar estado
+                updatePhotoStatus({{ $categoria->id }});
+            };
+            reader.readAsDataURL(file);
+
+            const formData = new FormData();
+            formData.append('_token', '{{ csrf_token() }}');
+            formData.append('image', file);
+            formData.append('item_id', '{{ $categoria->id }}');
+            formData.append('checklist_id', '{{ $cat }}');
+            
+            // Usar route con placeholders y reemplazarlos
+            const baseRoute = "{{ route('fotos.' . strtolower(strtr($checklist->nombre, [
+                ' ' => '_', 'á' => 'a', 'é' => 'e', 'í' => 'i',
+                'ó' => 'o', 'ú' => 'u', 'Á' => 'a', 'É' => 'e',
+                'Í' => 'i', 'Ó' => 'o', 'Ú' => 'u', 'ñ' => 'n',
+                'Ñ' => 'n'
+            ])).'-store', ['id' => '__ID__', 'cat' => '__CAT__']) }}";
+
+            const uploadUrl = baseRoute.replace('__ID__', '{{ $id }}').replace('__CAT__', '{{ $cat }}') + '';
+
+            fetch(uploadUrl, {
+                method: 'POST',
+                body: formData,
+            })
+            .then(async response => {
+                const contentType = response.headers.get("content-type");
+                if (contentType && contentType.includes("application/json")) {
+                    const data = await response.json();
+                    if (data.url) {
+                        document.getElementById('preview_{{ $categoria->id }}').src = data.url;
+                        // Verificar estado después de subida exitosa
+                        checkContinueButton();
+                    }
+                } else {
+                    const text = await response.text();
+                    console.error('❌ Respuesta no JSON:', text);
+                }
+                // Ocultar overlay
+                hideLoadingOverlay();
+            })
+            .catch(error => {
+                console.error('Error al subir imagen:', error);
+                // Ocultar overlay en caso de error
+                hideLoadingOverlay();
+            });
+        });
+    @endforeach
+});
+
+// Función para verificar estado inicial de las fotos
+function checkInitialPhotoStatus() {
+    @foreach ($categorias as $categoria)
+        const preview{{ $categoria->id }} = document.getElementById('preview_{{ $categoria->id }}');
+        const container{{ $categoria->id }} = document.getElementById('preview-container-{{ $categoria->id }}');
+        
+        if (preview{{ $categoria->id }}.src && preview{{ $categoria->id }}.src !== window.location.href) {
+            container{{ $categoria->id }}.classList.add('has-image');
+            updatePhotoStatus({{ $categoria->id }});
+        }
+    @endforeach
+    
+    checkContinueButton();
+}
+
+// Función para actualizar el estado de las fotos
+function updatePhotoStatus(categoriaId) {
+    const statusElement = document.getElementById('status-' + categoriaId);
+    if (statusElement) {
+        statusElement.classList.add('completed');
+    }
+}
+
+// Función para verificar si se puede habilitar el botón continuar
+function checkContinueButton() {
+    const totalCategorias = {{ count($categorias) }};
+    let completedPhotos = 0;
+    
+    @foreach ($categorias as $categoria)
+        const status{{ $categoria->id }} = document.getElementById('status-{{ $categoria->id }}');
+        if (status{{ $categoria->id }} && status{{ $categoria->id }}.classList.contains('completed')) {
+            completedPhotos++;
+        }
+    @endforeach
+    
+    const continueBtn = document.getElementById('btn_continuar');
+    const terminarMessage = document.getElementById('terminarMessage');
+    
+    if (continueBtn) {
+        if (completedPhotos >= totalCategorias && totalCategorias > 0) {
+            continueBtn.disabled = false;
+            if (terminarMessage) terminarMessage.style.display = 'none';
+        } else {
+            continueBtn.disabled = true;
+            if (terminarMessage) terminarMessage.style.display = 'block';
+        }
+    }
+}
+
+// Funciones para el Overlay de Carga
+function showLoadingOverlay(message = 'Subiendo foto...') {
+    const overlay = document.getElementById('loadingOverlay');
+    const messageElement = overlay.querySelector('h3');
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+    
+    messageElement.textContent = message;
+    progressFill.style.width = '0%';
+    progressText.textContent = '0%';
+    
+    overlay.style.display = 'flex';
+    
+    // Simular progreso
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+        progress += Math.random() * 15;
+        if (progress > 90) progress = 90;
+        
+        progressFill.style.width = progress + '%';
+        progressText.textContent = Math.round(progress) + '%';
+    }, 200);
+    
+    // Guardar el intervalo para poder limpiarlo
+    overlay.dataset.progressInterval = progressInterval;
+}
+
+function hideLoadingOverlay() {
+    const overlay = document.getElementById('loadingOverlay');
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+    
+    // Completar la barra de progreso
+    progressFill.style.width = '100%';
+    progressText.textContent = '100%';
+    
+    // Limpiar el intervalo de progreso
+    if (overlay.dataset.progressInterval) {
+        clearInterval(overlay.dataset.progressInterval);
+    }
+    
+    // Ocultar después de un pequeño delay para mostrar el 100%
+    setTimeout(() => {
+        overlay.style.display = 'none';
+    }, 500);
+}
+
+function updateLoadingProgress(percentage) {
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+    
+    if (progressFill && progressText) {
+        progressFill.style.width = percentage + '%';
+        progressText.textContent = Math.round(percentage) + '%';
+    }
+}
+
+// Función para continuar el proceso con overlay
+function continuarProceso() {
+    const continueBtn = document.getElementById('btn_continuar');
+    
+    // Verificar si el botón está habilitado
+    if (continueBtn.disabled) {
+        return;
+    }
+    
+    // Mostrar overlay de carga
+    showLoadingOverlay('Procesando fotos...');
+    
+    // Simular un pequeño delay para mostrar el overlay
+    setTimeout(() => {
+        // Enviar el formulario
+        document.getElementById('uploadForm').submit();
+    }, 500);
+}
+</script>
+@endsection
