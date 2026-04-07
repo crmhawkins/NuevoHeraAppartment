@@ -23,6 +23,8 @@ class Edificio extends Model
         'clave',
         'codigo_establecimiento',
         'metodo_entrada',
+        'tipo_cerradura_principal',
+        'tuyalaravel_building_id',
         'mir_activo',
     ];
 

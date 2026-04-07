@@ -1291,9 +1291,9 @@ class DNIScannerController extends Controller
             
             // Configuración de IA Hawkins (Ollama)
             // HAWKINS_AI_URL debe ser la URL base sin /chat (ej: https://192.168.1.45)
-            $baseUrl = env('HAWKINS_AI_URL', 'https://192.168.1.45');
-            $apiKey = env('HAWKINS_AI_API_KEY', 'OllamaAPI_2024_K8mN9pQ2rS5tU7vW3xY6zA1bC4eF8hJ0lM');
-            $model = env('HAWKINS_AI_MODEL', 'qwen2.5vl:latest');
+            $baseUrl = config('services.hawkins_ai.url', env('HAWKINS_AI_URL'));
+            $apiKey = config('services.hawkins_ai.api_key', env('HAWKINS_AI_API_KEY'));
+            $model = config('services.hawkins_ai.model', env('HAWKINS_AI_MODEL', 'qwen2.5vl:latest'));
             
             // Construir la URL completa: baseUrl/chat/analyze-image
             $aiEndpoint = rtrim($baseUrl, '/') . '/chat/analyze-image';
@@ -1404,9 +1404,8 @@ INSTRUCCIONES ESPECÍFICAS:
                 CURLOPT_HTTPHEADER => [
                     'X-API-Key: ' . $apiKey
                 ],
-                // Ignorar verificación SSL (necesario para IPs locales con certificados autofirmados)
-                CURLOPT_SSL_VERIFYPEER => false,
-                CURLOPT_SSL_VERIFYHOST => false
+                CURLOPT_SSL_VERIFYPEER => app()->environment('production'),
+                CURLOPT_SSL_VERIFYHOST => app()->environment('production') ? 2 : 0
             ]);
             
             $response = curl_exec($curl);

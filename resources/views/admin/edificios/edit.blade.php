@@ -114,32 +114,83 @@
                             </div>
                         </div>
 
-                        <!-- Método de entrada -->
+                        <!-- Tipo de cerradura principal (puerta edificio) -->
                         <div class="mb-4">
-                            <label for="metodo_entrada" class="form-label fw-semibold text-dark">
+                            <label for="tipo_cerradura_principal" class="form-label fw-semibold text-dark">
                                 <i class="fas fa-door-open me-2 text-primary"></i>
-                                Método de Entrada (por edificio)
+                                Cerradura Puerta Principal
                             </label>
-                            <select
-                                class="form-select @error('metodo_entrada') is-invalid @enderror"
-                                id="metodo_entrada"
-                                name="metodo_entrada"
-                            >
-                                @php
-                                    $valorMetodo = old('metodo_entrada', $edificio->metodo_entrada);
-                                @endphp
-                                <option value="" {{ empty($valorMetodo) ? 'selected' : '' }}>Cerradura física (por defecto)</option>
-                                <option value="fisica" {{ $valorMetodo === 'fisica' ? 'selected' : '' }}>Cerradura física</option>
-                                <option value="digital" {{ $valorMetodo === 'digital' ? 'selected' : '' }}>Cerradura digital</option>
-                            </select>
-                            <div class="invalid-feedback" id="metodo_entrada-error">
-                                @error('metodo_entrada') {{ $message }} @enderror
+                            @php
+                                $valorTipoCerradura = old('tipo_cerradura_principal', $edificio->tipo_cerradura_principal ?? 'manual');
+                            @endphp
+                            <div class="d-flex gap-2 flex-wrap">
+                                <div class="form-check form-check-inline border rounded px-3 py-2 {{ $valorTipoCerradura === 'manual' ? 'border-primary bg-primary bg-opacity-10' : '' }}" style="cursor:pointer;">
+                                    <input class="form-check-input" type="radio" name="tipo_cerradura_principal" id="cerradura_manual" value="manual" {{ $valorTipoCerradura === 'manual' ? 'checked' : '' }} onchange="toggleCerraduraEdificio()">
+                                    <label class="form-check-label" for="cerradura_manual" style="cursor:pointer;">
+                                        <i class="fas fa-key me-1"></i> Manual
+                                    </label>
+                                </div>
+                                <div class="form-check form-check-inline border rounded px-3 py-2 {{ $valorTipoCerradura === 'ttlock' ? 'border-primary bg-primary bg-opacity-10' : '' }}" style="cursor:pointer;">
+                                    <input class="form-check-input" type="radio" name="tipo_cerradura_principal" id="cerradura_ttlock" value="ttlock" {{ $valorTipoCerradura === 'ttlock' ? 'checked' : '' }} onchange="toggleCerraduraEdificio()">
+                                    <label class="form-check-label" for="cerradura_ttlock" style="cursor:pointer;">
+                                        <i class="fas fa-lock me-1"></i> TTLock
+                                    </label>
+                                </div>
+                                <div class="form-check form-check-inline border rounded px-3 py-2 {{ $valorTipoCerradura === 'tuya' ? 'border-primary bg-primary bg-opacity-10' : '' }}" style="cursor:pointer;">
+                                    <input class="form-check-input" type="radio" name="tipo_cerradura_principal" id="cerradura_tuya" value="tuya" {{ $valorTipoCerradura === 'tuya' ? 'checked' : '' }} onchange="toggleCerraduraEdificio()">
+                                    <label class="form-check-label" for="cerradura_tuya" style="cursor:pointer;">
+                                        <i class="fas fa-wifi me-1"></i> Tuya
+                                    </label>
+                                </div>
                             </div>
                             <div class="form-text">
                                 <i class="fas fa-info-circle me-1 text-muted"></i>
-                                Si eliges digital, la entrega del código vendrá de una plataforma externa (pendiente de integración).
+                                Tipo de cerradura de la puerta principal del edificio
                             </div>
                         </div>
+
+                        <!-- ID en Tuyalaravel (solo visible para TTLock/Tuya) -->
+                        <div class="mb-4" id="tuyalaravel-building-section" style="{{ in_array($valorTipoCerradura, ['ttlock', 'tuya']) ? '' : 'display:none;' }}">
+                            <label for="tuyalaravel_building_id" class="form-label fw-semibold text-dark">
+                                <i class="fas fa-link me-2 text-primary"></i>
+                                ID Edificio en App Cerraduras
+                            </label>
+                            <input type="number"
+                                   class="form-control @error('tuyalaravel_building_id') is-invalid @enderror"
+                                   id="tuyalaravel_building_id"
+                                   name="tuyalaravel_building_id"
+                                   placeholder="ID del building en Tuyalaravel"
+                                   value="{{ old('tuyalaravel_building_id', $edificio->tuyalaravel_building_id) }}">
+                            <div class="invalid-feedback">
+                                @error('tuyalaravel_building_id') {{ $message }} @enderror
+                            </div>
+                            <div class="form-text">
+                                <i class="fas fa-info-circle me-1 text-muted"></i>
+                                ID del edificio en la app gestora de cerraduras (Tuyalaravel)
+                            </div>
+                        </div>
+
+                        <!-- Método de entrada (legacy, oculto) -->
+                        <input type="hidden" name="metodo_entrada" id="metodo_entrada" value="{{ old('metodo_entrada', $edificio->metodo_entrada) }}">
+
+                        <script>
+                            function toggleCerraduraEdificio() {
+                                var tipo = document.querySelector('input[name="tipo_cerradura_principal"]:checked').value;
+                                var section = document.getElementById('tuyalaravel-building-section');
+                                var metodoEntrada = document.getElementById('metodo_entrada');
+                                section.style.display = (tipo === 'ttlock' || tipo === 'tuya') ? '' : 'none';
+                                metodoEntrada.value = (tipo === 'manual') ? 'fisica' : 'digital';
+                                // Highlight selected
+                                document.querySelectorAll('input[name="tipo_cerradura_principal"]').forEach(function(r) {
+                                    var container = r.closest('.form-check');
+                                    if (r.checked) {
+                                        container.classList.add('border-primary', 'bg-primary', 'bg-opacity-10');
+                                    } else {
+                                        container.classList.remove('border-primary', 'bg-primary', 'bg-opacity-10');
+                                    }
+                                });
+                            }
+                        </script>
 
                         <!-- Envío automático a MIR -->
                         <div class="mb-4">

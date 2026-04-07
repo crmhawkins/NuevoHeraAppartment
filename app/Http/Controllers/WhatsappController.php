@@ -2576,9 +2576,9 @@ class WhatsappController extends Controller
 
         // Usar URL local para pruebas
         $config = [
-            'base_url' => 'https://192.168.1.45/chat/chat',
-            'api_key' => env('HAWKINS_AI_API_KEY', 'OllamaAPI_2024_K8mN9pQ2rS5tU7vW3xY6zA1bC4eF8hJ0lM'),
-            'model' => 'qwen3:latest'
+            'base_url' => config('services.hawkins_whatsapp_ai.base_url', env('HAWKINS_WHATSAPP_AI_URL')),
+            'api_key' => config('services.hawkins_whatsapp_ai.api_key', env('HAWKINS_WHATSAPP_AI_API_KEY')),
+            'model' => config('services.hawkins_whatsapp_ai.model', 'qwen3:latest'),
         ];
 
         $endpoint = $config['base_url'];

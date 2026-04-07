@@ -14,8 +14,14 @@ use RealRashid\SweetAlert\Facades\Alert;
 
 class ApartamentosController extends Controller
 {
-    private $apiUrl = 'https://staging.channex.io/api/v1';
-    private $apiToken = 'uMxPHon+J28pd17nie3qeU+kF7gUulWjb2UF5SRFr4rSIhmLHLwuL6TjY92JGxsx';
+    private $apiUrl;
+    private $apiToken;
+
+    public function __construct()
+    {
+        $this->apiUrl = config('services.channex.api_url', 'https://staging.channex.io/api/v1');
+        $this->apiToken = config('services.channex.api_token');
+    }
 
     /**
      * Display a listing of the resource.
@@ -211,6 +217,8 @@ class ApartamentosController extends Controller
                 'phone' => $request->input('phone') ?? null,
                 'website' => $request->input('website') ?? null,
                 'edificio_id' => $validatedData['edificio_id'],
+                'tipo_cerradura' => $request->input('tipo_cerradura', 'manual'),
+                'tuyalaravel_lock_id' => $request->input('tuyalaravel_lock_id') ?: null,
                 'ttlock_lock_id' => $request->input('ttlock_lock_id') ?: null,
             ];
 

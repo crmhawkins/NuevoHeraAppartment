@@ -41,6 +41,8 @@ class EdificiosController extends Controller
             'clave' => 'required|string|max:255|unique:edificios,clave',
             'codigo_establecimiento' => 'nullable|string|max:50',
             'metodo_entrada' => 'nullable|string|in:' . MetodoEntradaService::METODO_FISICA . ',' . MetodoEntradaService::METODO_DIGITAL,
+            'tipo_cerradura_principal' => 'nullable|string|in:manual,ttlock,tuya',
+            'tuyalaravel_building_id' => 'nullable|integer',
         ];
 
         $messages = [
@@ -58,6 +60,8 @@ class EdificiosController extends Controller
                 'codigo_establecimiento' => $validatedData['codigo_establecimiento'] ?? null,
                 'metodo_entrada' => $validatedData['metodo_entrada'] ?? null,
                 'mir_activo' => $request->has('mir_activo') ? (bool) $request->input('mir_activo') : true,
+                'tipo_cerradura_principal' => $validatedData['tipo_cerradura_principal'] ?? 'manual',
+                'tuyalaravel_building_id' => $validatedData['tuyalaravel_building_id'] ?? null,
             ]);
 
             return redirect()->route('admin.edificios.index')
@@ -105,6 +109,15 @@ class EdificiosController extends Controller
                 'string',
                 'in:' . MetodoEntradaService::METODO_FISICA . ',' . MetodoEntradaService::METODO_DIGITAL,
             ],
+            'tipo_cerradura_principal' => [
+                'nullable',
+                'string',
+                'in:manual,ttlock,tuya',
+            ],
+            'tuyalaravel_building_id' => [
+                'nullable',
+                'integer',
+            ],
         ];
 
         $messages = [
@@ -123,6 +136,8 @@ class EdificiosController extends Controller
                 'codigo_establecimiento' => $validatedData['codigo_establecimiento'] ?? null,
                 'metodo_entrada' => $validatedData['metodo_entrada'] ?? null,
                 'mir_activo' => (bool) $request->input('mir_activo', 0),
+                'tipo_cerradura_principal' => $validatedData['tipo_cerradura_principal'] ?? 'manual',
+                'tuyalaravel_building_id' => $validatedData['tuyalaravel_building_id'] ?? null,
             ]);
 
             return redirect()->route('admin.edificios.index')

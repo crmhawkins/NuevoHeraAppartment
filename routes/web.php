@@ -1032,14 +1032,22 @@ Route::get('/pasaporte-user-subir/{id}', [App\Http\Controllers\DNIController::cl
 Route::get('/dni/{token}', [App\Http\Controllers\DNIController::class, 'dni'])->name('dni.dni');
 Route::get('/pasaporte/{token}', [App\Http\Controllers\DNIController::class, 'pasaporte'])->name('dni.pasaporte');
 
-// Nuevo sistema de escaneo de DNI con cámara
-Route::get('/dni-scanner/{token}', [App\Http\Controllers\DNIScannerController::class, 'index'])->name('dni.scanner.index');
-Route::get('/dni-scanner/{token}/camera', [App\Http\Controllers\DNIScannerController::class, 'showScanner'])->name('dni.scanner.show');
-Route::get('/dni-scanner/{token}/upload', [App\Http\Controllers\DNIScannerController::class, 'showUpload'])->name('dni.scanner.upload');
+// Nuevo check-in público (formulario simplificado v2.0)
+Route::get('/dni-scanner/{token}', [App\Http\Controllers\CheckInPublicController::class, 'index'])->name('checkin.public.index');
+Route::post('/checkin/{token}/process', [App\Http\Controllers\CheckInPublicController::class, 'processImages'])->name('checkin.public.process');
+Route::get('/checkin/{token}/form', [App\Http\Controllers\CheckInPublicController::class, 'form'])->name('checkin.public.form');
+Route::post('/checkin/{token}/store', [App\Http\Controllers\CheckInPublicController::class, 'store'])->name('checkin.public.store');
+Route::get('/checkin/{token}/success', [App\Http\Controllers\CheckInPublicController::class, 'success'])->name('checkin.public.success');
+Route::get('/checkin/{token}/lang/{locale}', [App\Http\Controllers\CheckInPublicController::class, 'changeLocale'])->name('checkin.public.locale');
+
+// Sistema anterior de escaneo de DNI con cámara (legacy, accesible para admin)
+Route::get('/dni-scanner-legacy/{token}', [App\Http\Controllers\DNIScannerController::class, 'index'])->name('dni.scanner.index');
+Route::get('/dni-scanner-legacy/{token}/camera', [App\Http\Controllers\DNIScannerController::class, 'showScanner'])->name('dni.scanner.show');
+Route::get('/dni-scanner-legacy/{token}/upload', [App\Http\Controllers\DNIScannerController::class, 'showUpload'])->name('dni.scanner.upload');
 Route::post('/dni-scanner/process', [App\Http\Controllers\DNIScannerController::class, 'processImage'])->name('dni.scanner.process');
-Route::post('/dni-scanner/{token}/upload', [App\Http\Controllers\DNIScannerController::class, 'processUpload'])->name('dni.scanner.process.upload');
-Route::post('/dni-scanner/{token}/process-single-image', [App\Http\Controllers\DNIScannerController::class, 'processSingleImage'])->name('dni.scanner.process.single');
-Route::post('/dni-scanner/{token}/save-additional-data', [App\Http\Controllers\DNIScannerController::class, 'saveAdditionalData'])->name('dni.scanner.save.additional');
+Route::post('/dni-scanner-legacy/{token}/upload', [App\Http\Controllers\DNIScannerController::class, 'processUpload'])->name('dni.scanner.process.upload');
+Route::post('/dni-scanner-legacy/{token}/process-single-image', [App\Http\Controllers\DNIScannerController::class, 'processSingleImage'])->name('dni.scanner.process.single');
+Route::post('/dni-scanner-legacy/{token}/save-additional-data', [App\Http\Controllers\DNIScannerController::class, 'saveAdditionalData'])->name('dni.scanner.save.additional');
 Route::post('/dni-scanner/complete', [App\Http\Controllers\DNIScannerController::class, 'completeVerification'])->name('dni.scanner.complete');
 
 // Versiones HTML del scanner con mejor diseño (fondo negro)

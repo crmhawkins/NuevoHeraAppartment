@@ -348,7 +348,8 @@ class ClienteService
         curl_setopt($curl, CURLOPT_POST, true);
         curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($data));
         curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, app()->environment('production'));
+        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, app()->environment('production') ? 2 : 0);
         curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
 
         // Ejecutar la solicitud y obtener la respuesta
@@ -398,7 +399,8 @@ class ClienteService
         curl_setopt($curl, CURLOPT_POST, true);
         curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($data));
         curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, app()->environment('production'));
+        curl_setopt($curl, CURLOPT_SSL_VERIFYHOST, app()->environment('production') ? 2 : 0);
         curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
 
         // Ejecutar la solicitud y obtener la respuesta

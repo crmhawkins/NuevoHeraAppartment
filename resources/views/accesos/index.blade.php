@@ -44,6 +44,7 @@
                     <th>Salida</th>
                     <th>Datos DNI</th>
                     <th>Código Acceso</th>
+                    <th>Tipo</th>
                     <th>Cerradura</th>
                     <th>Acciones</th>
                 </tr>
@@ -68,6 +69,16 @@
                             <code class="fs-5 fw-bold">{{ $reserva->codigo_acceso }}</code>
                         @else
                             <span class="text-muted">—</span>
+                        @endif
+                    </td>
+                    <td>
+                        @php $tipoCerr = $reserva->apartamento->tipo_cerradura ?? 'manual'; @endphp
+                        @if($tipoCerr === 'ttlock')
+                            <span class="badge bg-info text-dark"><i class="fas fa-lock me-1"></i>TTLock</span>
+                        @elseif($tipoCerr === 'tuya')
+                            <span class="badge bg-primary"><i class="fas fa-wifi me-1"></i>Tuya</span>
+                        @else
+                            <span class="badge bg-secondary"><i class="fas fa-key me-1"></i>Manual</span>
                         @endif
                     </td>
                     <td>

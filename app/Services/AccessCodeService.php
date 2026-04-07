@@ -9,28 +9,73 @@ use Illuminate\Support\Facades\Log;
 class AccessCodeService
 {
     /**
-     * Genera un código de 4 dígitos único, lo programa en la cerradura TTLock
-     * y lo guarda en la reserva.
+     * Genera un código de acceso según el tipo de cerradura del apartamento:
+     * - manual: usa el código fijo almacenado en apartamento.claves
+     * - ttlock/tuya: genera PIN de 4 dígitos y lo envía a Tuyalaravel
      */
     public function generarYProgramar(Reserva $reserva): ?string
     {
-        $codigo = $this->generarCodigoUnico();
+        $apartamento = $reserva->apartamento;
+        if (!$apartamento) {
+            Log::warning("AccessCodeService: reserva {$reserva->id} sin apartamento asociado.");
+            return null;
+        }
 
-        // Validación: reservas de un solo día no se pueden programar en cerradura (ventana horaria inválida)
-        if (Carbon::parse($reserva->fecha_entrada)->isSameDay(Carbon::parse($reserva->fecha_salida))) {
-            Log::warning('AccessCode: Reserva de un solo día detectada, no se puede programar cerradura', [
-                'reserva_id' => $reserva->id
-            ]);
-            // Generar código pero no enviar a TTLock (ventana horaria inválida)
+        $tipoCerradura = $apartamento->tipo_cerradura ?? 'manual';
+
+        // CERRADURA MANUAL: usar código fijo del apartamento
+        if ($tipoCerradura === 'manual') {
+            return $this->generarCodigoManual($reserva, $apartamento);
+        }
+
+        // CERRADURA DIGITAL (TTLock o Tuya): generar PIN y enviar a Tuyalaravel
+        return $this->generarCodigoDigital($reserva, $apartamento, $tipoCerradura);
+    }
+
+    /**
+     * Cerradura manual: el código es el almacenado en apartamento.claves
+     */
+    private function generarCodigoManual(Reserva $reserva, $apartamento): ?string
+    {
+        $codigo = $apartamento->claves;
+
+        if (empty($codigo)) {
+            Log::warning("AccessCodeService: apartamento {$apartamento->id} sin clave manual configurada.");
+            $this->notificarError($reserva, "Apartamento {$apartamento->titulo} no tiene clave manual configurada.");
+            return null;
+        }
+
+        $reserva->update([
+            'codigo_acceso' => $codigo,
+            'codigo_enviado_cerradura' => 1, // Manual = siempre "programada"
+        ]);
+
+        Log::info("AccessCodeService: código manual asignado a reserva {$reserva->id}.");
+        return $codigo;
+    }
+
+    /**
+     * Cerradura digital: genera PIN de 4 dígitos y lo envía a Tuyalaravel
+     */
+    private function generarCodigoDigital(Reserva $reserva, $apartamento, string $tipoCerradura): ?string
+    {
+        $lockId = $apartamento->tuyalaravel_lock_id ?? $apartamento->ttlock_lock_id;
+
+        if (!$lockId) {
+            // No hay cerradura configurada, generar código y guardar sin enviar
+            $codigo = $this->generarCodigoUnico();
             $reserva->update(['codigo_acceso' => $codigo, 'codigo_enviado_cerradura' => 0]);
+            Log::warning("AccessCodeService: apartamento {$apartamento->id} tipo '{$tipoCerradura}' sin lock_id.");
+            $this->notificarError($reserva, "Apartamento {$apartamento->titulo} tiene cerradura {$tipoCerradura} pero no tiene lock_id configurado.");
             return $codigo;
         }
 
-        $apartamento = $reserva->apartamento;
-        if (!$apartamento || !$apartamento->ttlock_lock_id) {
-            // No hay cerradura configurada, guardamos el código sin programar
+        $codigo = $this->generarCodigoUnico();
+
+        // Validación: reservas de un solo día
+        if (Carbon::parse($reserva->fecha_entrada)->isSameDay(Carbon::parse($reserva->fecha_salida))) {
+            Log::warning('AccessCode: Reserva de un solo día, no se puede programar cerradura', ['reserva_id' => $reserva->id]);
             $reserva->update(['codigo_acceso' => $codigo, 'codigo_enviado_cerradura' => 0]);
-            Log::info("AccessCodeService: código {$codigo} generado para reserva {$reserva->id} sin cerradura configurada.");
             return $codigo;
         }
 
@@ -38,106 +83,176 @@ class AccessCodeService
         if (empty($tuyaAppUrl)) {
             $reserva->update(['codigo_acceso' => $codigo, 'codigo_enviado_cerradura' => 0]);
             Log::warning("AccessCodeService: TUYA_APP_URL no configurada.");
+            $this->notificarError($reserva, "TUYA_APP_URL no configurada. Código generado pero no enviado a cerradura.");
             return $codigo;
         }
 
-        // TTLock tiene un límite de ~180 días. Si la fecha de entrada está a más de 150 días,
-        // generamos el código y lo guardamos, pero NO lo enviamos a la cerradura todavía.
-        // El comando cerraduras:programar-proximas se encargará de enviarlo cuando esté dentro del rango.
+        // TTLock tiene límite ~180 días. Si falta mucho, guardar sin enviar (el cron lo enviará después).
         $diasHastaEntrada = Carbon::now()->diffInDays(Carbon::parse($reserva->fecha_entrada), false);
         if ($diasHastaEntrada > 150) {
             $reserva->update(['codigo_acceso' => $codigo, 'codigo_enviado_cerradura' => 0]);
-            Log::info("AccessCodeService: código {$codigo} generado para reserva {$reserva->id} pero NO enviado a cerradura (faltan {$diasHastaEntrada} días, límite TTLock ~180 días). Se programará automáticamente cuando esté dentro del rango.");
+            Log::info("AccessCodeService: código para reserva {$reserva->id} diferido ({$diasHastaEntrada} días).");
             return $codigo;
         }
 
-        // Ventana de validez: día entrada 15:00 → día salida 11:00
+        // Enviar a Tuyalaravel
+        return $this->enviarATuyalaravel($reserva, $lockId, $codigo);
+    }
+
+    /**
+     * Envía el PIN a Tuyalaravel y guarda el resultado.
+     * Si el gateway confirma, guarda codigo_enviado_cerradura = 1.
+     * Si falla, guarda el código pero con codigo_enviado_cerradura = 0.
+     * Tuyalaravel puede devolver un PIN diferente (modo offline TTLock) — usamos el que devuelve.
+     */
+    private function enviarATuyalaravel(Reserva $reserva, $lockId, string $codigo): ?string
+    {
+        $tuyaAppUrl = config('services.tuya_app.url');
         $efectivo = Carbon::parse($reserva->fecha_entrada)->setTime(15, 0, 0);
-        $invalido  = Carbon::parse($reserva->fecha_salida)->setTime(11, 0, 0);
+        $invalido = Carbon::parse($reserva->fecha_salida)->setTime(11, 0, 0);
 
         try {
             $response = Http::timeout(30)
                 ->withHeaders(['X-API-Key' => config('services.tuya_app.api_key')])
                 ->post("{$tuyaAppUrl}/api/pins", [
-                'lock_id'            => $apartamento->ttlock_lock_id,
-                'name'               => 'Reserva #' . $reserva->id,
-                'pin'                => $codigo,
-                'effective_time'     => $efectivo->toDateTimeString(),
-                'invalid_time'       => $invalido->toDateTimeString(),
-                'external_reference' => 'reserva_' . $reserva->id,
-            ]);
+                    'lock_id'            => $lockId,
+                    'name'               => 'Reserva #' . $reserva->id,
+                    'pin'                => $codigo,
+                    'effective_time'     => $efectivo->toDateTimeString(),
+                    'invalid_time'       => $invalido->toDateTimeString(),
+                    'external_reference' => 'reserva_' . $reserva->id,
+                ]);
 
             if ($response->successful()) {
                 $pinId = $response->json('data.provider_code_id');
+                // Usar el PIN que devuelve Tuyalaravel (puede ser diferente en modo offline)
+                $pinReal = $response->json('data.pin') ?? $codigo;
+
                 $reserva->update([
-                    'codigo_acceso'          => $codigo,
-                    'ttlock_pin_id'          => $pinId,
+                    'codigo_acceso'            => $pinReal,
+                    'ttlock_pin_id'            => $pinId,
                     'codigo_enviado_cerradura' => 1,
                 ]);
-                Log::info("AccessCodeService: PIN {$codigo} programado en cerradura para reserva {$reserva->id}.");
+
+                Log::info("AccessCodeService: PIN programado en cerradura para reserva {$reserva->id}.", [
+                    'provider_code_id' => $pinId,
+                ]);
+
+                return $pinReal;
             } else {
                 $reserva->update(['codigo_acceso' => $codigo, 'codigo_enviado_cerradura' => 0]);
-                Log::error("AccessCodeService: error al programar en cerradura. Status: " . $response->status());
-
-                // Alerta WhatsApp
-                try {
-                    $whatsapp = app(\App\Services\WhatsappNotificationService::class);
-                    $whatsapp->sendToConfiguredRecipients(
-                        "⚠️ ALERTA CERRADURA\n\nError HTTP {$response->status()} al programar cerradura para Reserva #{$reserva->id}\nApartamento: {$reserva->apartamento->titulo}"
-                    );
-                } catch (\Exception $alertEx) {
-                    Log::error('No se pudo enviar alerta WhatsApp de cerradura', ['error' => $alertEx->getMessage()]);
-                }
-
-                // Notificación interna
-                try {
-                    \App\Models\Notification::createForAdmins(
-                        \App\Models\Notification::TYPE_SISTEMA,
-                        'Error cerradura TTLock',
-                        "Error HTTP {$response->status()} al programar cerradura para Reserva #{$reserva->id}",
-                        ['reserva_id' => $reserva->id, 'http_status' => $response->status()],
-                        \App\Models\Notification::PRIORITY_HIGH,
-                        \App\Models\Notification::CATEGORY_ERROR
-                    );
-                } catch (\Exception $notifEx) {
-                    Log::error('No se pudo crear notificación de cerradura', ['error' => $notifEx->getMessage()]);
-                }
+                Log::error("AccessCodeService: error HTTP {$response->status()} al programar cerradura.", [
+                    'reserva_id' => $reserva->id,
+                    'response' => $response->body(),
+                ]);
+                $this->notificarError($reserva, "Error HTTP {$response->status()} al programar cerradura.\nApartamento: {$reserva->apartamento->titulo}");
             }
         } catch (\Exception $e) {
             $reserva->update(['codigo_acceso' => $codigo, 'codigo_enviado_cerradura' => 0]);
-            Log::error("AccessCodeService: excepción al llamar a TTLock API: " . $e->getMessage());
-
-            // Alerta WhatsApp
-            try {
-                $whatsapp = app(\App\Services\WhatsappNotificationService::class);
-                $whatsapp->sendToConfiguredRecipients(
-                    "⚠️ ALERTA CERRADURA\n\nError al programar cerradura para Reserva #{$reserva->id}\nApartamento: {$reserva->apartamento->titulo}\nError: {$e->getMessage()}"
-                );
-            } catch (\Exception $alertEx) {
-                Log::error('No se pudo enviar alerta WhatsApp de cerradura', ['error' => $alertEx->getMessage()]);
-            }
-
-            // Notificación interna
-            try {
-                \App\Models\Notification::createForAdmins(
-                    \App\Models\Notification::TYPE_SISTEMA,
-                    'Error cerradura TTLock',
-                    "No se pudo programar código para Reserva #{$reserva->id}: {$e->getMessage()}",
-                    ['reserva_id' => $reserva->id],
-                    \App\Models\Notification::PRIORITY_HIGH,
-                    \App\Models\Notification::CATEGORY_ERROR
-                );
-            } catch (\Exception $notifEx) {
-                Log::error('No se pudo crear notificación de cerradura', ['error' => $notifEx->getMessage()]);
-            }
+            Log::error("AccessCodeService: excepción al llamar a Tuyalaravel: " . $e->getMessage());
+            $this->notificarError($reserva, "Error al conectar con Tuyalaravel: {$e->getMessage()}\nApartamento: {$reserva->apartamento->titulo}");
         }
 
         return $codigo;
     }
 
     /**
-     * Envía a la cerradura TTLock un código de acceso que ya existe en la reserva.
-     * Usado por el comando cerraduras:programar-proximas para reservas diferidas.
+     * Reintenta enviar a la cerradura un código que ya existe.
+     * Devuelve true si se confirmó, false si sigue pendiente.
+     * Si el gateway sigue offline, pide un PIN offline a TTLock.
+     */
+    public function reintentarOFallback(Reserva $reserva): bool
+    {
+        if (empty($reserva->codigo_acceso)) {
+            return false;
+        }
+
+        // Si ya está confirmado, no hay nada que hacer
+        if ($reserva->codigo_enviado_cerradura) {
+            return true;
+        }
+
+        $apartamento = $reserva->apartamento;
+        $tipoCerradura = $apartamento->tipo_cerradura ?? 'manual';
+
+        // Si es manual, marcar como enviado
+        if ($tipoCerradura === 'manual') {
+            $reserva->update(['codigo_enviado_cerradura' => 1]);
+            return true;
+        }
+
+        $lockId = $apartamento->tuyalaravel_lock_id ?? $apartamento->ttlock_lock_id;
+        if (!$lockId) return false;
+
+        $tuyaAppUrl = config('services.tuya_app.url');
+        if (empty($tuyaAppUrl)) return false;
+
+        // Intentar enviar el código existente
+        try {
+            $efectivo = Carbon::parse($reserva->fecha_entrada)->setTime(15, 0, 0);
+            $invalido = Carbon::parse($reserva->fecha_salida)->setTime(11, 0, 0);
+
+            $response = Http::timeout(15)
+                ->withHeaders(['X-API-Key' => config('services.tuya_app.api_key')])
+                ->post("{$tuyaAppUrl}/api/pins", [
+                    'lock_id'            => $lockId,
+                    'name'               => 'Reserva #' . $reserva->id,
+                    'pin'                => $reserva->codigo_acceso,
+                    'effective_time'     => $efectivo->toDateTimeString(),
+                    'invalid_time'       => $invalido->toDateTimeString(),
+                    'external_reference' => 'reserva_' . $reserva->id,
+                ]);
+
+            if ($response->successful()) {
+                $pinId = $response->json('data.provider_code_id');
+                $pinReal = $response->json('data.pin') ?? $reserva->codigo_acceso;
+
+                $reserva->update([
+                    'codigo_acceso'            => $pinReal,
+                    'ttlock_pin_id'            => $pinId,
+                    'codigo_enviado_cerradura' => 1,
+                ]);
+
+                Log::info("AccessCodeService::reintento: PIN confirmado para reserva {$reserva->id}.", [
+                    'provider_code_id' => $pinId,
+                ]);
+
+                return true;
+            }
+
+            // Gateway offline: el PIN solicitado no se pudo programar.
+            // Tuyalaravel puede haber devuelto un PIN offline en data.pin
+            $pinOffline = $response->json('data.pin');
+            if ($pinOffline) {
+                $reserva->update([
+                    'codigo_acceso'            => $pinOffline,
+                    'ttlock_pin_id'            => $response->json('data.provider_code_id'),
+                    'codigo_enviado_cerradura' => 1,
+                ]);
+
+                Log::info("AccessCodeService::reintento: PIN offline asignado para reserva {$reserva->id}.");
+
+                $this->notificarError($reserva,
+                    "Gateway offline para reserva #{$reserva->id}.\n" .
+                    "Se asignó PIN offline automático.\n" .
+                    "Apartamento: {$reserva->apartamento->titulo}"
+                );
+
+                return true;
+            }
+
+            Log::warning("AccessCodeService::reintento: gateway sigue offline para reserva {$reserva->id}.");
+
+        } catch (\Exception $e) {
+            Log::error("AccessCodeService::reintento: excepción para reserva {$reserva->id}: " . $e->getMessage());
+        }
+
+        return false;
+    }
+
+    /**
+     * Envía a la cerradura un código ya existente.
+     * Usado por el comando cerraduras:programar-proximas.
      */
     public function programarEnCerradura(Reserva $reserva): void
     {
@@ -146,13 +261,21 @@ class AccessCodeService
         }
 
         $apartamento = $reserva->apartamento;
-        if (!$apartamento || !$apartamento->ttlock_lock_id) {
-            throw new \Exception("La reserva #{$reserva->id} no tiene cerradura TTLock configurada.");
+        $tipoCerradura = $apartamento->tipo_cerradura ?? 'manual';
+
+        // Manual: no necesita envío
+        if ($tipoCerradura === 'manual') {
+            $reserva->update(['codigo_enviado_cerradura' => 1]);
+            return;
         }
 
-        // Validación: reservas de un solo día no se pueden programar en cerradura
+        $lockId = $apartamento->tuyalaravel_lock_id ?? $apartamento->ttlock_lock_id;
+        if (!$lockId) {
+            throw new \Exception("La reserva #{$reserva->id} no tiene lock_id configurado.");
+        }
+
         if (Carbon::parse($reserva->fecha_entrada)->isSameDay(Carbon::parse($reserva->fecha_salida))) {
-            throw new \Exception("Reserva #{$reserva->id} es de un solo día, ventana horaria inválida para TTLock.");
+            throw new \Exception("Reserva #{$reserva->id} es de un solo día, ventana horaria inválida.");
         }
 
         $tuyaAppUrl = config('services.tuya_app.url');
@@ -160,14 +283,13 @@ class AccessCodeService
             throw new \Exception('TUYA_APP_URL no configurada.');
         }
 
-        // Ventana de validez: día entrada 15:00 → día salida 11:00
         $efectivo = Carbon::parse($reserva->fecha_entrada)->setTime(15, 0, 0);
         $invalido = Carbon::parse($reserva->fecha_salida)->setTime(11, 0, 0);
 
         $response = Http::timeout(30)
             ->withHeaders(['X-API-Key' => config('services.tuya_app.api_key')])
             ->post("{$tuyaAppUrl}/api/pins", [
-                'lock_id'            => $apartamento->ttlock_lock_id,
+                'lock_id'            => $lockId,
                 'name'               => 'Reserva #' . $reserva->id,
                 'pin'                => $reserva->codigo_acceso,
                 'effective_time'     => $efectivo->toDateTimeString(),
@@ -177,10 +299,14 @@ class AccessCodeService
 
         if ($response->successful()) {
             $pinId = $response->json('data.provider_code_id');
+            $pinReal = $response->json('data.pin') ?? $reserva->codigo_acceso;
+
             $reserva->update([
+                'codigo_acceso'            => $pinReal,
                 'ttlock_pin_id'            => $pinId,
                 'codigo_enviado_cerradura' => 1,
             ]);
+
             Log::info("AccessCodeService::programarEnCerradura: PIN programado para reserva {$reserva->id}", [
                 'pin_id' => $pinId,
             ]);
@@ -190,11 +316,7 @@ class AccessCodeService
     }
 
     /**
-     * Revoca el PIN de la cerradura al cancelar/eliminar una reserva.
-     *
-     * NOTA: En la práctica, la revocación no es necesaria porque los códigos TTLock
-     * tienen fechas de validez integradas (effective_time / invalid_time) y expiran
-     * automáticamente. Se mantiene este método para uso manual en casos excepcionales.
+     * Revoca el PIN de la cerradura.
      */
     public function revocarPin(Reserva $reserva): void
     {
@@ -208,19 +330,57 @@ class AccessCodeService
         }
 
         try {
-            Log::info("AccessCodeService: revisar revocación manual para reserva {$reserva->id}, pin_id: {$reserva->ttlock_pin_id}");
+            $response = Http::timeout(15)
+                ->withHeaders(['X-API-Key' => config('services.tuya_app.api_key')])
+                ->delete("{$tuyaAppUrl}/api/pins/{$reserva->ttlock_pin_id}");
+
+            if ($response->successful()) {
+                Log::info("AccessCodeService: PIN revocado para reserva {$reserva->id}");
+            } else {
+                Log::warning("AccessCodeService: error al revocar PIN para reserva {$reserva->id}: HTTP {$response->status()}");
+            }
         } catch (\Exception $e) {
             Log::error("AccessCodeService: excepción al revocar PIN: " . $e->getMessage());
         }
     }
 
+    /**
+     * Notifica un error por WhatsApp y como notificación interna.
+     */
+    private function notificarError(Reserva $reserva, string $mensaje): void
+    {
+        // WhatsApp
+        try {
+            $whatsapp = app(\App\Services\WhatsappNotificationService::class);
+            $whatsapp->sendToConfiguredRecipients("⚠️ ALERTA CERRADURA\n\nReserva #{$reserva->id}\n{$mensaje}");
+        } catch (\Exception $e) {
+            Log::error('No se pudo enviar alerta WhatsApp de cerradura', ['error' => $e->getMessage()]);
+        }
+
+        // Notificación interna
+        try {
+            \App\Models\Notification::createForAdmins(
+                \App\Models\Notification::TYPE_SISTEMA,
+                'Error cerradura',
+                "Reserva #{$reserva->id}: {$mensaje}",
+                ['reserva_id' => $reserva->id],
+                \App\Models\Notification::PRIORITY_HIGH,
+                \App\Models\Notification::CATEGORY_ERROR
+            );
+        } catch (\Exception $e) {
+            Log::error('No se pudo crear notificación de cerradura', ['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Genera un código de 4 dígitos único entre reservas activas.
+     */
     private function generarCodigoUnico(): string
     {
         $intentos = 0;
         $maxIntentos = 100;
         do {
             $codigo = str_pad((string) random_int(1000, 9999), 4, '0', STR_PAD_LEFT);
-            // Verificar que no está en uso en reservas activas o futuras
             $existe = Reserva::where('codigo_acceso', $codigo)
                 ->where('fecha_salida', '>=', now()->toDateString())
                 ->whereNotNull('codigo_acceso')

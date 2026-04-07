@@ -14,9 +14,16 @@ class TestIAChat extends Command
     protected $description = 'Prueba interactiva de la IA local - Conversación en tiempo real';
 
     private $remitente = '34600000000';
-    private $endpoint = 'http://192.168.1.45/chat/chat';
-    private $apiKey = 'OllamaAPI_2024_K8mN9pQ2rS5tU7vW3xY6zA1bC4eF8hJ0lM';
+    private $endpoint;
+    private $apiKey;
     private $modelo = 'qwen3:latest';
+
+    public function __construct()
+    {
+        parent::__construct();
+        $this->endpoint = config('services.hawkins_ai.url', env('HAWKINS_AI_URL'));
+        $this->apiKey = config('services.hawkins_ai.api_key', env('HAWKINS_AI_API_KEY'));
+    }
     private $historial = [];
 
     public function handle()

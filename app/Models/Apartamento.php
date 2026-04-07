@@ -71,6 +71,8 @@ class Apartamento extends Model
         'city_tax_included', 'floor_number', 'building_year', 'last_renovation_year',
         'view_type', 'balcony_size', 'terrace_size', 'parking_reservation_required',
         'ttlock_lock_id',
+        'tipo_cerradura',
+        'tuyalaravel_lock_id',
     ];
 
     /**

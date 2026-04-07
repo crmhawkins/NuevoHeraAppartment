@@ -32,6 +32,8 @@ return [
     ],
     'channex' => [
         'webhook_url' => env('CHANNEX_WEBHOOK_URL', 'https://tu-dominio.com/webhook-handler'),
+        'api_url' => env('CHANNEX_API_URL', 'https://staging.channex.io/api/v1'),
+        'api_token' => env('CHANNEX_API_TOKEN'),
     ],
 
     'openai' => [
@@ -41,14 +43,14 @@ return [
     ],
 
     'hawkins_ai' => [
-        'base_url' => env('HAWKINS_AI_URL', 'https://aiapi.hawkins.es/chat/chat'),
-        'api_key' => env('HAWKINS_AI_API_KEY', 'OllamaAPI_2024_K8mN9pQ2rS5tU7vW3xY6zA1bC4eF8hJ0lM'),
+        'url' => env('HAWKINS_AI_URL', 'https://aiapi.hawkins.es/chat/chat'),
+        'api_key' => env('HAWKINS_AI_API_KEY'),
         'model' => env('HAWKINS_AI_MODEL', 'gpt-oss:120b-cloud'),
     ],
 
     'hawkins_whatsapp_ai' => [
         'base_url' => env('HAWKINS_WHATSAPP_AI_URL', 'https://aiapi.hawkins.es/chat/chat'),
-        'api_key' => env('HAWKINS_WHATSAPP_AI_API_KEY', 'OllamaAPI_2024_K8mN9pQ2rS5tU7vW3xY6zA1bC4eF8hJ0lM'),
+        'api_key' => env('HAWKINS_WHATSAPP_AI_API_KEY'),
         'model' => env('HAWKINS_WHATSAPP_AI', 'gpt-oss:120b-cloud'),
     ],
 
@@ -65,7 +67,7 @@ return [
 
     'ai_translation' => [
         'url' => env('AI_TRANSLATION_URL', 'https://aiapi.hawkins.es/chat/chat'),
-        'api_key' => env('AI_TRANSLATION_API_KEY', 'OllamaAPI_2024_K8mN9pQ2rS5tU7vW3xY6zA1bC4eF8hJ0lM'),
+        'api_key' => env('AI_TRANSLATION_API_KEY'),
         'model' => env('AI_TRANSLATION_MODEL', 'gpt-oss:120b-cloud'),
     ],
 

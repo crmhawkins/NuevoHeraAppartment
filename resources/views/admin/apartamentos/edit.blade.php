@@ -165,25 +165,78 @@
                                 </div>
                             </div>
 
+                            <!-- Tipo de cerradura del apartamento -->
                             <div class="col-md-6 mb-3">
                                 <div class="form-group">
-                                    <label for="ttlock_lock_id" class="form-label fw-semibold">
-                                        <i class="fas fa-lock me-1 text-primary"></i>ID Cerradura TTLock <small class="text-muted fw-normal">(en app de cerraduras)</small>
+                                    <label class="form-label fw-semibold">
+                                        <i class="fas fa-lock me-1 text-primary"></i>Tipo de Cerradura
+                                    </label>
+                                    @php $tipoCerradura = old('tipo_cerradura', $apartamento->tipo_cerradura ?? 'manual'); @endphp
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        <div class="form-check form-check-inline border rounded px-3 py-2 {{ $tipoCerradura === 'manual' ? 'border-primary bg-primary bg-opacity-10' : '' }}" style="cursor:pointer;">
+                                            <input class="form-check-input" type="radio" name="tipo_cerradura" id="apt_cerradura_manual" value="manual" {{ $tipoCerradura === 'manual' ? 'checked' : '' }} onchange="toggleCerraduraApt()">
+                                            <label class="form-check-label" for="apt_cerradura_manual" style="cursor:pointer;"><i class="fas fa-key me-1"></i> Manual</label>
+                                        </div>
+                                        <div class="form-check form-check-inline border rounded px-3 py-2 {{ $tipoCerradura === 'ttlock' ? 'border-primary bg-primary bg-opacity-10' : '' }}" style="cursor:pointer;">
+                                            <input class="form-check-input" type="radio" name="tipo_cerradura" id="apt_cerradura_ttlock" value="ttlock" {{ $tipoCerradura === 'ttlock' ? 'checked' : '' }} onchange="toggleCerraduraApt()">
+                                            <label class="form-check-label" for="apt_cerradura_ttlock" style="cursor:pointer;"><i class="fas fa-lock me-1"></i> TTLock</label>
+                                        </div>
+                                        <div class="form-check form-check-inline border rounded px-3 py-2 {{ $tipoCerradura === 'tuya' ? 'border-primary bg-primary bg-opacity-10' : '' }}" style="cursor:pointer;">
+                                            <input class="form-check-input" type="radio" name="tipo_cerradura" id="apt_cerradura_tuya" value="tuya" {{ $tipoCerradura === 'tuya' ? 'checked' : '' }} onchange="toggleCerraduraApt()">
+                                            <label class="form-check-label" for="apt_cerradura_tuya" style="cursor:pointer;"><i class="fas fa-wifi me-1"></i> Tuya</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ID Lock en Tuyalaravel (visible solo para TTLock/Tuya) -->
+                            <div class="col-md-6 mb-3" id="tuyalaravel-lock-section" style="{{ in_array($tipoCerradura, ['ttlock', 'tuya']) ? '' : 'display:none;' }}">
+                                <div class="form-group">
+                                    <label for="tuyalaravel_lock_id" class="form-label fw-semibold">
+                                        <i class="fas fa-link me-1 text-primary"></i>ID Cerradura en App Cerraduras
                                     </label>
                                     <input type="number"
-                                           class="form-control @error('ttlock_lock_id') is-invalid @enderror"
-                                           id="ttlock_lock_id"
-                                           name="ttlock_lock_id"
-                                           placeholder="Ej: 5"
-                                           value="{{ old('ttlock_lock_id', $apartamento->ttlock_lock_id) }}">
-                                    @error('ttlock_lock_id')
+                                           class="form-control @error('tuyalaravel_lock_id') is-invalid @enderror"
+                                           id="tuyalaravel_lock_id"
+                                           name="tuyalaravel_lock_id"
+                                           placeholder="ID del lock en Tuyalaravel"
+                                           value="{{ old('tuyalaravel_lock_id', $apartamento->tuyalaravel_lock_id) }}">
+                                    @error('tuyalaravel_lock_id')
                                         <div class="invalid-feedback">
                                             <i class="fas fa-exclamation-triangle me-1"></i>{{ $message }}
                                         </div>
                                     @enderror
-                                    <div class="form-text">ID del lock en la app gestora de cerraduras TTLock (Tuyalaravel). Déjalo vacío si no tiene cerradura inteligente.</div>
+                                    <div class="form-text">ID del lock en la app gestora de cerraduras (Tuyalaravel)</div>
                                 </div>
                             </div>
+
+                            <!-- ttlock_lock_id legacy (hidden, se sincroniza con tuyalaravel_lock_id) -->
+                            <input type="hidden" name="ttlock_lock_id" id="ttlock_lock_id" value="{{ old('ttlock_lock_id', $apartamento->ttlock_lock_id) }}">
+
+                            <script>
+                                function toggleCerraduraApt() {
+                                    var tipo = document.querySelector('input[name="tipo_cerradura"]:checked').value;
+                                    document.getElementById('tuyalaravel-lock-section').style.display = (tipo === 'ttlock' || tipo === 'tuya') ? '' : 'none';
+                                    // Sync legacy field
+                                    var tuyaId = document.getElementById('tuyalaravel_lock_id').value;
+                                    document.getElementById('ttlock_lock_id').value = tuyaId;
+                                    // Highlight
+                                    document.querySelectorAll('input[name="tipo_cerradura"]').forEach(function(r) {
+                                        var c = r.closest('.form-check');
+                                        if (r.checked) c.classList.add('border-primary', 'bg-primary', 'bg-opacity-10');
+                                        else c.classList.remove('border-primary', 'bg-primary', 'bg-opacity-10');
+                                    });
+                                }
+                                // Sync on tuyalaravel_lock_id change
+                                document.addEventListener('DOMContentLoaded', function() {
+                                    var tuyaInput = document.getElementById('tuyalaravel_lock_id');
+                                    if (tuyaInput) {
+                                        tuyaInput.addEventListener('change', function() {
+                                            document.getElementById('ttlock_lock_id').value = this.value;
+                                        });
+                                    }
+                                });
+                            </script>
                         </div>
 
                         <!-- Ubicación -->
