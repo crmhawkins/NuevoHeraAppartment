@@ -1020,7 +1020,9 @@ Route::get('/reposiciones/{apartamentoLimpiezaId}', [App\Http\Controllers\Reposi
 
 
 // Obtener DNI
-Route::get('/dni-user/{token}', [App\Http\Controllers\DNIController::class, 'index'])->name('dni.index');
+Route::get('/dni-user/{token}', function ($token) {
+    return redirect("/dni-scanner/{$token}", 301);
+})->name('dni.index');
 Route::post('/dni/cambiar-idioma', [App\Http\Controllers\DNIController::class, 'cambiarIdioma'])->name('dni.cambiarIdioma');
 
 Route::post('/guardar-numero-personas', [App\Http\Controllers\DNIController::class, 'storeNumeroPersonas'])->name('dni.storeNumeroPersonas');
