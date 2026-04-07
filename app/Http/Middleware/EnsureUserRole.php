@@ -16,7 +16,7 @@ class EnsureUserRole
 
         $user = Auth::user();
         foreach ( $roles as $role ) {
-            if ( $user->role === $role ) {
+            if ( strtoupper(trim($user->role)) === strtoupper(trim($role)) ) {
                 return $next( $request );
             }
         }

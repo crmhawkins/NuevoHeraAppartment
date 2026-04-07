@@ -7,6 +7,9 @@ use App\Http\Controllers\EmailController;
 use App\Http\Controllers\GestionApartamentoController;
 use App\Http\Controllers\GestionIncidenciasController;
 use App\Http\Controllers\Admin\AdminIncidenciasController;
+use App\Http\Controllers\Admin\BankinterConfigController;
+use App\Http\Controllers\Admin\MonitorizacionDniController;
+use App\Http\Controllers\Admin\ConflictosReservasController;
 use App\Http\Controllers\MovimientosController;
 use App\Http\Controllers\StatusMailController;
 use Illuminate\Support\Facades\Route;
@@ -1333,6 +1336,45 @@ Route::prefix('api')->middleware('auth')->group(function () {
 // Rutas web de notificaciones
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:ADMIN'])->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+});
+
+// ============================================
+// NUEVAS RUTAS ADMIN: Bankinter, Monitor DNI, Conflictos, WhatsApp Templates
+// ============================================
+Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:ADMIN'])->group(function () {
+
+    // Bankinter - Sincronizacion bancaria
+    Route::prefix('bankinter')->name('bankinter.')->group(function () {
+        Route::get('/', [BankinterConfigController::class, 'index'])->name('index');
+        Route::post('/sincronizar/{cuenta}', [BankinterConfigController::class, 'sincronizar'])->name('sincronizar');
+        Route::get('/historial', [BankinterConfigController::class, 'historial'])->name('historial');
+    });
+
+    // Monitorizacion DNI
+    Route::prefix('monitorizacion-dni')->name('monitorizacion-dni.')->group(function () {
+        Route::get('/', [MonitorizacionDniController::class, 'index'])->name('index');
+        Route::get('/{reservaId}/detalle', [MonitorizacionDniController::class, 'detalle'])->name('detalle');
+    });
+
+    // Conflictos de Reservas
+    Route::prefix('conflictos-reservas')->name('conflictos-reservas.')->group(function () {
+        Route::get('/', [ConflictosReservasController::class, 'index'])->name('index');
+        Route::get('/{id}/detalle', [ConflictosReservasController::class, 'detalle'])->name('detalle');
+        Route::post('/{id}/resolver', [ConflictosReservasController::class, 'resolver'])->name('resolver');
+    });
+
+    // Plantillas WhatsApp (admin views)
+    Route::prefix('whatsapp-templates')->name('whatsapp-templates.')->group(function () {
+        Route::get('/', [WhatsappTemplateController::class, 'index'])->name('index');
+        Route::get('/create', [WhatsappTemplateController::class, 'create'])->name('create');
+        Route::post('/', [WhatsappTemplateController::class, 'store'])->name('store');
+        Route::get('/sync', [WhatsappTemplateController::class, 'sync'])->name('sync');
+        Route::get('/{whatsappTemplate}/edit', [WhatsappTemplateController::class, 'edit'])->name('edit');
+        Route::put('/{whatsappTemplate}', [WhatsappTemplateController::class, 'update'])->name('update');
+        Route::delete('/{whatsappTemplate}', [WhatsappTemplateController::class, 'destroy'])->name('destroy');
+        Route::post('/{whatsappTemplate}/test', [WhatsappTemplateController::class, 'test'])->name('test');
+        Route::get('/{whatsappTemplate}/check-status', [WhatsappTemplateController::class, 'checkStatus'])->name('check-status');
+    });
 });
 
 

@@ -295,6 +295,13 @@
                                         <li><a class="dropdown-item" href="{{ route('admin.cerrar-apartamento.index') }}">
                                             <i class="fas fa-door-closed me-2"></i>Cerrar Apartamento
                                         </a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item" href="{{ route('admin.monitorizacion-dni.index') }}">
+                                            <i class="fas fa-id-card me-2"></i>Monitor DNI
+                                        </a></li>
+                                        <li><a class="dropdown-item" href="{{ route('admin.conflictos-reservas.index') }}">
+                                            <i class="fas fa-exclamation-triangle me-2"></i>Conflictos Reservas
+                                        </a></li>
                                     </ul>
                                 </li>
 
@@ -426,6 +433,10 @@
                                         <li><a class="dropdown-item" href="{{ route('informes.ai.index') }}">
                                             <i class="fas fa-robot me-2"></i>Informes AI
                                         </a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item" href="{{ route('admin.bankinter.index') }}">
+                                            <i class="fas fa-university me-2"></i>Bankinter
+                                        </a></li>
                                     </ul>
                                 </li>
 
@@ -451,6 +462,10 @@
                                         <li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item" href="{{ route('admin.contactos-web.index') }}">
                                             <i class="fas fa-envelope-open-text me-2"></i>Contactos desde la Web
+                                        </a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item" href="{{ route('admin.whatsapp-templates.index') }}">
+                                            <i class="fab fa-whatsapp me-2"></i>Plantillas WhatsApp
                                         </a></li>
                                     </ul>
                                 </li>
