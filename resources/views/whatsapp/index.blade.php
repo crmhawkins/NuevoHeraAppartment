@@ -379,7 +379,6 @@
 
                     @endphp
                     @foreach ($items as $key => $item)
-                    {{-- {{dd($items)}} --}}
                         <div class="friend-drawer friend-drawer--onhover" data-id="{{$key}}">
                             <img class="profile-image" src="https://media.istockphoto.com/id/1337144146/es/vector/vector-de-icono-de-perfil-de-avatar-predeterminado.jpg?s=612x612&w=0&k=20&c=YiNB64vwYQnKqp-bWd5mB_9QARD3tSpIosg-3kuQ_CI=" alt="">
                             <div class="text">
@@ -390,6 +389,11 @@
                             <span class="time text-muted small">{{$item[0]->created_at}}</span>
                         </div>
                 @endforeach
+                @if(!empty($hasMore))
+                    <div id="load-more-conversations" style="text-align:center; padding:10px;">
+                        <button class="btn btn-sm btn-secondary" id="btn-load-more-conversations">Cargar m&aacute;s conversaciones</button>
+                    </div>
+                @endif
                 </div>
             </div>
           <div id="chat-mensajes" class="col-md-8" style="display:none;height: 100%;">
@@ -404,6 +408,8 @@
         var data = @json($resultado);
         var datas = JSON.stringify(data)
         var messageInput = $('#message-input');
+        var conversationOffset = 50;
+        var loadingMore = false;
 
         // EVENTOS
         // $('.volver').on('click', function() {
@@ -570,6 +576,52 @@
                 $('#search-input').val(''); // Borra el texto del input
                 $(this).hide(); // Oculta el ícono de "x"
                 $(".friend-drawer").show(); // Muestra todos los amigos nuevamente
+            });
+
+            // Load more conversations
+            $(document).on('click', '#btn-load-more-conversations', function() {
+                if (loadingMore) return;
+                loadingMore = true;
+                var $btn = $(this);
+                $btn.text('Cargando...').prop('disabled', true);
+
+                $.ajax({
+                    url: '/mensajes-whatsapp',
+                    data: { offset: conversationOffset, limit: 50 },
+                    dataType: 'json',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    success: function(response) {
+                        var newData = response.resultado;
+                        // Merge new data into existing data object
+                        Object.keys(newData).forEach(function(key) {
+                            if (!data[key]) {
+                                data[key] = newData[key];
+                                // Append new conversation to sidebar
+                                var item = newData[key][0];
+                                var truncMsg = (item.mensaje || '').substring(0, 20);
+                                if ((item.mensaje || '').length > 20) truncMsg += '...';
+                                var html = '<div class="friend-drawer friend-drawer--onhover" data-id="' + key + '">' +
+                                    '<img class="profile-image" src="https://media.istockphoto.com/id/1337144146/es/vector/vector-de-icono-de-perfil-de-avatar-predeterminado.jpg?s=612x612&w=0&k=20&c=YiNB64vwYQnKqp-bWd5mB_9QARD3tSpIosg-3kuQ_CI=" alt="">' +
+                                    '<div class="text"><h6>' + (item.nombre_remitente || 'Desconocido') + '</h6>' +
+                                    '<small>' + key + '</small>' +
+                                    '<p class="text-muted">' + truncMsg + '</p></div>' +
+                                    '<span class="time text-muted small">' + item.created_at + '</span></div>';
+                                $('#load-more-conversations').before(html);
+                            }
+                        });
+                        conversationOffset += 50;
+                        if (!response.hasMore) {
+                            $('#load-more-conversations').remove();
+                        } else {
+                            $btn.text('Cargar m\u00e1s conversaciones').prop('disabled', false);
+                        }
+                        loadingMore = false;
+                    },
+                    error: function() {
+                        $btn.text('Cargar m\u00e1s conversaciones').prop('disabled', false);
+                        loadingMore = false;
+                    }
+                });
             });
         });
 

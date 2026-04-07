@@ -2342,24 +2342,44 @@ class WhatsappController extends Controller
 
 
     // Vista de los mensajes
-    public function whatsapp()
+    public function whatsapp(Request $request)
     {
+        $limit = $request->get('limit', 50);
+        $offset = $request->get('offset', 0);
+        $search = $request->get('search');
+
         // Obtener los IDs del último mensaje por cada remitente (excepto "guest")
         $ids = ChatGpt::where('remitente', '!=', 'guest')
             ->selectRaw('MAX(id) as id')
             ->groupBy('remitente')
             ->pluck('id');
 
-        // Cargar solo esos mensajes
-        $mensajes = ChatGpt::whereIn('id', $ids)
-            ->orderBy('created_at', 'desc')
+        // Cargar solo esos mensajes con eager loading, limitados
+        $mensajesQuery = ChatGpt::with('whatsappMensaje')
+            ->whereIn('id', $ids)
+            ->orderBy('created_at', 'desc');
+
+        $totalConversations = $mensajesQuery->count();
+
+        $mensajes = $mensajesQuery
+            ->skip($offset)
+            ->take($limit)
             ->get();
+
+        // Batch load all clients in ONE query instead of N+1
+        $phones = $mensajes->pluck('remitente')->map(fn($r) => '+'.$r)->toArray();
+        $clientes = Cliente::where(function ($q) use ($phones) {
+                $q->whereIn('telefono', $phones)
+                  ->orWhereIn('telefono_movil', $phones);
+            })
+            ->get()
+            ->keyBy(fn($c) => ltrim($c->telefono ?: $c->telefono_movil, '+'));
 
         $resultado = [];
         foreach ($mensajes as $mensaje) {
             $mensaje['whatsapp_mensaje'] = $mensaje->whatsappMensaje;
 
-            $cliente = Cliente::where('telefono', '+'.$mensaje->remitente)->first();
+            $cliente = $clientes->get($mensaje->remitente);
             $mensaje['nombre_remitente'] = $cliente
                 ? ($cliente->nombre !== '' ? $cliente->nombre . ' ' . $cliente->apellido1 : $cliente->alias)
                 : 'Desconocido';
@@ -2367,7 +2387,17 @@ class WhatsappController extends Controller
             $resultado[$mensaje->remitente][] = $mensaje;
         }
 
-        return view('whatsapp.index', compact('resultado'));
+        $hasMore = ($offset + $limit) < $totalConversations;
+
+        if ($request->ajax()) {
+            return response()->json([
+                'resultado' => $resultado,
+                'hasMore' => $hasMore,
+                'nextOffset' => $offset + $limit,
+            ]);
+        }
+
+        return view('whatsapp.index', compact('resultado', 'hasMore'));
     }
 
 
