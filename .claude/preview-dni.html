@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Verificación de Identidad - Hawkins Suites</title>
+    <style>
+        :root {
+            --booking-blue: #003580;
+            --booking-blue-hover: #004585;
+            --booking-blue-light: #E9F0FF;
+            --booking-yellow: #FFB700;
+            --booking-success: #0D7377;
+            --booking-error: #EB5757;
+            --booking-gray-dark: #333333;
+            --booking-gray-medium: #666666;
+            --booking-gray-light: #E8E8E8;
+            --booking-gray-bg: #F5F5F5;
+            --booking-white: #FFFFFF;
+            --spacing-xs: 8px;
+            --spacing-sm: 16px;
+            --spacing-md: 24px;
+            --spacing-lg: 32px;
+            --spacing-xl: 40px;
+            --font-family: BlinkMacSystemFont, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --font-size-base: 16px;
+            --font-size-small: 14px;
+            --font-size-xsmall: 12px;
+            --transition: all 0.2s ease;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: var(--font-family);
+            background-color: var(--booking-gray-bg);
+            min-height: 100vh;
+            color: var(--booking-gray-dark);
+        }
+        .portal-header {
+            background: var(--booking-blue);
+            width: 100%;
+            padding: var(--spacing-md);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .portal-header-content {
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+        }
+        .portal-logo {
+            width: 60%;
+            max-width: 300px;
+            height: auto;
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+        .language-selector {
+            position: absolute;
+            right: 0;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+        }
+        .language-select {
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: var(--booking-white);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: var(--font-size-small);
+            font-weight: 500;
+            cursor: pointer;
+            font-family: var(--font-family);
+            padding-right: 30px;
+        }
+        .language-select option { background: var(--booking-blue); color: white; }
+        .main-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: calc(100vh - 80px);
+            padding: var(--spacing-lg) 20px var(--spacing-xl);
+        }
+        .container {
+            background: var(--booking-white);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            max-width: 500px;
+            width: 100%;
+            padding: var(--spacing-xl) var(--spacing-md);
+            text-align: center;
+            border: 1px solid var(--booking-gray-light);
+        }
+        .icon { font-size: 64px; margin-bottom: var(--spacing-md); }
+        h1 {
+            font-size: 28px;
+            color: var(--booking-blue);
+            margin-bottom: var(--spacing-xs);
+            font-weight: 700;
+        }
+        .subtitle {
+            color: var(--booking-gray-medium);
+            font-size: var(--font-size-base);
+            margin-bottom: var(--spacing-xl);
+            line-height: 1.6;
+        }
+        .options { display: flex; flex-direction: column; gap: var(--spacing-md); }
+        .btn-primary {
+            background: var(--booking-blue);
+            color: var(--booking-white);
+            border: none;
+            padding: 16px 24px;
+            border-radius: 6px;
+            font-size: var(--font-size-base);
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-xs);
+            text-decoration: none;
+            min-height: 52px;
+        }
+        .btn-primary:hover {
+            background: var(--booking-blue-hover);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0,53,128,0.2);
+        }
+        .btn-secondary {
+            background: var(--booking-white);
+            color: var(--booking-blue);
+            border: 2px solid var(--booking-blue);
+            padding: 16px 24px;
+            border-radius: 6px;
+            font-size: var(--font-size-base);
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: var(--spacing-xs);
+            text-decoration: none;
+            min-height: 52px;
+        }
+        .btn-secondary:hover { background: var(--booking-blue-light); }
+        .reservation-info {
+            background: var(--booking-blue-light);
+            border-radius: 8px;
+            padding: var(--spacing-md);
+            margin-top: var(--spacing-lg);
+            text-align: left;
+            border: 1px solid var(--booking-blue);
+        }
+        .reservation-info h3 {
+            font-size: 18px;
+            color: var(--booking-blue);
+            margin-bottom: var(--spacing-sm);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-xs);
+        }
+        .reservation-info-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: var(--spacing-sm);
+            color: var(--booking-gray-dark);
+            font-size: var(--font-size-base);
+            padding: var(--spacing-xs) 0;
+            border-bottom: 1px solid rgba(0,53,128,0.1);
+        }
+        .reservation-info-item:last-child { margin-bottom: 0; border-bottom: none; }
+        .reservation-info-label {
+            font-weight: 600;
+            min-width: 140px;
+            color: var(--booking-blue);
+            font-size: var(--font-size-small);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .reservation-info-value {
+            flex: 1;
+            color: var(--booking-gray-dark);
+            font-weight: 500;
+            margin-left: var(--spacing-sm);
+        }
+        /* Modal */
+        .info-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            padding: var(--spacing-md);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .info-modal.show { display: flex; opacity: 1; }
+        .info-modal-content {
+            background: var(--booking-white);
+            border-radius: 12px;
+            padding: var(--spacing-xl);
+            max-width: 500px;
+            width: 100%;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            text-align: left;
+        }
+        .info-modal h3 {
+            font-size: 24px;
+            color: var(--booking-blue);
+            margin-bottom: var(--spacing-md);
+            font-weight: 700;
+            text-align: center;
+        }
+        .info-modal ul { list-style: none; padding-left: 0; margin-bottom: var(--spacing-lg); }
+        .info-modal li {
+            color: var(--booking-gray-dark);
+            font-size: var(--font-size-base);
+            margin-bottom: var(--spacing-sm);
+            padding-left: 30px;
+            position: relative;
+            line-height: 1.6;
+        }
+        .info-modal li:before {
+            content: "\2713";
+            position: absolute;
+            left: 0;
+            color: var(--booking-success);
+            font-weight: bold;
+            font-size: 20px;
+        }
+        .info-modal-close {
+            background: var(--booking-blue);
+            color: var(--booking-white);
+            border: none;
+            padding: 12px 32px;
+            border-radius: 6px;
+            font-size: var(--font-size-base);
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+        }
+        /* Footer */
+        .portal-footer {
+            background: var(--booking-gray-dark);
+            color: var(--booking-white);
+            padding: var(--spacing-xl) var(--spacing-md);
+            margin-top: var(--spacing-xl);
+            border-top: 3px solid var(--booking-blue);
+        }
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: var(--spacing-lg);
+        }
+        .footer-section h4 {
+            color: white;
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: var(--spacing-sm);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .footer-section p, .footer-section a {
+            color: rgba(255,255,255,0.8);
+            font-size: var(--font-size-small);
+            line-height: 1.6;
+            margin-bottom: var(--spacing-xs);
+            text-decoration: none;
+            display: block;
+        }
+        .footer-section a:hover { color: white; }
+        .footer-icon { margin-right: var(--spacing-xs); }
+        .footer-bottom {
+            max-width: 1200px;
+            margin: var(--spacing-lg) auto 0;
+            padding-top: var(--spacing-md);
+            border-top: 1px solid rgba(255,255,255,0.1);
+            text-align: center;
+            color: rgba(255,255,255,0.6);
+            font-size: var(--font-size-xsmall);
+        }
+        @media (max-width: 768px) {
+            body { background-color: var(--booking-white); }
+            .container { background: transparent; border: none; box-shadow: none; border-radius: 0; padding: var(--spacing-md) 0; }
+            .main-wrapper { min-height: calc(100vh - 70px); padding: var(--spacing-md) var(--spacing-sm); }
+            .language-selector { position: relative; margin-left: auto; }
+            h1 { font-size: 24px; }
+            .subtitle { font-size: var(--font-size-small); }
+            .btn-primary { font-size: var(--font-size-small); padding: 14px 20px; min-height: 48px; }
+            .btn-secondary { background: transparent; border: none; color: var(--booking-blue); font-size: var(--font-size-small); padding: 14px 20px; min-height: 48px; }
+            .reservation-info { background: white; border: 1px solid var(--booking-gray-light); }
+            .reservation-info-item { flex-direction: column; align-items: flex-start; }
+            .reservation-info-label { min-width: auto; margin-bottom: 4px; font-size: var(--font-size-xsmall); }
+            .reservation-info-value { margin-left: 0; font-size: var(--font-size-small); }
+            .footer-content { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <header class="portal-header">
+        <div class="portal-header-content">
+            <div class="portal-logo">HAWKINS SUITES</div>
+            <div class="language-selector">
+                <select class="language-select">
+                    <option value="es" selected>&#127466;&#127480; ES</option>
+                    <option value="en">&#127468;&#127463; EN</option>
+                    <option value="fr">&#127467;&#127479; FR</option>
+                    <option value="de">&#127465;&#127466; DE</option>
+                    <option value="it">&#127470;&#127481; IT</option>
+                    <option value="pt">&#127477;&#127481; PT</option>
+                </select>
+            </div>
+        </div>
+    </header>
+
+    <div class="main-wrapper">
+        <div class="container">
+            <div class="icon">&#127380;</div>
+            <h1>Verificaci&oacute;n de Identidad</h1>
+            <p class="subtitle">
+                Para completar tu registro, necesitamos verificar tu identidad.<br>
+                Es un requisito legal seg&uacute;n el <strong>Real Decreto 933/2021</strong>.
+            </p>
+            <p class="subtitle" style="margin-top: var(--spacing-xs); font-size: var(--font-size-small); color: var(--booking-gray-medium);">
+                Elige c&oacute;mo prefieres enviar tu documento:
+            </p>
+
+            <div class="options">
+                <a href="#" class="btn-primary" onclick="alert('Esto abrir&iacute;a la c&aacute;mara del m&oacute;vil para escanear el DNI')">
+                    &#128247; Hacer Foto del Documento
+                </a>
+                <a href="#" class="btn-secondary" onclick="alert('Esto abrir&iacute;a el selector de archivos para subir im&aacute;genes del DNI')">
+                    &#128196; Subir Im&aacute;genes
+                </a>
+            </div>
+
+            <div class="reservation-info">
+                <h3>&#127968; Tu Reserva</h3>
+                <div class="reservation-info-item">
+                    <span class="reservation-info-label">Apartamento</span>
+                    <span class="reservation-info-value">Hawkins Suite Centro - 3A</span>
+                </div>
+                <div class="reservation-info-item">
+                    <span class="reservation-info-label">C&oacute;digo</span>
+                    <span class="reservation-info-value">BK-2026-04821</span>
+                </div>
+                <div class="reservation-info-item">
+                    <span class="reservation-info-label">Check-in</span>
+                    <span class="reservation-info-value">10/04/2026</span>
+                </div>
+                <div class="reservation-info-item">
+                    <span class="reservation-info-label">Check-out</span>
+                    <span class="reservation-info-value">14/04/2026</span>
+                </div>
+                <div class="reservation-info-item">
+                    <span class="reservation-info-label">Personas:</span>
+                    <span class="reservation-info-value">2</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Informacion -->
+    <div id="infoModal" class="info-modal">
+        <div class="info-modal-content">
+            <h3>&#9432; Antes de empezar</h3>
+            <p style="font-size: var(--font-size-small); color: var(--booking-gray-medium); margin-bottom: var(--spacing-md); text-align: center; line-height: 1.6;">
+                Necesitamos una foto de tu documento de identidad (DNI, pasaporte o tarjeta de residencia) por ambas caras.
+            </p>
+            <ul>
+                <li>Ten tu documento a mano</li>
+                <li>Aseg&uacute;rate de tener buena iluminaci&oacute;n</li>
+                <li>La foto debe ser n&iacute;tida y legible</li>
+            </ul>
+            <button class="info-modal-close" onclick="cerrarInfoModal()">Entendido</button>
+        </div>
+    </div>
+
+    <footer class="portal-footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>Soporte</h4>
+                <a href="#">&#128231; info@apartamentosalgeciras.com</a>
+                <a href="#">&#128222; +34 633 065 237</a>
+                <a href="#">&#128172; WhatsApp: +34 605 37 93 29</a>
+                <p>&#128336; Atenci&oacute;n 24/7 para emergencias</p>
+            </div>
+            <div class="footer-section">
+                <h4>Informaci&oacute;n Legal</h4>
+                <a href="#">Pol&iacute;tica de Privacidad</a>
+                <a href="#">T&eacute;rminos y Condiciones</a>
+                <a href="#">Pol&iacute;tica de Cookies</a>
+                <a href="#">Aviso Legal</a>
+            </div>
+            <div class="footer-section">
+                <h4>Sobre Nosotros</h4>
+                <p>Apartamentos Hawkins</p>
+                <p>Alojamientos tur&iacute;sticos en Algeciras</p>
+                <a href="#">&#127760; www.apartamentosalgeciras.com</a>
+                <p>&#128205; Algeciras, C&aacute;diz, Espa&ntilde;a</p>
+            </div>
+            <div class="footer-section">
+                <h4>Cumplimiento Normativo</h4>
+                <p>Registro de Turismo de Andaluc&iacute;a</p>
+                <p>N&uacute;mero de Registro: VFT/CA/XXXXX</p>
+                <p style="font-size: var(--font-size-xsmall); margin-top: var(--spacing-sm);">
+                    Cumplimiento con Real Decreto 933/2021 y Ley 13/2011 de Turismo de Andaluc&iacute;a
+                </p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 Apartamentos Hawkins. Todos los derechos reservados.</p>
+            <p style="margin-top: var(--spacing-xs);">Protegemos tus datos seg&uacute;n el RGPD y la legislaci&oacute;n espa&ntilde;ola vigente.</p>
+        </div>
+    </footer>
+
+    <script>
+        // Mostrar modal al cargar
+        setTimeout(function() {
+            document.getElementById('infoModal').classList.add('show');
+        }, 500);
+        setTimeout(function() { cerrarInfoModal(); }, 5000);
+
+        function cerrarInfoModal() {
+            var m = document.getElementById('infoModal');
+            if (m) { m.classList.remove('show'); setTimeout(function(){ m.style.display='none'; }, 300); }
+        }
+        document.addEventListener('click', function(e) {
+            var m = document.getElementById('infoModal');
+            if (m && e.target === m) cerrarInfoModal();
+        });
+    </script>
+</body>
+</html>

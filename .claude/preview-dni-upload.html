@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Subir Documentos - Hawkins Suites</title>
+    <style>
+        :root {
+            --booking-blue: #003580;
+            --booking-blue-hover: #004585;
+            --booking-blue-light: #E9F0FF;
+            --booking-yellow: #FFB700;
+            --booking-success: #0D7377;
+            --booking-error: #EB5757;
+            --booking-gray-dark: #333333;
+            --booking-gray-medium: #666666;
+            --booking-gray-light: #E8E8E8;
+            --booking-gray-bg: #F5F5F5;
+            --booking-white: #FFFFFF;
+            --spacing-xs: 8px;
+            --spacing-sm: 16px;
+            --spacing-md: 24px;
+            --spacing-lg: 32px;
+            --spacing-xl: 40px;
+            --font-family: BlinkMacSystemFont, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            --font-size-base: 16px;
+            --font-size-small: 14px;
+            --font-size-xsmall: 12px;
+            --transition: all 0.2s ease;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: var(--font-family); background-color: var(--booking-gray-bg); min-height: 100vh; color: var(--booking-gray-dark); }
+        .portal-header { background: var(--booking-blue); width: 100%; padding: var(--spacing-md); box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; }
+        .portal-header-content { width: 100%; max-width: 1200px; display: flex; align-items: center; justify-content: space-between; }
+        .portal-logo { color: white; font-size: 24px; font-weight: 700; letter-spacing: 2px; }
+        .language-select { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 6px 12px; border-radius: 6px; font-size: var(--font-size-small); }
+        .main-wrapper { padding: var(--spacing-lg) 20px var(--spacing-xl); min-height: calc(100vh - 80px); }
+        .container { max-width: 800px; margin: 0 auto; width: 100%; }
+        h1 { font-size: 28px; color: var(--booking-blue); margin-bottom: var(--spacing-xs); text-align: center; font-weight: 700; }
+        .subtitle { color: var(--booking-gray-medium); font-size: var(--font-size-base); margin-bottom: var(--spacing-lg); text-align: center; line-height: 1.6; }
+        .person-section { margin-bottom: var(--spacing-xl); padding: var(--spacing-md); background: white; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border: 1px solid var(--booking-gray-light); }
+        .person-title { font-size: 20px; color: var(--booking-blue); margin-bottom: var(--spacing-md); font-weight: 600; padding-bottom: var(--spacing-xs); border-bottom: 2px solid var(--booking-blue-light); }
+        .person-name { font-size: var(--font-size-small); color: var(--booking-gray-medium); margin-bottom: var(--spacing-md); }
+        .upload-section { margin-bottom: var(--spacing-md); }
+        .upload-label { display: block; font-weight: 600; color: var(--booking-gray-dark); margin-bottom: var(--spacing-xs); font-size: var(--font-size-base); }
+        .required { color: var(--booking-error); }
+        .upload-area { border: 2px dashed var(--booking-blue); border-radius: 8px; padding: var(--spacing-lg); text-align: center; cursor: pointer; transition: var(--transition); background: var(--booking-blue-light); }
+        .upload-area:hover { border-color: var(--booking-blue-hover); }
+        .upload-icon { font-size: 48px; margin-bottom: 10px; }
+        .upload-text { color: var(--booking-gray-dark); font-size: var(--font-size-base); margin-bottom: 5px; font-weight: 600; }
+        .upload-hint { color: var(--booking-gray-medium); font-size: var(--font-size-small); }
+        .additional-data-section { margin-top: var(--spacing-lg); padding-top: var(--spacing-md); border-top: 1px solid var(--booking-gray-light); }
+        .additional-data-title { font-size: 16px; color: var(--booking-blue); margin-bottom: var(--spacing-sm); font-weight: 600; }
+        .form-group { margin-bottom: var(--spacing-md); }
+        .form-label { display: block; font-weight: 600; color: var(--booking-gray-dark); margin-bottom: var(--spacing-xs); font-size: var(--font-size-small); }
+        .form-input { width: 100%; padding: 10px 12px; border: 1px solid var(--booking-gray-light); border-radius: 6px; font-size: var(--font-size-base); font-family: var(--font-family); color: var(--booking-gray-dark); }
+        .form-input:focus { outline: none; border-color: var(--booking-blue); box-shadow: 0 0 0 3px var(--booking-blue-light); }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-sm); }
+        .form-help { font-size: var(--font-size-xsmall); color: var(--booking-gray-medium); margin-top: 4px; }
+        .btn-submit { background: var(--booking-blue); color: white; border: none; padding: 16px 24px; border-radius: 6px; font-size: var(--font-size-base); font-weight: 600; cursor: pointer; width: 100%; margin-top: var(--spacing-md); min-height: 52px; }
+        .btn-submit:hover { background: var(--booking-blue-hover); transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,53,128,0.2); }
+        .btn-back { background: white; color: var(--booking-blue); border: 2px solid var(--booking-blue); padding: 8px 16px; border-radius: 6px; font-size: var(--font-size-small); font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block; margin-bottom: var(--spacing-md); }
+        .btn-back:hover { background: var(--booking-blue-light); }
+        .extracted-data { background: var(--booking-gray-light); padding: var(--spacing-md); border-radius: 6px; margin-bottom: var(--spacing-md); }
+        .extracted-item { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.05); font-size: var(--font-size-small); }
+        .extracted-label { font-weight: 600; color: var(--booking-blue); }
+        .extracted-value { color: var(--booking-gray-dark); }
+        .preview-container { margin-top: var(--spacing-sm); position: relative; }
+        .preview-image { max-width: 100%; max-height: 200px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .process-success { position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.9); padding: 5px 10px; border-radius: 4px; color: green; font-weight: bold; font-size: 13px; }
+        .image-controls { display: flex; justify-content: center; gap: 12px; margin: 12px 0; }
+        .btn-remove { padding: 10px 20px; background: linear-gradient(135deg, #EB5757, #C94A4A); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; }
+        .btn-replace { padding: 10px 20px; background: linear-gradient(135deg, #003580, #002654); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; }
+        .portal-footer { background: var(--booking-gray-dark); color: white; padding: var(--spacing-xl) var(--spacing-md); margin-top: var(--spacing-xl); border-top: 3px solid var(--booking-blue); }
+        .footer-content { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--spacing-lg); }
+        .footer-section h4 { color: white; font-size: 14px; font-weight: 700; margin-bottom: var(--spacing-sm); text-transform: uppercase; }
+        .footer-section p, .footer-section a { color: rgba(255,255,255,0.8); font-size: var(--font-size-small); line-height: 1.6; margin-bottom: var(--spacing-xs); text-decoration: none; display: block; }
+        .footer-bottom { max-width: 1200px; margin: var(--spacing-lg) auto 0; padding-top: var(--spacing-md); border-top: 1px solid rgba(255,255,255,0.1); text-align: center; color: rgba(255,255,255,0.6); font-size: var(--font-size-xsmall); }
+        @media (max-width: 768px) {
+            body { background-color: white; }
+            .person-section { background: transparent; border: none; box-shadow: none; padding: var(--spacing-md) 0; }
+            h1 { font-size: 24px; }
+            .form-row { grid-template-columns: 1fr; }
+            .footer-content { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <header class="portal-header">
+        <div class="portal-header-content">
+            <div class="portal-logo">HAWKINS SUITES</div>
+            <select class="language-select">
+                <option selected>&#127466;&#127480; ES</option>
+                <option>&#127468;&#127463; EN</option>
+                <option>&#127467;&#127479; FR</option>
+                <option>&#127465;&#127466; DE</option>
+            </select>
+        </div>
+    </header>
+
+    <div class="main-wrapper">
+        <div class="container">
+            <a href="#" class="btn-back" onclick="alert('Volver a la pantalla principal')">&#8592; Volver</a>
+
+            <h1>&#128196; Subir Documentos de Identidad</h1>
+            <p class="subtitle">Sube una foto del anverso y reverso de tu documento de identidad (DNI, pasaporte o tarjeta de residencia).</p>
+
+            <!-- Persona 1: Cliente Principal -->
+            <div class="person-section">
+                <div class="person-title">&#128100; Adulto 1 - Titular de la reserva</div>
+                <div class="person-name">Juan Garc&iacute;a L&oacute;pez</div>
+
+                <!-- Simulamos que ya subi&oacute; el frontal -->
+                <div class="upload-section">
+                    <label class="upload-label">Parte Frontal del Documento <span class="required">*</span></label>
+                    <div class="upload-area" style="border-style: solid; border-color: var(--booking-success); background: #E6F7F8;">
+                        <div class="preview-container">
+                            <div style="background: #ddd; width: 100%; height: 160px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #999; font-size: 14px;">
+                                [Foto frontal del DNI]
+                            </div>
+                            <div class="process-success">&#10003; Procesado</div>
+                        </div>
+                        <div class="image-controls">
+                            <button class="btn-remove">&#128465; Eliminar</button>
+                            <button class="btn-replace">&#128260; Reemplazar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="upload-section">
+                    <label class="upload-label">Parte Trasera del Documento <span style="color: var(--booking-gray-medium);">(Opcional)</span></label>
+                    <div class="upload-area">
+                        <div class="upload-icon">&#128247;</div>
+                        <div class="upload-text">Pulsa aqu&iacute; para subir una imagen</div>
+                        <div class="upload-hint">JPG, JPEG o PNG - M&aacute;ximo 10MB</div>
+                    </div>
+                </div>
+
+                <!-- Datos extra&iacute;dos por IA -->
+                <div class="additional-data-section">
+                    <div class="additional-data-title">&#128269; Datos Extra&iacute;dos del Documento</div>
+                    <div class="extracted-data">
+                        <p style="color: var(--booking-gray-medium); font-size: var(--font-size-small); margin-bottom: var(--spacing-sm);"><strong>Datos le&iacute;dos autom&aacute;ticamente:</strong></p>
+                        <div class="extracted-item"><span class="extracted-label">Nombre:</span><span class="extracted-value">JUAN</span></div>
+                        <div class="extracted-item"><span class="extracted-label">Apellidos:</span><span class="extracted-value">GARC&Iacute;A L&Oacute;PEZ</span></div>
+                        <div class="extracted-item"><span class="extracted-label">N&uacute;mero DNI:</span><span class="extracted-value">12345678Z</span></div>
+                        <div class="extracted-item"><span class="extracted-label">Fecha Nacimiento:</span><span class="extracted-value">15/03/1985</span></div>
+                        <div class="extracted-item"><span class="extracted-label">Nacionalidad:</span><span class="extracted-value">ESPA&Ntilde;OLA</span></div>
+                        <div class="extracted-item"><span class="extracted-label">Sexo:</span><span class="extracted-value">M</span></div>
+                        <div class="extracted-item"><span class="extracted-label">Fecha Expedici&oacute;n:</span><span class="extracted-value">20/01/2022</span></div>
+                    </div>
+
+                    <div class="additional-data-title">&#128221; Datos Adicionales</div>
+                    <p style="color: var(--booking-gray-medium); font-size: var(--font-size-small); margin-bottom: var(--spacing-md);">
+                        Por favor, completa los siguientes datos que necesitamos para tu registro.
+                    </p>
+
+                    <div class="form-group">
+                        <label class="form-label">Tel&eacute;fono M&oacute;vil <span class="required">*</span></label>
+                        <input type="tel" class="form-input" value="+34 612 345 678" placeholder="+34 600 000 000">
+                        <div class="form-help">Necesario para comunicaciones sobre tu estancia</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Email <span class="required">*</span></label>
+                        <input type="email" class="form-input" value="juan.garcia@email.com" placeholder="email@ejemplo.com">
+                        <div class="form-help">Te enviaremos la confirmaci&oacute;n y c&oacute;digos de acceso</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Persona 2: Acompa&ntilde;ante -->
+            <div class="person-section">
+                <div class="person-title">&#128100; Adulto 2 - Acompa&ntilde;ante</div>
+                <div class="person-name" style="color: var(--booking-gray-medium);">Pendiente de registrar informaci&oacute;n</div>
+
+                <div class="upload-section">
+                    <label class="upload-label">Parte Frontal del Documento <span class="required">*</span></label>
+                    <div class="upload-area">
+                        <div class="upload-icon">&#128247;</div>
+                        <div class="upload-text">Pulsa aqu&iacute; para subir una imagen</div>
+                        <div class="upload-hint">JPG, JPEG o PNG - M&aacute;ximo 10MB</div>
+                    </div>
+                </div>
+
+                <div class="upload-section">
+                    <label class="upload-label">Parte Trasera del Documento <span style="color: var(--booking-gray-medium);">(Opcional)</span></label>
+                    <div class="upload-area">
+                        <div class="upload-icon">&#128247;</div>
+                        <div class="upload-text">Pulsa aqu&iacute; para subir una imagen</div>
+                        <div class="upload-hint">JPG, JPEG o PNG - M&aacute;ximo 10MB</div>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn-submit">&#128272; Enviar Documentos</button>
+        </div>
+    </div>
+
+    <footer class="portal-footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>Soporte</h4>
+                <a href="#">&#128231; info@apartamentosalgeciras.com</a>
+                <a href="#">&#128222; +34 633 065 237</a>
+                <a href="#">&#128172; WhatsApp: +34 605 37 93 29</a>
+                <p>&#128336; Atenci&oacute;n 24/7 para emergencias</p>
+            </div>
+            <div class="footer-section">
+                <h4>Informaci&oacute;n Legal</h4>
+                <a href="#">Pol&iacute;tica de Privacidad</a>
+                <a href="#">T&eacute;rminos y Condiciones</a>
+                <a href="#">Aviso Legal</a>
+            </div>
+            <div class="footer-section">
+                <h4>Sobre Nosotros</h4>
+                <p>Apartamentos Hawkins</p>
+                <p>Algeciras, C&aacute;diz, Espa&ntilde;a</p>
+            </div>
+            <div class="footer-section">
+                <h4>Cumplimiento Normativo</h4>
+                <p>Registro de Turismo de Andaluc&iacute;a</p>
+                <p>Cumplimiento con Real Decreto 933/2021</p>
+            </div>
+        </div>
+        <div class="footer-bottom">
+            <p>&copy; 2026 Apartamentos Hawkins. Todos los derechos reservados.</p>
+        </div>
+    </footer>
+</body>
+</html>

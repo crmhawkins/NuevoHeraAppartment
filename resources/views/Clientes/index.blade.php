@@ -222,10 +222,10 @@
                                     <td>
                                         <div class="text-muted">
                                             <i class="fas fa-calendar-plus me-1"></i>
-                                            {{ $cliente->created_at->format('d/m/Y') }}
+                                            {{ $cliente->created_at ? $cliente->created_at->format('d/m/Y') : '-' }}
                                         </div>
                                         <small class="text-muted">
-                                            {{ $cliente->created_at->format('H:i') }}
+                                            {{ $cliente->created_at ? $cliente->created_at->format('H:i') : '' }}
                                         </small>
                                     </td>
                                     <td>
@@ -253,12 +253,11 @@
                                                title="Editar cliente">
                                                 <i class="fas fa-edit"></i>
                                             </a>
-                                            <form action="{{ route('clientes.destroy', $cliente->id) }}" 
-                                                  method="POST" 
+                                            <form action="{{ route('clientes.destroy', $cliente->id) }}"
+                                                  method="POST"
                                                   class="d-inline"
                                                   onsubmit="return confirmarEliminacion()">
                                                 @csrf
-                                                @method('DELETE')
                                                 <button type="submit" 
                                                         class="btn btn-outline-danger btn-sm" 
                                                         title="Inactivar cliente">
