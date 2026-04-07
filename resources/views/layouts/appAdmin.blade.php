@@ -383,7 +383,7 @@
 
                                 <!-- Tesorería -->
                                 <li class="nav-item dropdown">
-                                    <a class="nav-link dropdown-toggle {{ request()->is('diario-caja*', 'ingresos*', 'gastos*', 'facturas*', 'bancos*', 'upload-files*', 'presupuestos*', 'informes-ai*', 'informe-ai*', 'pagos*') ? 'active' : '' }}" href="#" data-bs-toggle="dropdown" role="button" aria-expanded="false">
+                                    <a class="nav-link dropdown-toggle {{ request()->is('diario-caja*', 'ingresos*', 'gastos*', 'facturas*', 'presupuestos*', 'informes-ai*', 'informe-ai*', 'pagos*', 'metalicos*') ? 'active' : '' }}" href="#" data-bs-toggle="dropdown" role="button" aria-expanded="false">
                                         <i class="fas fa-cash-register me-1"></i>Tesorería
                                     </a>
                                     <ul class="dropdown-menu">
@@ -397,45 +397,18 @@
                                         <li><a class="dropdown-item" href="{{ route('admin.diarioCaja.index') }}">
                                             <i class="fas fa-book me-2"></i>Diario de Caja
                                         </a></li>
-                                        <li><a class="dropdown-item" href="{{ route('admin.estadosDiario.index') }}">
-                                            <i class="fas fa-chart-bar me-2"></i>Estados del Diario
-                                        </a></li>
                                         <li><a class="dropdown-item" href="{{ route('presupuestos.index') }}">
                                             <i class="fas fa-chart-pie me-2"></i>Presupuestos
-                                        </a></li>
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li><a class="dropdown-item" href="{{ route('admin.ingresos.index') }}">
-                                            <i class="fas fa-arrow-up me-2"></i>Ingresos
-                                        </a></li>
-                                        <li><a class="dropdown-item" href="{{ route('admin.categoriaIngresos.index') }}">
-                                            <i class="fas fa-folder-plus me-2"></i>Categoría de Ingresos
-                                        </a></li>
-                                        <li><a class="dropdown-item" href="{{ route('admin.gastos.index') }}">
-                                            <i class="fas fa-arrow-down me-2"></i>Gastos
-                                        </a></li>
-                                        <li><a class="dropdown-item" href="{{ route('admin.categoriaGastos.index') }}">
-                                            <i class="fas fa-folder-minus me-2"></i>Categoría de Gastos
                                         </a></li>
                                         <li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item" href="{{ route('admin.facturas.index') }}">
                                             <i class="fas fa-file-invoice me-2"></i>Facturas
                                         </a></li>
-                                        <li><a class="dropdown-item" href="{{ route('admin.bancos.index') }}">
-                                            <i class="fas fa-university me-2"></i>Bancos
-                                        </a></li>
                                         <li><a class="dropdown-item" href="{{ route('metalicos.index') }}">
                                             <i class="fas fa-coins me-2"></i>Metálicos
                                         </a></li>
-                                        <li><a class="dropdown-item" href="{{ route('admin.upload.files') }}">
-                                            <i class="fas fa-upload me-2"></i>Subida Ficheros
-                                        </a></li>
-                                        <li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item" href="{{ route('informes.ai.index') }}">
                                             <i class="fas fa-robot me-2"></i>Informes AI
-                                        </a></li>
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li><a class="dropdown-item" href="{{ route('admin.bankinter.index') }}">
-                                            <i class="fas fa-university me-2"></i>Bankinter
                                         </a></li>
                                     </ul>
                                 </li>

@@ -123,6 +123,80 @@ class BankinterConfigController extends Controller
     }
 
     /**
+     * Ejecutar sincronizacion para TODAS las cuentas configuradas (via AJAX desde Diario de Caja).
+     */
+    public function sincronizarTodas(Request $request)
+    {
+        try {
+            $service = new BankinterScraperService();
+            $aliases = $service->listarCuentas();
+
+            if (empty($aliases)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No hay cuentas Bankinter configuradas.',
+                ], 422);
+            }
+
+            $resultados = [];
+            $todoBien = true;
+
+            foreach ($aliases as $alias) {
+                $log = BankinterSyncLog::create([
+                    'cuenta_alias' => $alias,
+                    'fecha_sync'   => now(),
+                    'status'       => 'running',
+                ]);
+
+                $exitCode = Artisan::call('banco:importar-movimientos', [
+                    '--cuenta' => $alias,
+                ]);
+
+                $output = Artisan::output();
+                $stats = $this->parsearOutputComando($output);
+
+                $log->update([
+                    'total_filas'      => $stats['total_filas'],
+                    'procesados'       => $stats['procesados'],
+                    'duplicados'       => $stats['duplicados'],
+                    'errores'          => $stats['errores'],
+                    'ingresos_creados' => $stats['ingresos_creados'],
+                    'gastos_creados'   => $stats['gastos_creados'],
+                    'archivo'          => $stats['archivo'],
+                    'status'           => $exitCode === 0 ? 'success' : 'error',
+                    'error_message'    => $exitCode !== 0 ? $this->sanitizarOutput(substr($output, -500)) : null,
+                ]);
+
+                if ($exitCode !== 0) $todoBien = false;
+
+                $resultados[] = [
+                    'cuenta' => $alias,
+                    'success' => $exitCode === 0,
+                    'stats' => $stats,
+                ];
+            }
+
+            return response()->json([
+                'success' => $todoBien,
+                'message' => $todoBien
+                    ? 'Sincronizacion completada para todas las cuentas.'
+                    : 'Sincronizacion completada con errores en alguna cuenta.',
+                'resultados' => $resultados,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('[BankinterConfig] Error en sincronizacion global', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Historial completo de sincronizaciones (paginado).
      */
     public function historial(Request $request)

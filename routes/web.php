@@ -1349,6 +1349,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:ADMIN'])->grou
     // Bankinter - Sincronizacion bancaria
     Route::prefix('bankinter')->name('bankinter.')->group(function () {
         Route::get('/', [BankinterConfigController::class, 'index'])->name('index');
+        Route::post('/sincronizar-todas', [BankinterConfigController::class, 'sincronizarTodas'])->name('sincronizarTodas');
         Route::post('/sincronizar/{cuenta}', [BankinterConfigController::class, 'sincronizar'])->name('sincronizar');
         Route::get('/historial', [BankinterConfigController::class, 'historial'])->name('historial');
     });

@@ -13,6 +13,7 @@ use App\Models\Ingresos;
 use App\Models\SubCuentaContable;
 use App\Models\SubCuentaHijo;
 use App\Models\SubGrupoContable;
+use App\Models\BankinterSyncLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use RealRashid\SweetAlert\Facades\Alert;
@@ -258,7 +259,12 @@ class DiarioCajaController extends Controller
     $estados = EstadosDiario::all();
     $cuentas = CuentasContable::all();
 
-    return view('admin.contabilidad.diarioCaja.index', compact('response','saldoInicial','estados','cuentas'));
+    // 7) Ultima sincronizacion bancaria
+    $ultimaSync = BankinterSyncLog::where('status', 'success')
+        ->orderBy('fecha_sync', 'desc')
+        ->first();
+
+    return view('admin.contabilidad.diarioCaja.index', compact('response','saldoInicial','estados','cuentas','ultimaSync'));
 }
 
 

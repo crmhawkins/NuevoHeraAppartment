@@ -21,6 +21,45 @@
         </nav>
     </div>
 
+    <!-- Barra de Sincronizacion y Accesos Rapidos -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body py-3">
+            <div class="row align-items-center">
+                <div class="col-md-4">
+                    <div class="d-flex align-items-center">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px; background: linear-gradient(135deg, #007AFF, #0056CC);">
+                            <i class="fas fa-sync-alt text-white"></i>
+                        </div>
+                        <div>
+                            <small class="text-muted d-block">Ultima sincronizacion bancaria</small>
+                            <span class="fw-semibold">
+                                @if($ultimaSync)
+                                    {{ $ultimaSync->fecha_sync->format('d/m/Y H:i') }}
+                                    <span class="badge bg-success-subtle text-success ms-1">OK</span>
+                                @else
+                                    <span class="text-muted">Sin sincronizaciones</span>
+                                @endif
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 text-center">
+                    <a href="{{ route('admin.ingresos.index') }}" class="btn btn-outline-success btn-sm me-2">
+                        <i class="fas fa-arrow-up me-1"></i>Ver Ingresos
+                    </a>
+                    <a href="{{ route('admin.gastos.index') }}" class="btn btn-outline-danger btn-sm">
+                        <i class="fas fa-arrow-down me-1"></i>Ver Gastos
+                    </a>
+                </div>
+                <div class="col-md-4 text-end">
+                    <button type="button" class="btn btn-primary btn-sm" id="btnSincronizar" onclick="sincronizarBankinter()">
+                        <i class="fas fa-sync-alt me-2"></i>Sincronizar Ahora
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Tarjeta de Filtros -->
     <div class="card shadow-sm border-0 mb-4">
         <div class="card-header bg-white border-0 py-3">
@@ -332,6 +371,68 @@
               icon: 'error',
               title: 'Error',
               text: 'Error al generar el informe: ' + error.message,
+              confirmButtonText: 'Entendido'
+          });
+      });
+  }
+
+  function sincronizarBankinter() {
+      var btn = document.getElementById('btnSincronizar');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Sincronizando...';
+
+      Swal.fire({
+          title: 'Sincronizando cuentas bancarias...',
+          text: 'Esto puede tardar unos momentos',
+          icon: 'info',
+          allowOutsideClick: false,
+          showConfirmButton: false,
+          didOpen: function() {
+              Swal.showLoading();
+          }
+      });
+
+      fetch('{{ route("admin.bankinter.sincronizarTodas") }}', {
+          method: 'POST',
+          headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-TOKEN': '{{ csrf_token() }}',
+              'Accept': 'application/json'
+          }
+      })
+      .then(function(response) {
+          if (!response.ok) throw new Error('Error del servidor: ' + response.status);
+          return response.json();
+      })
+      .then(function(data) {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fas fa-sync-alt me-2"></i>Sincronizar Ahora';
+
+          if (data.success) {
+              Swal.fire({
+                  icon: 'success',
+                  title: 'Sincronizacion completada',
+                  text: data.message,
+                  confirmButtonText: 'Aceptar'
+              }).then(function() {
+                  location.reload();
+              });
+          } else {
+              Swal.fire({
+                  icon: 'warning',
+                  title: 'Sincronizacion con advertencias',
+                  text: data.message,
+                  confirmButtonText: 'Aceptar'
+              });
+          }
+      })
+      .catch(function(error) {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fas fa-sync-alt me-2"></i>Sincronizar Ahora';
+          Swal.fire({
+              icon: 'error',
+              title: 'Error',
+              text: 'Error al sincronizar: ' + error.message,
               confirmButtonText: 'Entendido'
           });
       });

@@ -648,6 +648,112 @@
         </div>
     </div>
 
+    {{-- ================================================================== --}}
+    {{-- SECTION 8: Datos Contables --}}
+    {{-- ================================================================== --}}
+    <div class="accordion-item">
+        <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#secDatosContables">
+                <i class="fas fa-calculator section-icon"></i>
+                Datos Contables
+                <span class="section-badge bg-light text-secondary">Bancos, Categorias, Estados, Bankinter</span>
+            </button>
+        </h2>
+        <div id="secDatosContables" class="accordion-collapse collapse" data-bs-parent="#credencialesAccordion">
+            <div class="accordion-body">
+
+                <h6 class="fw-semibold mb-3" style="color: #1D1D1F;">
+                    <i class="fas fa-cogs me-2" style="color: #007AFF;"></i>Configuracion Contable
+                </h6>
+                <p class="text-muted mb-3" style="font-size: 14px;">Accede a la gestion de los datos maestros de contabilidad desde aqui.</p>
+
+                <div class="row g-3 mb-4">
+                    <div class="col-md-6 col-lg-4">
+                        <a href="{{ route('admin.bancos.index') }}" class="text-decoration-none">
+                            <div class="d-flex align-items-center p-3 rounded-3" style="background: #F2F2F7; transition: all 0.2s ease;" onmouseover="this.style.background='#E5E5EA'" onmouseout="this.style.background='#F2F2F7'">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 42px; height: 42px; background: linear-gradient(135deg, #007AFF, #0056CC);">
+                                    <i class="fas fa-university text-white"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-semibold" style="color: #1D1D1F;">Bancos</div>
+                                    <small class="text-muted">Gestionar cuentas bancarias</small>
+                                </div>
+                                <i class="fas fa-chevron-right ms-auto text-muted"></i>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <a href="{{ route('admin.categoriaIngresos.index') }}" class="text-decoration-none">
+                            <div class="d-flex align-items-center p-3 rounded-3" style="background: #F2F2F7; transition: all 0.2s ease;" onmouseover="this.style.background='#E5E5EA'" onmouseout="this.style.background='#F2F2F7'">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 42px; height: 42px; background: linear-gradient(135deg, #34C759, #248A3D);">
+                                    <i class="fas fa-folder-plus text-white"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-semibold" style="color: #1D1D1F;">Categorias de Ingresos</div>
+                                    <small class="text-muted">Clasificacion de ingresos</small>
+                                </div>
+                                <i class="fas fa-chevron-right ms-auto text-muted"></i>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <a href="{{ route('admin.categoriaGastos.index') }}" class="text-decoration-none">
+                            <div class="d-flex align-items-center p-3 rounded-3" style="background: #F2F2F7; transition: all 0.2s ease;" onmouseover="this.style.background='#E5E5EA'" onmouseout="this.style.background='#F2F2F7'">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 42px; height: 42px; background: linear-gradient(135deg, #FF3B30, #D70015);">
+                                    <i class="fas fa-folder-minus text-white"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-semibold" style="color: #1D1D1F;">Categorias de Gastos</div>
+                                    <small class="text-muted">Clasificacion de gastos</small>
+                                </div>
+                                <i class="fas fa-chevron-right ms-auto text-muted"></i>
+                            </div>
+                        </a>
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <a href="{{ route('admin.estadosDiario.index') }}" class="text-decoration-none">
+                            <div class="d-flex align-items-center p-3 rounded-3" style="background: #F2F2F7; transition: all 0.2s ease;" onmouseover="this.style.background='#E5E5EA'" onmouseout="this.style.background='#F2F2F7'">
+                                <div class="rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 42px; height: 42px; background: linear-gradient(135deg, #FF9500, #C93400);">
+                                    <i class="fas fa-chart-bar text-white"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-semibold" style="color: #1D1D1F;">Estados del Diario</div>
+                                    <small class="text-muted">Estados de movimientos contables</small>
+                                </div>
+                                <i class="fas fa-chevron-right ms-auto text-muted"></i>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+
+                <hr class="my-4">
+
+                <h6 class="fw-semibold mb-3" style="color: #1D1D1F;">
+                    <i class="fas fa-university me-2" style="color: #007AFF;"></i>Sincronizacion Bankinter
+                </h6>
+                <div class="p-3 rounded-3 mb-3" style="background: #F0F7FF; border: 1px solid #D1E5FF;">
+                    <div class="d-flex align-items-center">
+                        <i class="fas fa-info-circle me-2" style="color: #007AFF;"></i>
+                        <span style="font-size: 14px; color: #1D1D1F;">La sincronizacion automatica se ejecuta diariamente a las 06:00</span>
+                    </div>
+                </div>
+                <a href="{{ route('admin.bankinter.index') }}" class="text-decoration-none">
+                    <div class="d-flex align-items-center p-3 rounded-3" style="background: #F2F2F7; transition: all 0.2s ease;" onmouseover="this.style.background='#E5E5EA'" onmouseout="this.style.background='#F2F2F7'">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 42px; height: 42px; background: linear-gradient(135deg, #5856D6, #3634A3);">
+                            <i class="fas fa-sync-alt text-white"></i>
+                        </div>
+                        <div>
+                            <div class="fw-semibold" style="color: #1D1D1F;">Gestionar cuentas y ver historial</div>
+                            <small class="text-muted">Configuracion de cuentas Bankinter, sincronizacion manual e historial</small>
+                        </div>
+                        <i class="fas fa-chevron-right ms-auto text-muted"></i>
+                    </div>
+                </a>
+
+            </div>
+        </div>
+    </div>
+
 </div>{{-- end accordion --}}
 
 <script>
