@@ -310,7 +310,78 @@ class ReservasController extends Controller
             ]);
         }
 
-        return redirect()->route('reservas.index')->with('success', 'Reserva creada con éxito');
+        // Enviar enlace DNI automáticamente al crear la reserva
+        try {
+            // Generar token DNI
+            $reserva->token = bin2hex(random_bytes(16));
+            $reserva->save();
+
+            // Enviar WhatsApp + Email con enlace DNI
+            $this->enviarDniAutomatico($reserva);
+
+            Log::info('DNI enviado automáticamente al crear reserva', ['reserva_id' => $reserva->id]);
+        } catch (\Exception $e) {
+            Log::error('Error al enviar DNI automático en creación de reserva', [
+                'reserva_id' => $reserva->id,
+                'error' => $e->getMessage()
+            ]);
+        }
+
+        return redirect()->route('reservas.index')->with('success', 'Reserva creada con éxito. Enlace DNI enviado al cliente.');
+    }
+
+    /**
+     * Envío automático de DNI al crear reserva (WhatsApp + Email)
+     */
+    private function enviarDniAutomatico(Reserva $reserva)
+    {
+        $cliente = $reserva->cliente;
+        if (!$cliente) return;
+
+        $token = $reserva->token;
+
+        // Detectar idioma
+        $idiomaCliente = 'es';
+        if ($cliente->nacionalidad) {
+            try {
+                $clienteService = app(\App\Services\ClienteService::class);
+                $idiomaCliente = $clienteService->idiomaCodigo($cliente->nacionalidad) ?: 'es';
+            } catch (\Exception $e) {
+                $idiomaCliente = 'es';
+            }
+        }
+
+        // WhatsApp
+        $telefono = $cliente->telefono_movil ?? $cliente->telefono ?? null;
+        if (!empty($telefono)) {
+            $phoneCliente = $this->limpiarNumeroTelefono($telefono);
+            try {
+                $kernel = app(\App\Console\Kernel::class);
+                $kernel->mensajesAutomaticosBoton('dni', $token, $phoneCliente, $idiomaCliente);
+                Log::info('DNI WhatsApp enviado automáticamente', ['reserva_id' => $reserva->id, 'telefono' => $phoneCliente]);
+            } catch (\Exception $e) {
+                Log::error('Error DNI WhatsApp automático', ['reserva_id' => $reserva->id, 'error' => $e->getMessage()]);
+            }
+        }
+
+        // Email
+        $email = $cliente->email_secundario ?: $cliente->email;
+        if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            try {
+                $kernel = app(\App\Console\Kernel::class);
+                $mensajeEmail = $kernel->dniEmail($idiomaCliente, $token);
+                $kernel->enviarEmail($email, 'emails.envioClavesEmail', $mensajeEmail, 'Hawkins Suite - DNI', $token);
+                Log::info('DNI Email enviado automáticamente', ['reserva_id' => $reserva->id, 'email' => $email]);
+            } catch (\Exception $e) {
+                Log::error('Error DNI Email automático', ['reserva_id' => $reserva->id, 'error' => $e->getMessage()]);
+            }
+        }
+
+        // Registrar para que el cron no lo duplique
+        MensajeAuto::firstOrCreate(
+            ['reserva_id' => $reserva->id, 'categoria_id' => 1],
+            ['cliente_id' => $reserva->cliente_id, 'fecha_envio' => Carbon::now()]
+        );
     }
 
     /**
@@ -568,6 +639,109 @@ class ReservasController extends Controller
             return redirect()->route('reservas.show', $reserva->id)
                 ->with('error', 'Error inesperado al enviar la reserva a MIR: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Enviar enlace DNI al cliente por WhatsApp y Email
+     */
+    public function enviarDni($id)
+    {
+        try {
+            $reserva = Reserva::with('cliente', 'apartamento')->findOrFail($id);
+            $cliente = $reserva->cliente;
+
+            if (!$cliente) {
+                return response()->json(['success' => false, 'message' => 'No se encontró el cliente de esta reserva'], 422);
+            }
+
+            // Generar token si no existe
+            if (empty($reserva->token)) {
+                $reserva->token = bin2hex(random_bytes(16));
+                $reserva->save();
+            }
+
+            $token = $reserva->token;
+            $baseUrl = config('app.url');
+            $dniUrl = "{$baseUrl}/dni-scanner/{$token}";
+            $resultados = [];
+
+            // Detectar idioma del cliente
+            $idiomaCliente = 'es';
+            if ($cliente->nacionalidad) {
+                $clienteService = app(\App\Services\ClienteService::class);
+                $idiomaCliente = $clienteService->idiomaCodigo($cliente->nacionalidad) ?: 'es';
+            }
+
+            // 1. Enviar WhatsApp con template de DNI (si tiene teléfono)
+            $telefono = $cliente->telefono_movil ?? $cliente->telefono ?? null;
+            if (!empty($telefono)) {
+                $phoneCliente = $this->limpiarNumeroTelefono($telefono);
+                try {
+                    $kernel = app(\App\Console\Kernel::class);
+                    $kernel->mensajesAutomaticosBoton('dni', $token, $phoneCliente, $idiomaCliente);
+                    $resultados[] = "WhatsApp enviado a {$phoneCliente}";
+                    Log::info('DNI WhatsApp enviado manualmente', ['reserva_id' => $reserva->id, 'telefono' => $phoneCliente]);
+                } catch (\Exception $e) {
+                    $resultados[] = "Error WhatsApp: {$e->getMessage()}";
+                    Log::error('Error enviando DNI WhatsApp', ['reserva_id' => $reserva->id, 'error' => $e->getMessage()]);
+                }
+            } else {
+                $resultados[] = "Sin teléfono - WhatsApp no enviado";
+            }
+
+            // 2. Enviar Email con enlace DNI (si tiene email)
+            $email = $cliente->email_secundario ?: $cliente->email;
+            if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                try {
+                    $kernel = app(\App\Console\Kernel::class);
+                    $mensajeEmail = $kernel->dniEmail($idiomaCliente, $token);
+                    $kernel->enviarEmail($email, 'emails.envioClavesEmail', $mensajeEmail, 'Hawkins Suite - DNI', $token);
+                    $resultados[] = "Email enviado a {$email}";
+                    Log::info('DNI Email enviado manualmente', ['reserva_id' => $reserva->id, 'email' => $email]);
+                } catch (\Exception $e) {
+                    $resultados[] = "Error Email: {$e->getMessage()}";
+                    Log::error('Error enviando DNI Email', ['reserva_id' => $reserva->id, 'error' => $e->getMessage()]);
+                }
+            } else {
+                $resultados[] = "Sin email válido - Email no enviado";
+            }
+
+            // Registrar en MensajeAuto para evitar duplicados del cron
+            MensajeAuto::firstOrCreate(
+                ['reserva_id' => $reserva->id, 'categoria_id' => 1],
+                ['cliente_id' => $reserva->cliente_id, 'fecha_envio' => Carbon::now()]
+            );
+
+            $mensaje = implode(' | ', $resultados);
+
+            if (request()->expectsJson()) {
+                return response()->json(['success' => true, 'message' => $mensaje, 'url' => $dniUrl]);
+            }
+
+            return redirect()->route('reservas.show', $reserva->id)->with('success', "Enlace DNI enviado: {$mensaje}");
+
+        } catch (\Exception $e) {
+            Log::error('Error en enviarDni', ['id' => $id, 'error' => $e->getMessage()]);
+
+            if (request()->expectsJson()) {
+                return response()->json(['success' => false, 'message' => 'Error: ' . $e->getMessage()], 500);
+            }
+
+            return redirect()->back()->with('error', 'Error al enviar enlace DNI: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Limpiar número de teléfono para WhatsApp
+     */
+    private function limpiarNumeroTelefono($telefono)
+    {
+        $telefono = preg_replace('/[^0-9+]/', '', $telefono);
+        $telefono = ltrim($telefono, '+');
+        if (strlen($telefono) === 9) {
+            $telefono = '34' . $telefono;
+        }
+        return $telefono;
     }
 
     /**

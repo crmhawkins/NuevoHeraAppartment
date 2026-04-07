@@ -57,6 +57,9 @@ class CuponController extends Controller
      */
     public function store(Request $request)
     {
+        // Limpiar arrays de IDs vacíos (cuando se selecciona "Todos")
+        $this->cleanEmptyIds($request);
+
         $validated = $request->validate([
             'codigo' => 'required|string|max:50|unique:cupones,codigo',
             'nombre' => 'required|string|max:255',
@@ -73,13 +76,13 @@ class CuponController extends Controller
             'reserva_hasta' => 'nullable|date|after_or_equal:reserva_desde',
             'noches_minimas' => 'nullable|integer|min:1',
             'apartamentos_ids' => 'nullable|array',
-            'apartamentos_ids.*' => 'exists:apartamentos,id',
+            'apartamentos_ids.*' => 'integer|exists:apartamentos,id',
             'edificios_ids' => 'nullable|array',
-            'edificios_ids.*' => 'exists:edificios,id',
+            'edificios_ids.*' => 'integer|exists:edificios,id',
         ], [
-            'codigo.required' => 'El c?digo del cup?n es obligatorio',
-            'codigo.unique' => 'Ya existe un cup?n con este c?digo',
-            'nombre.required' => 'El nombre del cup?n es obligatorio',
+            'codigo.required' => 'El código del cupón es obligatorio',
+            'codigo.unique' => 'Ya existe un cupón con este código',
+            'nombre.required' => 'El nombre del cupón es obligatorio',
             'tipo_descuento.required' => 'Debes seleccionar el tipo de descuento',
             'valor_descuento.required' => 'El valor del descuento es obligatorio',
             'valor_descuento.min' => 'El valor del descuento debe ser mayor a 0',
@@ -130,6 +133,9 @@ class CuponController extends Controller
      */
     public function update(Request $request, Cupon $cupon)
     {
+        // Limpiar arrays de IDs vacíos (cuando se selecciona "Todos")
+        $this->cleanEmptyIds($request);
+
         $validated = $request->validate([
             'codigo' => 'required|string|max:50|unique:cupones,codigo,' . $cupon->id,
             'nombre' => 'required|string|max:255',
@@ -146,9 +152,9 @@ class CuponController extends Controller
             'reserva_hasta' => 'nullable|date|after_or_equal:reserva_desde',
             'noches_minimas' => 'nullable|integer|min:1',
             'apartamentos_ids' => 'nullable|array',
-            'apartamentos_ids.*' => 'exists:apartamentos,id',
+            'apartamentos_ids.*' => 'integer|exists:apartamentos,id',
             'edificios_ids' => 'nullable|array',
-            'edificios_ids.*' => 'exists:edificios,id',
+            'edificios_ids.*' => 'integer|exists:edificios,id',
         ]);
 
         $validated['codigo'] = strtoupper($validated['codigo']);
@@ -226,6 +232,25 @@ class CuponController extends Controller
         ]);
 
         return redirect()->route('admin.cupones.edit', $nuevoCupon)
-            ->with('success', 'Cup?n duplicado correctamente. Recuerda cambiar el c?digo antes de activarlo.');
+            ->with('success', 'Cupón duplicado correctamente. Recuerda cambiar el código antes de activarlo.');
+    }
+
+    /**
+     * Limpiar arrays de IDs que contienen valores vacíos (cuando se selecciona "Todos")
+     */
+    private function cleanEmptyIds(Request $request)
+    {
+        foreach (['apartamentos_ids', 'edificios_ids'] as $field) {
+            if ($request->has($field)) {
+                $ids = array_filter($request->input($field), function ($val) {
+                    return $val !== '' && $val !== null;
+                });
+                if (empty($ids)) {
+                    $request->merge([$field => null]);
+                } else {
+                    $request->merge([$field => array_values($ids)]);
+                }
+            }
+        }
     }
 }

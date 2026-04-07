@@ -348,13 +348,19 @@
                         <h6 class="mb-1 fw-semibold">Enlace para DNI</h6>
                         <p class="mb-0">
                             @if(!empty($reserva->token))
-                                <a href="{{ config('app.url') }}/dni-user/{{ $reserva->token }}" target="_blank" class="text-decoration-none">
+                                <a href="{{ config('app.url') }}/dni-scanner/{{ $reserva->token }}" target="_blank" class="text-decoration-none">
                                     <i class="fas fa-external-link-alt me-1"></i>Ver enlace
                                 </a>
                             @else
-                                <span class="text-muted small"><i class="fas fa-clock me-1"></i>Enlace en preparación (se generará en breve)</span>
+                                <span class="text-muted small"><i class="fas fa-clock me-1"></i>Sin token generado</span>
                             @endif
                         </p>
+                        <div class="mt-2">
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="btnEnviarDni" onclick="enviarEnlaceDni({{ $reserva->id }})">
+                                <i class="fas fa-paper-plane me-1"></i>Enviar enlace DNI
+                            </button>
+                            <span id="dniEnvioResult" class="ms-2 small"></span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -925,6 +931,38 @@
             });
         });
     });
+
+    function enviarEnlaceDni(reservaId) {
+        var btn = document.getElementById('btnEnviarDni');
+        var result = document.getElementById('dniEnvioResult');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Enviando...';
+        result.innerHTML = '';
+
+        fetch('/enviar-dni/' + reservaId, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                'Accept': 'application/json'
+            }
+        })
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Enviar enlace DNI';
+            if (data.success) {
+                result.innerHTML = '<span class="text-success"><i class="fas fa-check me-1"></i>' + data.message + '</span>';
+            } else {
+                result.innerHTML = '<span class="text-danger"><i class="fas fa-times me-1"></i>' + data.message + '</span>';
+            }
+        })
+        .catch(function(error) {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Enviar enlace DNI';
+            result.innerHTML = '<span class="text-danger"><i class="fas fa-times me-1"></i>Error de conexión</span>';
+        });
+    }
 </script>
 
 @endsection
