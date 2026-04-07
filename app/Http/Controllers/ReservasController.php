@@ -524,6 +524,14 @@ class ReservasController extends Controller
                     'codigo_referencia' => $resultado['codigo_referencia'],
                 ]);
 
+                if (request()->expectsJson()) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Reserva enviada exitosamente a MIR. Codigo de referencia: ' . ($resultado['codigo_referencia'] ?? 'N/A'),
+                        'codigo_referencia' => $resultado['codigo_referencia'] ?? null,
+                    ]);
+                }
+
                 return redirect()->route('reservas.show', $reserva->id)
                     ->with('success', 'Reserva enviada exitosamente a MIR. Código de referencia: ' . ($resultado['codigo_referencia'] ?? 'N/A'));
             } else {
@@ -531,6 +539,13 @@ class ReservasController extends Controller
                     'reserva_id' => $reserva->id,
                     'error' => $resultado['mensaje'],
                 ]);
+
+                if (request()->expectsJson()) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Error al enviar la reserva a MIR: ' . $resultado['mensaje'],
+                    ], 422);
+                }
 
                 return redirect()->route('reservas.show', $reserva->id)
                     ->with('error', 'Error al enviar la reserva a MIR: ' . $resultado['mensaje']);
@@ -542,6 +557,13 @@ class ReservasController extends Controller
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
+
+            if (request()->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Error inesperado al enviar la reserva a MIR: ' . $e->getMessage(),
+                ], 500);
+            }
 
             return redirect()->route('reservas.show', $reserva->id)
                 ->with('error', 'Error inesperado al enviar la reserva a MIR: ' . $e->getMessage());

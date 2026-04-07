@@ -648,11 +648,34 @@ class ConfiguracionesController extends Controller
     }
     
     /**
-     * MIR Hospedajes - Vista separada
+     * MIR Hospedajes - Vista separada con dashboard de estado de envíos
      */
     public function mirHospedajes()
     {
-        return view('admin.configuraciones.mir-hospedajes');
+        $reservas = \App\Models\Reserva::with(['cliente', 'apartamento.edificio'])
+            ->where('fecha_entrada', '>=', now()->subDays(30))
+            ->where('fecha_entrada', '<=', now()->addDays(7))
+            ->orderBy('fecha_entrada', 'desc')
+            ->get();
+
+        // Calcular estado MIR de cada reserva
+        $contadores = ['enviado' => 0, 'pendiente' => 0, 'error' => 0, 'sin_dni' => 0];
+
+        foreach ($reservas as $reserva) {
+            if ($reserva->mir_enviado) {
+                $estado = 'enviado';
+            } elseif ($reserva->mir_estado === 'error') {
+                $estado = 'error';
+            } elseif ($reserva->cliente && !empty($reserva->cliente->num_identificacion)) {
+                $estado = 'pendiente';
+            } else {
+                $estado = 'sin_dni';
+            }
+            $reserva->mir_status_computed = $estado;
+            $contadores[$estado]++;
+        }
+
+        return view('admin.configuraciones.mir-hospedajes', compact('reservas', 'contadores'));
     }
     
     /**
