@@ -322,6 +322,9 @@ Route::middleware(['auth', 'role:ADMIN'])->group(function () {
         Route::delete('/{tecnicoId}/{servicioId}', [App\Http\Controllers\Admin\TecnicosServiciosController::class, 'destroy'])->name('destroy');
     });
 
+    // Subcontrataciones (vista unificada de Técnicos + Servicios + Asignación)
+    Route::get('admin/subcontrataciones', [App\Http\Controllers\Admin\SubcontratacionesController::class, 'index'])->name('admin.subcontrataciones.index');
+
     // Normas de la Casa
     Route::resource('normas-casa', App\Http\Controllers\Admin\AdminNormasController::class)->names([
         'index' => 'admin.normas-casa.index',

@@ -95,27 +95,90 @@ class ConfiguracionesController extends Controller
         return redirect()->route('configuracion.credenciales.index');
     }
 
-    // Actualizar usuarios de AIRBNB y BOOKING
+    // Actualizar credenciales - maneja todas las secciones via _section hidden field
     public function update($id, Request $request){
-        $confi = Configuraciones::find($id);
-        $confi->password_booking = $request->password_booking;
-        $confi->password_airbnb = $request->password_airbnb;
-        $confi->user_booking = $request->user_booking;
-        $confi->user_airbnb = $request->user_airbnb;
-        $confi->save();
+        $section = $request->input('_section', 'plataformas');
 
-        // WhatsApp Business API settings
-        if ($request->filled('whatsapp_token')) {
-            Setting::set('whatsapp_token', $request->whatsapp_token, 'Token de acceso WhatsApp Business API');
-        }
-        if ($request->filled('whatsapp_phone_id')) {
-            Setting::set('whatsapp_phone_id', $request->whatsapp_phone_id, 'Phone Number ID de WhatsApp Business');
-        }
-        if ($request->filled('whatsapp_api_version')) {
-            Setting::set('whatsapp_api_version', $request->whatsapp_api_version, 'Versión de la API de WhatsApp');
+        switch ($section) {
+            case 'plataformas':
+                $confi = Configuraciones::find($id);
+                $confi->password_booking = $request->password_booking;
+                $confi->password_airbnb = $request->password_airbnb;
+                $confi->user_booking = $request->user_booking;
+                $confi->user_airbnb = $request->user_airbnb;
+                $confi->save();
+                // Channex
+                if ($request->has('channex_api_token')) {
+                    Setting::set('channex_api_token', $request->channex_api_token, 'API Token de Channex');
+                }
+                if ($request->has('channex_webhook_url')) {
+                    Setting::set('channex_webhook_url', $request->channex_webhook_url, 'Webhook URL de Channex');
+                }
+                Alert::success('Éxito', 'Credenciales de plataformas actualizadas correctamente.');
+                break;
+
+            case 'whatsapp':
+                if ($request->has('whatsapp_token')) {
+                    Setting::set('whatsapp_token', $request->whatsapp_token, 'Token de acceso WhatsApp Business API');
+                }
+                if ($request->has('whatsapp_phone_id')) {
+                    Setting::set('whatsapp_phone_id', $request->whatsapp_phone_id, 'Phone Number ID de WhatsApp Business');
+                }
+                if ($request->has('whatsapp_api_version')) {
+                    Setting::set('whatsapp_api_version', $request->whatsapp_api_version, 'Versión de la API de WhatsApp');
+                }
+                Alert::success('Éxito', 'Credenciales de WhatsApp actualizadas correctamente.');
+                break;
+
+            case 'ia':
+                // Hawkins IA
+                Setting::set('hawkins_ai_url', $request->hawkins_ai_url, 'URL de Hawkins IA');
+                Setting::set('hawkins_ai_api_key', $request->hawkins_ai_api_key, 'API Key de Hawkins IA');
+                Setting::set('hawkins_ai_model', $request->hawkins_ai_model, 'Modelo de Hawkins IA');
+                // Ollama
+                Setting::set('ollama_url', $request->ollama_url, 'URL de Ollama');
+                Setting::set('ollama_api_key', $request->ollama_api_key, 'API Key de Ollama');
+                Setting::set('ollama_model', $request->ollama_model, 'Modelo de Ollama');
+                // OpenAI
+                Setting::set('openai_api_key', $request->openai_api_key, 'API Key de OpenAI');
+                Setting::set('openai_model', $request->openai_model, 'Modelo de OpenAI');
+                // Anthropic
+                Setting::set('anthropic_api_key', $request->anthropic_api_key, 'API Key de Anthropic');
+                Alert::success('Éxito', 'Credenciales de IA actualizadas correctamente.');
+                break;
+
+            case 'pagos':
+                Setting::set('stripe_key', $request->stripe_key, 'Stripe Publishable Key');
+                Setting::set('stripe_secret', $request->stripe_secret, 'Stripe Secret Key');
+                Setting::set('stripe_webhook_secret', $request->stripe_webhook_secret, 'Stripe Webhook Secret');
+                Alert::success('Éxito', 'Credenciales de pagos actualizadas correctamente.');
+                break;
+
+            case 'cerraduras':
+                Setting::set('tuya_app_url', $request->tuya_app_url, 'URL de Tuya App');
+                Setting::set('tuya_app_api_key', $request->tuya_app_api_key, 'API Key de Tuya App');
+                Alert::success('Éxito', 'Credenciales de cerraduras actualizadas correctamente.');
+                break;
+
+            case 'otros':
+                Setting::set('recaptcha_site_key', $request->recaptcha_site_key, 'Recaptcha Site Key');
+                Setting::set('recaptcha_secret_key', $request->recaptcha_secret_key, 'Recaptcha Secret Key');
+                Setting::set('registro_visitantes_url', $request->registro_visitantes_url, 'URL del Registro de Visitantes');
+                Alert::success('Éxito', 'Credenciales adicionales actualizadas correctamente.');
+                break;
+
+            default:
+                // Legacy fallback
+                $confi = Configuraciones::find($id);
+                $confi->password_booking = $request->password_booking;
+                $confi->password_airbnb = $request->password_airbnb;
+                $confi->user_booking = $request->user_booking;
+                $confi->user_airbnb = $request->user_airbnb;
+                $confi->save();
+                Alert::success('Éxito', 'Credenciales actualizadas correctamente.');
+                break;
         }
 
-        Alert::success('Éxito', 'Credenciales actualizadas correctamente.');
         return redirect()->route('configuracion.credenciales.index');
     }
 
@@ -572,17 +635,89 @@ class ConfiguracionesController extends Controller
     }
     
     /**
-     * Credenciales - Vista separada
+     * Credenciales - Vista separada (consolidada con todas las secciones)
      */
     public function credenciales()
     {
         $configuraciones = Configuraciones::all();
+
+        // WhatsApp
         $whatsapp = [
             'token' => Setting::get('whatsapp_token', ''),
             'phone_id' => Setting::get('whatsapp_phone_id', config('services.whatsapp.phone_id')),
             'api_version' => Setting::get('whatsapp_api_version', config('services.whatsapp.api_version')),
         ];
-        return view('admin.configuraciones.credenciales', compact('configuraciones', 'whatsapp'));
+
+        // Channex
+        $channex = [
+            'api_token' => Setting::get('channex_api_token', config('services.channex.api_token', env('CHANNEX_API_TOKEN', ''))),
+            'webhook_url' => Setting::get('channex_webhook_url', config('services.channex.webhook_url', '')),
+        ];
+
+        // IA providers
+        $ia = [
+            'hawkins' => [
+                'url' => Setting::get('hawkins_ai_url', config('services.hawkins_ai.base_url')),
+                'api_key' => Setting::get('hawkins_ai_api_key', config('services.hawkins_ai.api_key')),
+                'model' => Setting::get('hawkins_ai_model', config('services.hawkins_ai.model')),
+            ],
+            'ollama' => [
+                'url' => Setting::get('ollama_url', config('services.ollama.base_url')),
+                'api_key' => Setting::get('ollama_api_key', config('services.ollama.api_key')),
+                'model' => Setting::get('ollama_model', config('services.ollama.model')),
+            ],
+            'openai' => [
+                'api_key' => Setting::get('openai_api_key', config('services.openai.api_key')),
+                'model' => Setting::get('openai_model', config('services.openai.model')),
+            ],
+            'anthropic' => [
+                'api_key' => Setting::get('anthropic_api_key', config('services.anthropic.api_key')),
+            ],
+        ];
+
+        // MIR
+        $mir = [
+            'codigo_arrendador' => Setting::get('mir_codigo_arrendador', Setting::get('mir_arrendador', '0000004735')),
+            'codigo_establecimiento' => Setting::get('mir_codigo_establecimiento', '0000003984'),
+            'aplicacion' => Setting::get('mir_aplicacion', 'Hawkins Suite'),
+            'usuario' => Setting::get('mir_usuario', ''),
+            'password' => Setting::get('mir_password', ''),
+            'entorno' => Setting::get('mir_entorno', 'sandbox'),
+        ];
+
+        // Pagos
+        $pagos = [
+            'stripe' => [
+                'key' => Setting::get('stripe_key', config('services.stripe.key')),
+                'secret' => Setting::get('stripe_secret', config('services.stripe.secret')),
+                'webhook_secret' => Setting::get('stripe_webhook_secret', config('services.stripe.webhook_secret')),
+            ],
+        ];
+
+        // Cerraduras
+        $cerraduras = [
+            'tuya' => [
+                'url' => Setting::get('tuya_app_url', config('services.tuya_app.url')),
+                'api_key' => Setting::get('tuya_app_api_key', config('services.tuya_app.api_key')),
+            ],
+        ];
+
+        // Otros
+        $otros = [
+            'recaptcha' => [
+                'site_key' => Setting::get('recaptcha_site_key', config('services.recaptcha.site_key')),
+                'secret_key' => Setting::get('recaptcha_secret_key', config('services.recaptcha.secret_key')),
+            ],
+            'registro_visitantes_url' => Setting::get('registro_visitantes_url', config('services.checkin.url')),
+        ];
+
+        // Prompt IA
+        $prompt = PromptAsistente::all();
+
+        return view('admin.configuraciones.credenciales', compact(
+            'configuraciones', 'whatsapp', 'channex', 'ia', 'mir',
+            'pagos', 'cerraduras', 'otros', 'prompt'
+        ));
     }
     
     /**

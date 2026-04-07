@@ -472,7 +472,7 @@
 
                                 <!-- Configuración -->
                                 <li class="nav-item dropdown">
-                                    <a class="nav-link dropdown-toggle {{ request()->is('configuracion*') || request()->is('admin/servicios-tecnicos*') || request()->is('admin/tecnicos-servicios*') ? 'active' : '' }}" href="#" data-bs-toggle="dropdown" role="button" aria-expanded="false">
+                                    <a class="nav-link dropdown-toggle {{ request()->is('configuracion*') || request()->is('admin/servicios-tecnicos*') || request()->is('admin/tecnicos-servicios*') || request()->is('admin/subcontrataciones*') ? 'active' : '' }}" href="#" data-bs-toggle="dropdown" role="button" aria-expanded="false">
                                         <i class="fas fa-cogs me-1"></i>Configuración
                                     </a>
                                     <ul class="dropdown-menu">
@@ -488,15 +488,8 @@
                                         <li><a class="dropdown-item {{ request()->routeIs('configuracion.contabilidad.*') ? 'active' : '' }}" href="{{ route('configuracion.contabilidad.index') }}">
                                             <i class="fas fa-calculator me-2"></i>Contabilidad
                                         </a></li>
-                                        <li><a class="dropdown-item {{ request()->routeIs('configuracion.reparaciones.*') ? 'active' : '' }}" href="{{ route('configuracion.reparaciones.index') }}">
-                                            <i class="fas fa-tools me-2"></i>Reparaciones
-                                        </a></li>
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li><a class="dropdown-item {{ request()->routeIs('admin.servicios-tecnicos.*') ? 'active' : '' }}" href="{{ route('admin.servicios-tecnicos.index') }}">
-                                            <i class="fas fa-wrench me-2"></i>Servicios Técnicos
-                                        </a></li>
-                                        <li><a class="dropdown-item {{ request()->routeIs('admin.tecnicos-servicios.*') ? 'active' : '' }}" href="{{ route('admin.tecnicos-servicios.index') }}">
-                                            <i class="fas fa-user-cog me-2"></i>Técnicos y Servicios
+                                        <li><a class="dropdown-item {{ request()->routeIs('admin.subcontrataciones.*') || request()->routeIs('configuracion.reparaciones.*') || request()->routeIs('admin.servicios-tecnicos.*') || request()->routeIs('admin.tecnicos-servicios.*') ? 'active' : '' }}" href="{{ route('admin.subcontrataciones.index') }}">
+                                            <i class="fas fa-hard-hat me-2"></i>Subcontrataciones
                                         </a></li>
                                         <li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item {{ request()->routeIs('configuracion.limpiadoras.*') ? 'active' : '' }}" href="{{ route('configuracion.limpiadoras.index') }}">
@@ -504,12 +497,6 @@
                                         </a></li>
                                         <li><a class="dropdown-item {{ request()->routeIs('configuracion.notificaciones.*') ? 'active' : '' }}" href="{{ route('configuracion.notificaciones.index') }}">
                                             <i class="fas fa-bell me-2"></i>Notificaciones
-                                        </a></li>
-                                        <li><a class="dropdown-item {{ request()->routeIs('configuracion.prompt-ia.*') ? 'active' : '' }}" href="{{ route('configuracion.prompt-ia.index') }}">
-                                            <i class="fas fa-robot me-2"></i>Prompt IA
-                                        </a></li>
-                                        <li><a class="dropdown-item {{ request()->routeIs('configuracion.plataforma-estado.*') ? 'active' : '' }}" href="{{ route('configuracion.plataforma-estado.index') }}">
-                                            <i class="fas fa-server me-2"></i>Plataforma Estado
                                         </a></li>
                                         <li><a class="dropdown-item {{ request()->routeIs('configuracion.mir.*') ? 'active' : '' }}" href="{{ route('configuracion.mir.index') }}">
                                             <i class="fas fa-shield-alt me-2"></i>MIR Hospedajes
