@@ -310,7 +310,7 @@ function abrirModalTest(templateId, templateName, variableCount) {
     for (let i = 1; i <= variableCount; i++) {
         container.innerHTML += `
             <div class="mb-3">
-                <label class="form-label fw-semibold">Variable {{${i}}}</label>
+                <label class="form-label fw-semibold">Variable @{{${i}}}</label>
                 <input type="text" class="form-control" name="param_${i}"
                        placeholder="Valor para la variable ${i}" value="test_value_${i}">
             </div>
