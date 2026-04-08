@@ -137,3 +137,18 @@ Route::prefix('/webhooks')->group(function () {
 Route::post('/checkin-completado', [App\Http\Controllers\Api\CheckinLinkController::class, 'recibirDatos'])
     ->middleware('throttle:10,1')
     ->name('api.checkin.completado');
+
+/*
+|--------------------------------------------------------------------------
+| Bankinter Scraper API (external service - token auth)
+|--------------------------------------------------------------------------
+|
+| Endpoint que recibe el Excel exportado por el scraper Bankinter ejecutado
+| en un PC externo (Windows). La autenticacion se realiza con un token
+| compartido en la cabecera "X-Scraper-Token", validado dentro del
+| controller con hash_equals (no usa Sanctum).
+|
+*/
+Route::post('/bankinter/scraper/import', [App\Http\Controllers\Api\BankinterScraperApiController::class, 'import'])
+    ->middleware('throttle:5,1')
+    ->name('api.bankinter.scraper.import');

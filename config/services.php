@@ -100,6 +100,12 @@ return [
     ],
 
     'bankinter' => [
+        // Token para el endpoint POST /api/bankinter/scraper/import
+        // Lo envia el PC externo (Windows) que ejecuta el scraper en la cabecera
+        // X-Scraper-Token. NO tiene valor por defecto: si falta, el endpoint
+        // siempre devolvera 401.
+        'scraper_api_token' => env('BANKINTER_SCRAPER_API_TOKEN'),
+
         // Cuenta unica legacy (retrocompatible si no hay 'cuentas')
         'user' => env('BANKINTER_USER'),
         'password' => env('BANKINTER_PASSWORD'),
