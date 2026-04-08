@@ -156,3 +156,133 @@ curl -X POST https://crm.apartamentosalgeciras.com/api/bankinter/scraper/import 
   `storage/app/bankinter/{alias}_uploaded_{timestamp}.xlsx`. No se borra
   automaticamente para permitir auditoria; conviene tener una rutina de
   limpieza periodica si el volumen crece.
+
+---
+
+## Endpoint de credenciales cifradas
+
+```
+GET /api/bankinter/scraper/credentials
+```
+
+Desde abril de 2026 las credenciales Bankinter se gestionan desde el CRM
+(`Configuracion > Credenciales > Bankinter`) y se almacenan cifradas en la
+tabla `bankinter_credentials`. Para que el PC externo no necesite un `.env`
+sincronizado manualmente, puede obtenerlas via este endpoint.
+
+- **Auth**: mismo token compartido en la cabecera `X-Scraper-Token`.
+- **Throttle**: maximo 30 peticiones por minuto por IP.
+- **Respuesta**: JSON con el payload de cuentas cifrado con **AES-256-GCM**
+  (autenticado). El PC externo debe compartir la misma clave simetrica que
+  el CRM para descifrarlo.
+
+### Configuracion de la clave de cifrado
+
+Generar una clave aleatoria de 32 bytes codificada en base64:
+
+```bash
+# Linux / macOS
+openssl rand -base64 32
+
+# Windows PowerShell
+[Convert]::ToBase64String([byte[]](1..32 | ForEach-Object { Get-Random -Max 256 }))
+```
+
+Anadir al `.env` del CRM:
+
+```
+BANKINTER_ENCRYPTION_KEY=base64_de_32_bytes
+```
+
+Y replicar exactamente el mismo valor en el PC externo que consume el
+endpoint. Tras editar el `.env`, ejecutar `php artisan config:clear`.
+
+### Formato del payload (JSON cifrado)
+
+```json
+{
+  "format": "aes-256-gcm",
+  "iv": "<base64 - 12 bytes>",
+  "ciphertext": "<base64 - ciphertext crudo>",
+  "auth_tag": "<base64 - 16 bytes>"
+}
+```
+
+El contenido descifrado es un JSON con esta estructura:
+
+```json
+{
+  "generated_at": "2026-04-08T09:12:34+02:00",
+  "count": 2,
+  "cuentas": [
+    {
+      "alias": "hawkins",
+      "label": "Hawkins S.L.",
+      "user": "12345678X",
+      "password": "plaintext-password",
+      "iban": "ES9121000418450200051332",
+      "bank_id": 1
+    }
+  ]
+}
+```
+
+### Ejemplo de request con curl
+
+```bash
+curl https://crm.apartamentosalgeciras.com/api/bankinter/scraper/credentials \
+  -H "X-Scraper-Token: <mismo token que import>"
+```
+
+### Ejemplo de descifrado en Node.js
+
+```javascript
+const crypto = require('crypto');
+
+function descifrar(respuesta, keyBase64) {
+    const key = Buffer.from(keyBase64, 'base64'); // 32 bytes
+    const iv = Buffer.from(respuesta.iv, 'base64');
+    const ciphertext = Buffer.from(respuesta.ciphertext, 'base64');
+    const authTag = Buffer.from(respuesta.auth_tag, 'base64');
+
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(authTag);
+
+    const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+    return JSON.parse(plaintext.toString('utf8'));
+}
+```
+
+### Ejemplo de descifrado en Python
+
+```python
+from base64 import b64decode
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+import json
+
+def descifrar(respuesta, key_base64):
+    key = b64decode(key_base64)               # 32 bytes
+    iv = b64decode(respuesta['iv'])            # 12 bytes
+    ciphertext = b64decode(respuesta['ciphertext'])
+    tag = b64decode(respuesta['auth_tag'])     # 16 bytes
+    aesgcm = AESGCM(key)
+    # cryptography espera ciphertext || tag concatenados
+    plaintext = aesgcm.decrypt(iv, ciphertext + tag, None)
+    return json.loads(plaintext.decode('utf-8'))
+```
+
+### Notas de seguridad
+
+- El CRM jamas devuelve las passwords en claro fuera de este endpoint
+  cifrado. En la UI (Configuracion > Credenciales > Bankinter) la password
+  nunca se imprime en el HTML.
+- El endpoint loguea unicamente la IP del cliente y el numero de cuentas
+  entregadas. Nunca loguea el payload, la clave ni el ciphertext.
+- Si la tabla `bankinter_credentials` esta vacia,
+  `BankinterScraperService::obtenerConfigCuenta()` hace fallback a
+  `config('services.bankinter.cuentas')` para no romper la retrocompatibilidad.
+- Para migrar las credenciales actuales del `.env` a la BD, ejecuta:
+  ```
+  php artisan bankinter:migrar-credenciales
+  ```
+  Pasa `--force` para sobrescribir las que ya existen.

@@ -714,9 +714,14 @@ class ConfiguracionesController extends Controller
         // Prompt IA
         $prompt = PromptAsistente::all();
 
+        // Bankinter - credenciales en BD
+        $bankinterCredenciales = \App\Models\BankinterCredential::with('bank')->orderBy('alias')->get();
+        $bancosDisponibles = \App\Models\Bancos::orderBy('nombre')->get();
+
         return view('admin.configuraciones.credenciales', compact(
             'configuraciones', 'whatsapp', 'channex', 'ia', 'mir',
-            'pagos', 'cerraduras', 'otros', 'prompt'
+            'pagos', 'cerraduras', 'otros', 'prompt',
+            'bankinterCredenciales', 'bancosDisponibles'
         ));
     }
     
@@ -921,7 +926,116 @@ class ConfiguracionesController extends Controller
             ]);
             Alert::error('Error', 'No se pudo actualizar los meta tags: ' . $e->getMessage());
         }
-        
+
         return redirect()->route('configuracion.seo.index');
+    }
+
+    // =========================================================================
+    // Credenciales Bankinter (gestion desde Configuracion > Credenciales)
+    // =========================================================================
+
+    /**
+     * Crear una nueva credencial Bankinter.
+     */
+    public function bankinterStore(Request $request)
+    {
+        $data = $request->validate([
+            'alias' => 'required|alpha_dash|max:64|unique:bankinter_credentials,alias',
+            'label' => 'nullable|string|max:255',
+            'user' => 'required|string|max:255',
+            'password' => 'required|string|max:500',
+            'iban' => 'nullable|string|max:34',
+            'bank_id' => 'nullable|integer|exists:bank_accounts,id',
+            'enabled' => 'nullable|boolean',
+        ]);
+
+        $data['enabled'] = $request->boolean('enabled', true);
+
+        \App\Models\BankinterCredential::create($data);
+
+        Log::info('[Bankinter] Credencial creada', [
+            'alias' => $data['alias'],
+            'user_id' => auth()->id(),
+        ]);
+
+        Alert::success('Exito', 'Credencial Bankinter creada correctamente.');
+        return redirect()->to(route('configuracion.credenciales.index') . '#secBankinter');
+    }
+
+    /**
+     * Actualizar credencial Bankinter. Si password llega vacia, no se cambia.
+     */
+    public function bankinterUpdate(Request $request, $id)
+    {
+        $credencial = \App\Models\BankinterCredential::findOrFail($id);
+
+        $data = $request->validate([
+            'alias' => 'required|alpha_dash|max:64|unique:bankinter_credentials,alias,' . $credencial->id,
+            'label' => 'nullable|string|max:255',
+            'user' => 'required|string|max:255',
+            'password' => 'nullable|string|max:500',
+            'iban' => 'nullable|string|max:34',
+            'bank_id' => 'nullable|integer|exists:bank_accounts,id',
+            'enabled' => 'nullable|boolean',
+        ]);
+
+        // Si no se envio password (o esta vacio), no sobrescribir la existente
+        if (empty($data['password'])) {
+            unset($data['password']);
+        }
+
+        $data['enabled'] = $request->boolean('enabled', false);
+
+        $credencial->update($data);
+
+        Log::info('[Bankinter] Credencial actualizada', [
+            'alias' => $credencial->alias,
+            'id' => $credencial->id,
+            'password_cambiada' => isset($data['password']),
+            'user_id' => auth()->id(),
+        ]);
+
+        Alert::success('Exito', 'Credencial Bankinter actualizada correctamente.');
+        return redirect()->to(route('configuracion.credenciales.index') . '#secBankinter');
+    }
+
+    /**
+     * Eliminar credencial Bankinter.
+     */
+    public function bankinterDestroy($id)
+    {
+        $credencial = \App\Models\BankinterCredential::findOrFail($id);
+        $alias = $credencial->alias;
+        $credencial->delete();
+
+        Log::info('[Bankinter] Credencial eliminada', [
+            'alias' => $alias,
+            'id' => $id,
+            'user_id' => auth()->id(),
+        ]);
+
+        Alert::success('Exito', "Credencial '{$alias}' eliminada.");
+        return redirect()->to(route('configuracion.credenciales.index') . '#secBankinter');
+    }
+
+    /**
+     * Activar/desactivar credencial Bankinter.
+     */
+    public function bankinterToggle($id)
+    {
+        $credencial = \App\Models\BankinterCredential::findOrFail($id);
+        $credencial->enabled = !$credencial->enabled;
+        $credencial->save();
+
+        Log::info('[Bankinter] Credencial toggled', [
+            'alias' => $credencial->alias,
+            'id' => $credencial->id,
+            'enabled' => $credencial->enabled,
+            'user_id' => auth()->id(),
+        ]);
+
+        $estado = $credencial->enabled ? 'activada' : 'desactivada';
+        Alert::success('Exito', "Credencial '{$credencial->alias}' {$estado}.");
+        return redirect()->to(route('configuracion.credenciales.index') . '#secBankinter');
     }
 }

@@ -152,3 +152,9 @@ Route::post('/checkin-completado', [App\Http\Controllers\Api\CheckinLinkControll
 Route::post('/bankinter/scraper/import', [App\Http\Controllers\Api\BankinterScraperApiController::class, 'import'])
     ->middleware('throttle:5,1')
     ->name('api.bankinter.scraper.import');
+
+// Endpoint cifrado para que el PC externo obtenga las credenciales actualizadas.
+// Auth: X-Scraper-Token header. Respuesta cifrada con AES-256-GCM.
+Route::get('/bankinter/scraper/credentials', [App\Http\Controllers\Api\BankinterCredentialsApiController::class, 'index'])
+    ->middleware('throttle:30,1')
+    ->name('api.bankinter.scraper.credentials');

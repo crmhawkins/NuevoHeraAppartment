@@ -648,6 +648,15 @@ Route::get('/admin/historial-descuentos/{historial}/datos-momento', [HistorialDe
         // Sección: Credenciales
         Route::prefix('credenciales')->name('credenciales.')->group(function () {
             Route::get('/', [App\Http\Controllers\ConfiguracionesController::class, 'credenciales'])->name('index');
+
+            // Credenciales Bankinter (CRUD sobre la tabla bankinter_credentials)
+            Route::prefix('bankinter')->name('bankinter.')->group(function () {
+                Route::post('/', [App\Http\Controllers\ConfiguracionesController::class, 'bankinterStore'])->name('store');
+                Route::put('/{id}', [App\Http\Controllers\ConfiguracionesController::class, 'bankinterUpdate'])->name('update');
+                Route::delete('/{id}', [App\Http\Controllers\ConfiguracionesController::class, 'bankinterDestroy'])->name('destroy');
+                Route::post('/{id}/toggle', [App\Http\Controllers\ConfiguracionesController::class, 'bankinterToggle'])->name('toggle');
+            });
+
             Route::get('/{id}/edit', [App\Http\Controllers\ConfiguracionesController::class, 'edit'])->name('edit');
             Route::put('/{id}', [App\Http\Controllers\ConfiguracionesController::class, 'update'])->name('update');
         });

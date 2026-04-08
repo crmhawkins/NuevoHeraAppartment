@@ -34,6 +34,29 @@ class BankinterScraperService
 
     public function obtenerConfigCuenta(string $alias): ?array
     {
+        // 1) Fuente principal: tabla bankinter_credentials (gestionada desde el CRM)
+        try {
+            if (Schema::hasTable('bankinter_credentials')) {
+                $cred = \App\Models\BankinterCredential::where('enabled', true)
+                    ->where('alias', $alias)
+                    ->first();
+
+                if ($cred && !empty($cred->user) && !empty($cred->password)) {
+                    return [
+                        'user' => $cred->user,
+                        'password' => $cred->password,
+                        'iban' => $cred->iban,
+                        'bank_id' => $cred->bank_id ?? 1,
+                    ];
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('[Bankinter] Fallback a config: error leyendo bankinter_credentials', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        // 2) Fallback: config/.env (retrocompatibilidad)
         $cuentas = config('services.bankinter.cuentas', []);
 
         if (!empty($cuentas) && isset($cuentas[$alias])) {
@@ -59,6 +82,25 @@ class BankinterScraperService
 
     public function listarCuentas(): array
     {
+        // 1) Fuente principal: tabla bankinter_credentials
+        try {
+            if (Schema::hasTable('bankinter_credentials')) {
+                $aliases = \App\Models\BankinterCredential::where('enabled', true)
+                    ->orderBy('alias')
+                    ->pluck('alias')
+                    ->all();
+
+                if (!empty($aliases)) {
+                    return $aliases;
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('[Bankinter] Fallback a config: error listando bankinter_credentials', [
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        // 2) Fallback: config/.env (retrocompatibilidad)
         $cuentas = config('services.bankinter.cuentas', []);
 
         if (!empty($cuentas)) {

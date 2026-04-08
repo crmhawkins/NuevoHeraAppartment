@@ -649,6 +649,174 @@
     </div>
 
     {{-- ================================================================== --}}
+    {{-- SECTION 7b: Bankinter (credenciales gestionadas en BD) --}}
+    {{-- ================================================================== --}}
+    <div class="accordion-item">
+        <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#secBankinter">
+                <i class="fas fa-university section-icon"></i>
+                Bankinter
+                <span class="section-badge bg-light text-secondary">Cuentas bancarias del scraper</span>
+            </button>
+        </h2>
+        <div id="secBankinter" class="accordion-collapse collapse" data-bs-parent="#credencialesAccordion">
+            <div class="accordion-body">
+                <p class="text-muted mb-3" style="font-size: 14px;">
+                    Estas credenciales las usa el scraper Bankinter (PC Windows externo) para descargar los movimientos diariamente.
+                    La password se almacena cifrada en la base de datos con la APP_KEY del CRM.
+                </p>
+
+                @if($bankinterCredenciales->isEmpty())
+                    <div class="p-3 rounded-3 mb-3" style="background: #FFF8E1; border: 1px solid #FFE082;">
+                        <i class="fas fa-exclamation-triangle me-2" style="color: #F59E0B;"></i>
+                        <span style="font-size: 14px; color: #1D1D1F;">
+                            No hay credenciales Bankinter en la base de datos. El scraper usara las del <code>.env</code> (fallback).
+                            Puedes migrarlas ejecutando <code>php artisan bankinter:migrar-credenciales</code>.
+                        </span>
+                    </div>
+                @else
+                    <div class="table-responsive mb-3">
+                        <table class="table table-sm align-middle" style="background: #FFFFFF;">
+                            <thead>
+                                <tr style="background: #F2F2F7;">
+                                    <th style="font-size: 13px;">Alias</th>
+                                    <th style="font-size: 13px;">Etiqueta</th>
+                                    <th style="font-size: 13px;">Usuario</th>
+                                    <th style="font-size: 13px;">IBAN</th>
+                                    <th style="font-size: 13px;">Banco</th>
+                                    <th style="font-size: 13px; text-align: center;">Estado</th>
+                                    <th style="font-size: 13px; text-align: right;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($bankinterCredenciales as $cred)
+                                    @php
+                                        $ibanMasked = '';
+                                        if (!empty($cred->iban)) {
+                                            $last4 = substr($cred->iban, -4);
+                                            $ibanMasked = '****' . $last4;
+                                        }
+                                    @endphp
+                                    <tr>
+                                        <td><strong>{{ $cred->alias }}</strong></td>
+                                        <td>{{ $cred->label ?? '-' }}</td>
+                                        <td>{{ $cred->user }}</td>
+                                        <td><code>{{ $ibanMasked ?: '-' }}</code></td>
+                                        <td>{{ $cred->bank?->nombre ?? '-' }}</td>
+                                        <td style="text-align: center;">
+                                            <form action="{{ route('configuracion.credenciales.bankinter.toggle', $cred->id) }}" method="POST" style="display:inline;">
+                                                @csrf
+                                                @if($cred->enabled)
+                                                    <button type="submit" class="btn btn-sm" style="background: #34C759; color: white; border-radius: 8px; font-size: 12px;" title="Activada - Click para desactivar">
+                                                        <i class="fas fa-check-circle me-1"></i>Activa
+                                                    </button>
+                                                @else
+                                                    <button type="submit" class="btn btn-sm" style="background: #8E8E93; color: white; border-radius: 8px; font-size: 12px;" title="Desactivada - Click para activar">
+                                                        <i class="fas fa-times-circle me-1"></i>Inactiva
+                                                    </button>
+                                                @endif
+                                            </form>
+                                        </td>
+                                        <td style="text-align: right;">
+                                            <button type="button" class="btn btn-sm btn-outline-primary" style="border-radius: 8px;"
+                                                    onclick="bankinterEdit({{ $cred->id }}, {{ json_encode([
+                                                        'alias' => $cred->alias,
+                                                        'label' => $cred->label,
+                                                        'user' => $cred->user,
+                                                        'iban' => $cred->iban,
+                                                        'bank_id' => $cred->bank_id,
+                                                        'enabled' => (bool)$cred->enabled,
+                                                    ]) }})">
+                                                <i class="fas fa-edit"></i>
+                                            </button>
+                                            <form action="{{ route('configuracion.credenciales.bankinter.destroy', $cred->id) }}" method="POST" style="display:inline;" onsubmit="return confirm('Eliminar credencial {{ $cred->alias }}?');">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" style="border-radius: 8px;">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                @endforeach
+                            </tbody>
+                        </table>
+                    </div>
+                @endif
+
+                <button type="button" class="prompt-toggle-btn mb-3" onclick="bankinterToggleForm(); return false;">
+                    <i class="fas fa-plus-circle"></i>
+                    <span id="bankinterFormToggleLabel">Anadir nueva cuenta</span>
+                </button>
+
+                {{-- Formulario create/edit inline --}}
+                <div id="bankinterFormWrapper" style="display: none;">
+                    <form id="bankinterForm" method="POST"
+                          action="{{ route('configuracion.credenciales.bankinter.store') }}">
+                        @csrf
+                        <input type="hidden" name="_method" id="bankinterMethod" value="POST">
+                        <div class="p-3 rounded-3" style="background: #F9F9F9; border: 1px solid #E5E5EA;">
+                            <h6 class="fw-semibold mb-3" style="color: #1D1D1F;">
+                                <i class="fas fa-university me-2" style="color: #007AFF;"></i>
+                                <span id="bankinterFormTitle">Nueva credencial Bankinter</span>
+                            </h6>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label"><i class="fas fa-tag"></i> Alias <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" name="alias" id="bankinterAlias" required maxlength="64" placeholder="hawkins">
+                                    <small class="text-muted">Solo letras, numeros, guiones. Identificador unico.</small>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label"><i class="fas fa-font"></i> Etiqueta</label>
+                                    <input type="text" class="form-control" name="label" id="bankinterLabel" maxlength="255" placeholder="Hawkins S.L.">
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label"><i class="fas fa-building"></i> Banco</label>
+                                    <select class="form-control" name="bank_id" id="bankinterBankId">
+                                        <option value="">-- Sin asignar --</option>
+                                        @foreach($bancosDisponibles as $banco)
+                                            <option value="{{ $banco->id }}">{{ $banco->nombre }}</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label"><i class="fas fa-user"></i> Usuario <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" name="user" id="bankinterUser" required maxlength="255" autocomplete="off">
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label"><i class="fas fa-key"></i> Password <span class="text-danger" id="bankinterPasswordRequired">*</span></label>
+                                    <div class="password-toggle-wrapper">
+                                        <input type="password" class="form-control" name="password" id="bankinterPassword" autocomplete="new-password" placeholder="">
+                                        <button type="button" class="btn-toggle-password" title="Mostrar/Ocultar"><i class="fas fa-eye"></i></button>
+                                    </div>
+                                    <small class="text-muted" id="bankinterPasswordHelp" style="display:none;">Dejar vacio para no cambiar</small>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label"><i class="fas fa-hashtag"></i> IBAN</label>
+                                    <input type="text" class="form-control" name="iban" id="bankinterIban" maxlength="34" placeholder="ES91 2100 ...">
+                                </div>
+                            </div>
+
+                            <div class="form-check mb-3">
+                                <input type="checkbox" class="form-check-input" name="enabled" id="bankinterEnabled" value="1" checked>
+                                <label class="form-check-label" for="bankinterEnabled">Activa (el scraper la usara)</label>
+                            </div>
+
+                            <button type="submit" class="btn btn-save-section">
+                                <i class="fas fa-save me-2"></i><span id="bankinterSubmitLabel">Crear credencial</span>
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" style="border-radius: 10px;" onclick="bankinterResetForm(); bankinterToggleForm();">Cancelar</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{-- ================================================================== --}}
     {{-- SECTION 8: Datos Contables --}}
     {{-- ================================================================== --}}
     <div class="accordion-item">
@@ -803,5 +971,62 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 });
+
+// ============================================================================
+// Bankinter - gestion del formulario create/edit inline
+// ============================================================================
+function bankinterToggleForm() {
+    var wrapper = document.getElementById('bankinterFormWrapper');
+    if (!wrapper) return;
+    wrapper.style.display = (wrapper.style.display === 'none') ? 'block' : 'none';
+}
+
+function bankinterResetForm() {
+    var form = document.getElementById('bankinterForm');
+    if (!form) return;
+    form.reset();
+    form.action = "{{ route('configuracion.credenciales.bankinter.store') }}";
+    document.getElementById('bankinterMethod').value = 'POST';
+    document.getElementById('bankinterFormTitle').textContent = 'Nueva credencial Bankinter';
+    document.getElementById('bankinterSubmitLabel').textContent = 'Crear credencial';
+    document.getElementById('bankinterPassword').required = true;
+    document.getElementById('bankinterPassword').placeholder = '';
+    document.getElementById('bankinterPasswordRequired').style.display = '';
+    document.getElementById('bankinterPasswordHelp').style.display = 'none';
+    document.getElementById('bankinterEnabled').checked = true;
+}
+
+function bankinterEdit(id, data) {
+    var form = document.getElementById('bankinterForm');
+    if (!form) return;
+
+    // Cambiar a modo edit
+    var actionBase = "{{ url('configuracion/credenciales/bankinter') }}";
+    form.action = actionBase + '/' + id;
+    document.getElementById('bankinterMethod').value = 'PUT';
+    document.getElementById('bankinterFormTitle').textContent = 'Editar credencial #' + id;
+    document.getElementById('bankinterSubmitLabel').textContent = 'Guardar cambios';
+
+    // Rellenar campos
+    document.getElementById('bankinterAlias').value = data.alias || '';
+    document.getElementById('bankinterLabel').value = data.label || '';
+    document.getElementById('bankinterUser').value = data.user || '';
+    document.getElementById('bankinterIban').value = data.iban || '';
+    document.getElementById('bankinterBankId').value = data.bank_id || '';
+    document.getElementById('bankinterEnabled').checked = !!data.enabled;
+
+    // Password: opcional en edit
+    var pw = document.getElementById('bankinterPassword');
+    pw.value = '';
+    pw.required = false;
+    pw.placeholder = 'Dejar vacio para no cambiar';
+    document.getElementById('bankinterPasswordRequired').style.display = 'none';
+    document.getElementById('bankinterPasswordHelp').style.display = 'block';
+
+    // Mostrar el formulario y hacer scroll
+    var wrapper = document.getElementById('bankinterFormWrapper');
+    if (wrapper) wrapper.style.display = 'block';
+    wrapper.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
 </script>
 @endsection

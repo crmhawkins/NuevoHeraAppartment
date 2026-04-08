@@ -106,6 +106,11 @@ return [
         // siempre devolvera 401.
         'scraper_api_token' => env('BANKINTER_SCRAPER_API_TOKEN'),
 
+        // Clave simetrica (32 bytes codificados en base64) usada por
+        // GET /api/bankinter/scraper/credentials para cifrar el payload con
+        // AES-256-GCM. El PC externo debe tener la misma clave para descifrar.
+        'encryption_key' => env('BANKINTER_ENCRYPTION_KEY'),
+
         // Cuenta unica legacy (retrocompatible si no hay 'cuentas')
         'user' => env('BANKINTER_USER'),
         'password' => env('BANKINTER_PASSWORD'),
