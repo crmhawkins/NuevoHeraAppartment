@@ -414,7 +414,7 @@
             <!-- Logo por encima de la card -->
             <div class="logo-above-card">
                 <img src="{{asset('logo_hawkins_white_center.png')}}" alt="Hawkins Suite">
-                <p style="color: rgba(255,255,255,0.7); font-size: 0.75rem; margin-top: 0.5rem;">v2.0</p>
+                <p style="color: rgba(255,255,255,0.7); font-size: 0.75rem; margin-top: 0.5rem;">v2.1</p>
             </div>
             
             <div class="card">
