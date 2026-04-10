@@ -14,8 +14,10 @@ use App\Models\SubCuentaContable;
 use App\Models\SubCuentaHijo;
 use App\Models\SubGrupoContable;
 use App\Models\BankinterSyncLog;
+use App\Services\BankinterScraperService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use RealRashid\SweetAlert\Facades\Alert;
 
 use DataTables;
@@ -267,7 +269,52 @@ class DiarioCajaController extends Controller
     return view('admin.contabilidad.diarioCaja.index', compact('response','saldoInicial','estados','cuentas','ultimaSync'));
 }
 
+    /**
+     * Importar un Excel de Bankinter subido manualmente desde la UI.
+     * Reutiliza BankinterScraperService::procesarExcel() con la misma logica
+     * de deduplicacion que la importacion automatica.
+     */
+    public function importarExcelBankinter(Request $request)
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xls,xlsx', 'max:10240'],
+            'cuenta_alias' => ['required', 'string'],
+        ]);
 
+        $alias = $request->input('cuenta_alias');
+
+        $service = new BankinterScraperService();
+        $cuentaConfig = $service->obtenerConfigCuenta($alias);
+
+        $bankId = $cuentaConfig['bank_id'] ?? 1;
+
+        $storageDir = storage_path('app/bankinter');
+        if (!is_dir($storageDir)) {
+            @mkdir($storageDir, 0755, true);
+        }
+
+        $timestamp = now()->format('Ymd_His');
+        $filename = "{$alias}_manual_{$timestamp}.xlsx";
+        $destinationPath = $storageDir . DIRECTORY_SEPARATOR . $filename;
+
+        try {
+            $request->file('file')->move($storageDir, $filename);
+        } catch (\Throwable $e) {
+            Log::error('[DiarioCaja] Error guardando Excel manual', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'error' => 'No se pudo guardar el archivo'], 500);
+        }
+
+        try {
+            $resumen = $service->procesarExcel($destinationPath, $bankId);
+        } catch (\Throwable $e) {
+            Log::error('[DiarioCaja] Error procesando Excel manual', ['error' => $e->getMessage()]);
+            return response()->json(['success' => false, 'error' => 'Error procesando Excel: ' . $e->getMessage()], 500);
+        }
+
+        Log::info('[DiarioCaja] Excel Bankinter importado manualmente', $resumen);
+
+        return response()->json($resumen);
+    }
 
     /**
      *  Mostrar el formulario de creación de Ingreso

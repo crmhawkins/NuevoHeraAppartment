@@ -535,6 +535,7 @@ Route::get('/admin/historial-descuentos/{historial}/datos-momento', [HistorialDe
     Route::post('/diario-caja/{id}/update', [App\Http\Controllers\DiarioCajaController::class, 'update'])->name('admin.diarioCaja.update');
     Route::post('/diario-caja/{id}/destroy', [App\Http\Controllers\DiarioCajaController::class, 'destroy'])->name('admin.diarioCaja.destroy');
     Route::post('/diario-caja/{id}/destroy-linea', [App\Http\Controllers\DiarioCajaController::class, 'destroyDiarioCaja'])->name('admin.diarioCaja.destroyDiarioCaja');
+    Route::post('/diario-caja/importar-excel-bankinter', [App\Http\Controllers\DiarioCajaController::class, 'importarExcelBankinter'])->name('admin.diarioCaja.importarExcelBankinter');
 
     // Cuentas Contables
     Route::get('/cuentas-contables', [App\Http\Controllers\CuentasContableController::class, 'index'])->name('admin.cuentasContables.index');

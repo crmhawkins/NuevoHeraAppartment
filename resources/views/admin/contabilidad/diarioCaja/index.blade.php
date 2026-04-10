@@ -52,8 +52,11 @@
                     </a>
                 </div>
                 <div class="col-md-4 text-end">
-                    <small class="text-muted">
-                        <i class="fas fa-robot me-1"></i>Sincronizacion automatica via PC externo (08:00 y 12:00)
+                    <button type="button" class="btn btn-outline-primary btn-sm me-2" data-bs-toggle="modal" data-bs-target="#modalSubirExcel">
+                        <i class="fas fa-file-excel me-1"></i>Subir Excel Bankinter
+                    </button>
+                    <small class="text-muted d-block mt-1">
+                        <i class="fas fa-robot me-1"></i>Automatico: 08:00 y 12:00
                     </small>
                 </div>
             </div>
@@ -376,8 +379,81 @@
       });
   }
 
-  // Sincronizacion manual deshabilitada: ahora corre automaticamente
-  // desde un PC Windows externo a las 08:00 y 12:00 cada dia.
+  // --- Subir Excel Bankinter manual ---
+  function subirExcelBankinter() {
+      var form = document.getElementById('formSubirExcel');
+      var fileInput = document.getElementById('excelBankinterFile');
+      if (!fileInput.files.length) {
+          Swal.fire({ icon: 'warning', title: 'Selecciona un archivo', text: 'Elige un Excel (.xlsx) descargado de Bankinter' });
+          return;
+      }
+      var formData = new FormData(form);
+      var btn = document.getElementById('btnSubirExcel');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Importando...';
+
+      fetch('{{ route("admin.diarioCaja.importarExcelBankinter") }}', {
+          method: 'POST',
+          headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json' },
+          body: formData
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fas fa-upload me-1"></i>Importar';
+          if (data.success) {
+              var msg = 'Procesados: ' + (data.procesados || 0) +
+                  '\nDuplicados: ' + (data.duplicados || 0) +
+                  '\nIngresos: ' + (data.ingresos_creados || 0) +
+                  '\nGastos: ' + (data.gastos_creados || 0) +
+                  '\nErrores: ' + (data.errores || 0);
+              Swal.fire({ icon: 'success', title: 'Importacion completada', text: msg, confirmButtonText: 'Aceptar' })
+                  .then(function() { location.reload(); });
+          } else {
+              Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'Error desconocido', confirmButtonText: 'Entendido' });
+          }
+      })
+      .catch(function(e) {
+          btn.disabled = false;
+          btn.innerHTML = '<i class="fas fa-upload me-1"></i>Importar';
+          Swal.fire({ icon: 'error', title: 'Error', text: 'Error: ' + e.message });
+      });
+  }
 </script>
+
+<!-- Modal Subir Excel Bankinter -->
+<div class="modal fade" id="modalSubirExcel" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-file-excel me-2 text-success"></i>Subir Excel de Bankinter</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="formSubirExcel" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Sube un archivo Excel (.xlsx) descargado manualmente desde Bankinter. Los movimientos duplicados se saltan automaticamente.</p>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Archivo Excel</label>
+                        <input type="file" class="form-control" id="excelBankinterFile" name="file" accept=".xls,.xlsx" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Cuenta</label>
+                        <select class="form-select" name="cuenta_alias" required>
+                            <option value="helen">Helen (HAWKINS REAL STATE SL)</option>
+                        </select>
+                        <small class="text-muted">Selecciona la cuenta asociada al Excel</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="btnSubirExcel" onclick="subirExcelBankinter()">
+                        <i class="fas fa-upload me-1"></i>Importar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @endsection
 @endsection
