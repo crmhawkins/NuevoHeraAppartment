@@ -111,6 +111,11 @@ return [
         // AES-256-GCM. El PC externo debe tener la misma clave para descifrar.
         'encryption_key' => env('BANKINTER_ENCRYPTION_KEY'),
 
+        // Fecha minima de importacion (YYYY-MM-DD). Movimientos anteriores se ignoran.
+        // Util para no pisar la tesoreria que ya esta cuadrada manualmente.
+        // Dejar vacio para importar todo.
+        'import_desde' => env('BANKINTER_IMPORT_DESDE'),
+
         // Cuenta unica legacy (retrocompatible si no hay 'cuentas')
         'user' => env('BANKINTER_USER'),
         'password' => env('BANKINTER_PASSWORD'),

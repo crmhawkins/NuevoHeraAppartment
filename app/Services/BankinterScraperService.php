@@ -406,7 +406,21 @@ class BankinterScraperService
         $gastosCreados = 0;
         $hashesHuerfanosEliminados = 0;
         $filasVacias = 0;
+        $filasAnterioresFecha = 0;
         $detalleErrores = [];
+
+        // [FECHA-MIN] Fecha minima de importacion. Movimientos anteriores se saltan.
+        // Util para no pisar la tesoreria que ya esta cuadrada manualmente.
+        $fechaMinima = config('services.bankinter.import_desde');
+        if ($fechaMinima) {
+            try {
+                $fechaMinima = Carbon::parse($fechaMinima);
+                Log::info('[Bankinter] Fecha minima de importacion: ' . $fechaMinima->format('Y-m-d'));
+            } catch (\Exception $e) {
+                Log::warning('[Bankinter] BANKINTER_IMPORT_DESDE invalida, se ignora: ' . config('services.bankinter.import_desde'));
+                $fechaMinima = null;
+            }
+        }
 
         // [DUP-01] Contador de ocurrencias para transacciones identicas en el mismo archivo
         $hashOccurrences = [];
@@ -421,6 +435,12 @@ class BankinterScraperService
             } catch (\Exception $e) {
                 $errores++;
                 $detalleErrores[] = ['fila' => $index, 'error' => 'Fecha invalida: ' . ($row[0] ?? 'null')];
+                continue;
+            }
+
+            // [FECHA-MIN] Saltar movimientos anteriores a la fecha minima
+            if ($fechaMinima && $fechaContable->lt($fechaMinima)) {
+                $filasAnterioresFecha++;
                 continue;
             }
 
@@ -589,6 +609,7 @@ class BankinterScraperService
             'gastos_creados' => $gastosCreados,
             'hashes_huerfanos_eliminados' => $hashesHuerfanosEliminados,
             'filas_importe_cero' => $filasVacias,
+            'filas_anteriores_fecha_minima' => $filasAnterioresFecha,
         ];
 
         if (!empty($detalleErrores)) {
