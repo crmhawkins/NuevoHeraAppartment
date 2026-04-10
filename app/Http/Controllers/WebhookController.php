@@ -22,14 +22,11 @@ class WebhookController extends Controller
 {
     private $apiUrl;
     private $apiToken;
-    private $openaiApiKey;
 
     public function __construct()
     {
         $this->apiUrl = env('CHANNEX_URL');
         $this->apiToken = env('CHANNEX_TOKEN');
-        $this->openaiApiKey = env('OPENAI_API_KEY'); // Asegúrate de tener tu API key de OpenAI en .env
-
     }
 
     // TODO: Implement Channex webhook signature verification when API docs are available
@@ -684,10 +681,23 @@ class WebhookController extends Controller
 
     function enviarMensajeOpenAiChatCompletions($id, $nuevoMensaje, $remitente)
     {
-        $apiKey = env('OPENAI_API_KEY');
-        $modelo = 'gpt-4o';
-        $endpoint = 'https://api.openai.com/v1/chat/completions';
-        $promptAsistente = PromptAsistente::first(); // o all()->first() si usas all()
+        // Usar Hawkins AI (aiapi.hawkins.es) en lugar de OpenAI directo
+        $config = config('services.hawkins_whatsapp_ai');
+        $endpoint = $config['base_url'];
+
+        // Asegurar que la URL termine en /chat/chat
+        if (!str_ends_with($endpoint, '/chat/chat')) {
+            if (str_ends_with($endpoint, '/chat')) {
+                $endpoint = rtrim($endpoint, '/chat') . '/chat/chat';
+            } else {
+                $endpoint = rtrim($endpoint, '/') . '/chat/chat';
+            }
+        }
+
+        $apiKey = $config['api_key'];
+        $modelo = $config['model'];
+
+        $promptAsistente = PromptAsistente::first();
 
         $promptSystem = [
             "role" => "system",
@@ -700,7 +710,7 @@ class WebhookController extends Controller
             'remitente' => $remitente,
             'mensaje' => $nuevoMensaje,
             'respuesta' => null,
-            'status' => 0, // por 'respondido'
+            'status' => 0,
             'date' => now()
         ]);
 
@@ -739,8 +749,8 @@ class WebhookController extends Controller
 
         // Unir con prompt
         $mensajes = array_merge([$promptSystem], $historial);
-        // dd($nuevoMensaje);
-        // Llamar a OpenAI
+
+        // Llamar a Hawkins AI (misma API que WhatsApp)
         $response = Http::withToken($apiKey)
             ->post($endpoint, [
                 'model' => $modelo,
@@ -749,7 +759,7 @@ class WebhookController extends Controller
             ]);
 
         if ($response->failed()) {
-            Log::error('Error al enviar a OpenAI: ' . $response->body());
+            Log::error('[Booking IA] Error al enviar a Hawkins AI: ' . $response->body());
             return null;
         }
 
@@ -762,7 +772,7 @@ class WebhookController extends Controller
             ->limit(1)
             ->update([
                 'respuesta' => $respuestaTexto,
-                'status' => 1, // por 'respondido'
+                'status' => 1,
             ]);
 
         return $respuestaTexto;
