@@ -365,16 +365,31 @@ class BankinterScraperService
             return ['success' => false, 'error' => 'No se encontro la cabecera del Excel (Fecha contable)'];
         }
 
+        // [COL-MAP] Detectar columnas dinamicamente desde la fila de cabecera.
+        // Bankinter puede cambiar el formato añadiendo/quitando columnas (p.ej. REF.12, REF.16).
+        // Buscamos los nombres de columna en la fila anterior al inicio de datos.
+        $headerRowIndex = $dataStartIndex - 1;
+        $headerRow = $rows[$headerRowIndex] ?? [];
+        $colMap = $this->detectarColumnasDesdeHeader($headerRow);
+        Log::info('[Bankinter] Mapa de columnas detectado', $colMap);
+
+        if ($colMap['debe'] === null || $colMap['haber'] === null || $colMap['saldo'] === null) {
+            flock($lockFp, LOCK_UN);
+            fclose($lockFp);
+            return ['success' => false, 'error' => 'No se encontraron las columnas DEBE/HABER/SALDO en la cabecera del Excel. Columnas detectadas: ' . json_encode($colMap)];
+        }
+
         // Filtrar filas de datos validas
         $filteredRows = [];
         foreach ($rows as $index => $row) {
             if ($index < $dataStartIndex) continue;
             if (!isset($row[0]) || empty($row[0])) continue;
             if (!is_numeric($row[0])) continue;
-            // [OMIT-04] Validar que la fila tiene suficientes columnas
-            if (count($row) < 11) {
+            // Validar que la fila tiene suficientes columnas para llegar al saldo
+            $minCols = max($colMap['debe'], $colMap['haber'], $colMap['saldo']) + 1;
+            if (count($row) < $minCols) {
                 Log::warning('[Bankinter] Fila con pocas columnas, saltando', [
-                    'fila' => $index, 'columnas' => count($row),
+                    'fila' => $index, 'columnas' => count($row), 'min_requerido' => $minCols,
                 ]);
                 continue;
             }
@@ -409,10 +424,10 @@ class BankinterScraperService
                 continue;
             }
 
-            $descripcion = trim((string)($row[5] ?? ''));
-            $debe = (float)($row[7] ?? 0);
-            $haber = (float)($row[8] ?? 0);
-            $saldo = (float)($row[10] ?? 0);
+            $descripcion = trim((string)($row[$colMap['descripcion']] ?? ''));
+            $debe = (float)($row[$colMap['debe']] ?? 0);
+            $haber = (float)($row[$colMap['haber']] ?? 0);
+            $saldo = (float)($row[$colMap['saldo']] ?? 0);
 
             // [OMIT-02] Fila con importe 0 en ambos lados: registrar y saltar
             if ($haber == 0 && $debe == 0) {
@@ -593,6 +608,48 @@ class BankinterScraperService
      * [OMIT-01] Detectar dinamicamente la fila donde empiezan los datos.
      * Busca una fila con "fecha contable" y devuelve el indice de la siguiente fila.
      */
+    /**
+     * [COL-MAP] Detectar indices de columna dinamicamente desde la fila de cabecera.
+     * Busca por nombre normalizado (sin tildes, case insensitive).
+     * Si Bankinter añade/quita columnas intermedias (como REF.12, REF.16), esto lo detecta.
+     */
+    private function detectarColumnasDesdeHeader(array $headerRow): array
+    {
+        $map = [
+            'fecha_contable' => null,
+            'fecha_valor' => null,
+            'descripcion' => 5, // fallback si no se encuentra
+            'debe' => null,
+            'haber' => null,
+            'saldo' => null,
+        ];
+
+        foreach ($headerRow as $index => $cell) {
+            if ($cell === null) continue;
+            $norm = strtolower(trim(str_replace(
+                ['á', 'é', 'í', 'ó', 'ú', 'ñ'],
+                ['a', 'e', 'i', 'o', 'u', 'n'],
+                (string) $cell
+            )));
+
+            if (str_contains($norm, 'fecha') && str_contains($norm, 'contable')) {
+                $map['fecha_contable'] = $index;
+            } elseif (str_contains($norm, 'fecha') && str_contains($norm, 'valor')) {
+                $map['fecha_valor'] = $index;
+            } elseif ($norm === 'descripcion' || str_contains($norm, 'descripci')) {
+                $map['descripcion'] = $index;
+            } elseif ($norm === 'debe') {
+                $map['debe'] = $index;
+            } elseif ($norm === 'haber') {
+                $map['haber'] = $index;
+            } elseif ($norm === 'saldo') {
+                $map['saldo'] = $index;
+            }
+        }
+
+        return $map;
+    }
+
     private function detectarInicioData(array $rows): ?int
     {
         foreach ($rows as $index => $row) {
