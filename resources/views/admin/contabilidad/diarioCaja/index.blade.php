@@ -52,9 +52,9 @@
                     </a>
                 </div>
                 <div class="col-md-4 text-end">
-                    <button type="button" class="btn btn-primary btn-sm" id="btnSincronizar" onclick="sincronizarBankinter()">
-                        <i class="fas fa-sync-alt me-2"></i>Sincronizar Ahora
-                    </button>
+                    <small class="text-muted">
+                        <i class="fas fa-robot me-1"></i>Sincronizacion automatica via PC externo (08:00 y 12:00)
+                    </small>
                 </div>
             </div>
         </div>
@@ -376,67 +376,8 @@
       });
   }
 
-  function sincronizarBankinter() {
-      var btn = document.getElementById('btnSincronizar');
-      btn.disabled = true;
-      btn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Sincronizando...';
-
-      Swal.fire({
-          title: 'Sincronizando cuentas bancarias...',
-          text: 'Esto puede tardar unos momentos',
-          icon: 'info',
-          allowOutsideClick: false,
-          showConfirmButton: false,
-          didOpen: function() {
-              Swal.showLoading();
-          }
-      });
-
-      fetch('{{ route("admin.bankinter.sincronizarTodas") }}', {
-          method: 'POST',
-          headers: {
-              'Content-Type': 'application/json',
-              'X-CSRF-TOKEN': '{{ csrf_token() }}',
-              'Accept': 'application/json'
-          }
-      })
-      .then(function(response) {
-          if (!response.ok) throw new Error('Error del servidor: ' + response.status);
-          return response.json();
-      })
-      .then(function(data) {
-          btn.disabled = false;
-          btn.innerHTML = '<i class="fas fa-sync-alt me-2"></i>Sincronizar Ahora';
-
-          if (data.success) {
-              Swal.fire({
-                  icon: 'success',
-                  title: 'Sincronizacion completada',
-                  text: data.message,
-                  confirmButtonText: 'Aceptar'
-              }).then(function() {
-                  location.reload();
-              });
-          } else {
-              Swal.fire({
-                  icon: 'warning',
-                  title: 'Sincronizacion con advertencias',
-                  text: data.message,
-                  confirmButtonText: 'Aceptar'
-              });
-          }
-      })
-      .catch(function(error) {
-          btn.disabled = false;
-          btn.innerHTML = '<i class="fas fa-sync-alt me-2"></i>Sincronizar Ahora';
-          Swal.fire({
-              icon: 'error',
-              title: 'Error',
-              text: 'Error al sincronizar: ' + error.message,
-              confirmButtonText: 'Entendido'
-          });
-      });
-  }
+  // Sincronizacion manual deshabilitada: ahora corre automaticamente
+  // desde un PC Windows externo a las 08:00 y 12:00 cada dia.
 </script>
 @endsection
 @endsection
