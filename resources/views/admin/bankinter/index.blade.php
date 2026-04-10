@@ -110,13 +110,10 @@
                                     @endif
                                 </div>
 
-                                <!-- Boton sincronizar -->
-                                <button type="button"
-                                        class="btn btn-primary btn-sm w-100 btn-sincronizar"
-                                        data-cuenta="{{ $cuenta['alias'] }}"
-                                        {{ !$cuenta['configurada'] ? 'disabled' : '' }}>
-                                    <i class="fas fa-sync-alt me-1"></i>Sincronizar Ahora
-                                </button>
+                                <!-- Info: sincronizacion automatica via scraper externo -->
+                                <small class="text-muted d-block text-center mt-1">
+                                    <i class="fas fa-robot me-1"></i>Sincronizacion automatica via PC externo (08:00 y 12:00)
+                                </small>
                             </div>
                         </div>
                     </div>
@@ -215,88 +212,8 @@
             return new bootstrap.Tooltip(el);
         });
 
-        // Botones de sincronizar
-        document.querySelectorAll('.btn-sincronizar').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                var cuenta = this.getAttribute('data-cuenta');
-                var button = this;
-
-                Swal.fire({
-                    title: 'Sincronizar cuenta',
-                    html: '<p>Se va a iniciar la descarga e importacion de movimientos de Bankinter para la cuenta <strong>' + cuenta.toUpperCase() + '</strong>.</p><p class="text-muted">Este proceso puede tardar varios minutos.</p>',
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonColor: '#0d6efd',
-                    cancelButtonColor: '#6c757d',
-                    confirmButtonText: '<i class="fas fa-sync-alt me-2"></i>Sincronizar',
-                    cancelButtonText: '<i class="fas fa-times me-2"></i>Cancelar',
-                    customClass: {
-                        confirmButton: 'btn btn-primary',
-                        cancelButton: 'btn btn-secondary'
-                    },
-                    buttonsStyling: false
-                }).then(function (result) {
-                    if (result.isConfirmed) {
-                        // Deshabilitar boton y mostrar spinner
-                        button.disabled = true;
-                        button.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Sincronizando...';
-
-                        fetch('{{ url("/admin/bankinter/sincronizar") }}/' + cuenta, {
-                            method: 'POST',
-                            headers: {
-                                'X-CSRF-TOKEN': '{{ csrf_token() }}',
-                                'Accept': 'application/json',
-                                'Content-Type': 'application/json'
-                            }
-                        })
-                        .then(function (response) { return response.json(); })
-                        .then(function (data) {
-                            if (data.success) {
-                                Swal.fire({
-                                    title: 'Sincronizacion completada',
-                                    html: '<div class="text-start">' +
-                                        '<p><strong>Cuenta:</strong> ' + cuenta.toUpperCase() + '</p>' +
-                                        '<p><strong>Procesados:</strong> ' + (data.stats ? data.stats.procesados : 0) + '</p>' +
-                                        '<p><strong>Duplicados:</strong> ' + (data.stats ? data.stats.duplicados : 0) + '</p>' +
-                                        '<p><strong>Ingresos creados:</strong> ' + (data.stats ? data.stats.ingresos_creados : 0) + '</p>' +
-                                        '<p><strong>Gastos creados:</strong> ' + (data.stats ? data.stats.gastos_creados : 0) + '</p>' +
-                                        '</div>',
-                                    icon: 'success',
-                                    confirmButtonText: 'Aceptar',
-                                    customClass: { confirmButton: 'btn btn-primary' },
-                                    buttonsStyling: false
-                                }).then(function () {
-                                    location.reload();
-                                });
-                            } else {
-                                Swal.fire({
-                                    title: 'Error en sincronizacion',
-                                    text: data.message || 'Error desconocido',
-                                    icon: 'error',
-                                    confirmButtonText: 'Aceptar',
-                                    customClass: { confirmButton: 'btn btn-danger' },
-                                    buttonsStyling: false
-                                });
-                            }
-                        })
-                        .catch(function (error) {
-                            Swal.fire({
-                                title: 'Error de conexion',
-                                text: 'No se pudo conectar con el servidor: ' + error.message,
-                                icon: 'error',
-                                confirmButtonText: 'Aceptar',
-                                customClass: { confirmButton: 'btn btn-danger' },
-                                buttonsStyling: false
-                            });
-                        })
-                        .finally(function () {
-                            button.disabled = false;
-                            button.innerHTML = '<i class="fas fa-sync-alt me-1"></i>Sincronizar Ahora';
-                        });
-                    }
-                });
-            });
-        });
+        // Sincronizacion manual deshabilitada: ahora corre automaticamente
+        // desde un PC Windows externo a las 08:00 y 12:00 cada dia.
     });
 </script>
 @endsection

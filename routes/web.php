@@ -1366,10 +1366,14 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:ADMIN'])->grou
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:ADMIN'])->group(function () {
 
     // Bankinter - Sincronizacion bancaria
+    // NOTA: Las rutas POST de sincronizar estan deshabilitadas porque el scraper
+    // ahora corre en un PC Windows externo con IP residencial (no en el servidor Coolify).
+    // Bankinter bloquea IPs de datacenter, por lo que ejecutar Artisan::call('banco:importar-movimientos')
+    // desde el servidor NO funciona. Las unicas rutas utiles son index (estado) y historial (logs).
     Route::prefix('bankinter')->name('bankinter.')->group(function () {
         Route::get('/', [BankinterConfigController::class, 'index'])->name('index');
-        Route::post('/sincronizar-todas', [BankinterConfigController::class, 'sincronizarTodas'])->name('sincronizarTodas');
-        Route::post('/sincronizar/{cuenta}', [BankinterConfigController::class, 'sincronizar'])->name('sincronizar');
+        // Route::post('/sincronizar-todas', [BankinterConfigController::class, 'sincronizarTodas'])->name('sincronizarTodas');
+        // Route::post('/sincronizar/{cuenta}', [BankinterConfigController::class, 'sincronizar'])->name('sincronizar');
         Route::get('/historial', [BankinterConfigController::class, 'historial'])->name('historial');
     });
 

@@ -188,7 +188,9 @@ class Kernel extends ConsoleKernel
         $schedule->command('checkin:verificar-hoy')->dailyAt('08:00')->withoutOverlapping();
 
         // Importar movimientos bancarios de Bankinter automaticamente
-        $schedule->command('banco:importar-movimientos')->dailyAt('06:00')->withoutOverlapping();
+        // DESHABILITADO: el scraper ahora corre en un PC Windows externo con IP residencial.
+        // Bankinter bloquea IPs de datacenter. La tarea programada esta en el PC via schtasks.
+        // $schedule->command('banco:importar-movimientos')->dailyAt('06:00')->withoutOverlapping();
 
         // Aplicar descuento del 20% a apartamentos libres (SOLO lunes a jueves a las 10:00)
         // NO se ejecuta viernes, sábado ni domingo
