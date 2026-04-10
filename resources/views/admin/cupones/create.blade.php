@@ -33,4 +33,18 @@
         @include('admin.cupones._form')
     </form>
 </div>
+
+@if($errors->any())
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var errores = @json($errors->all());
+    Swal.fire({
+        icon: 'warning',
+        title: 'Campos obligatorios',
+        html: '<ul style="text-align:left;">' + errores.map(function(e) { return '<li>' + e + '</li>'; }).join('') + '</ul>',
+        confirmButtonText: 'Entendido'
+    });
+});
+</script>
+@endif
 @endsection
