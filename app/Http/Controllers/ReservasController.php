@@ -40,8 +40,8 @@ class ReservasController extends Controller
      */
     public function index(Request $request)
 {
-    $orderBy = $request->get('order_by', 'fecha_entrada');
-    $direction = $request->get('direction', 'asc');
+    $orderBy = $request->get('order_by', 'created_at');
+    $direction = $request->get('direction', 'desc');
     $perPage = $request->get('perPage', 10);
     $searchTerm = $request->get('search', '');
 

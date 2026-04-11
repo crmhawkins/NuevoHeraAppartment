@@ -328,7 +328,33 @@
                                 </a>
                             </th>
                             <th scope="col" class="border-0">
-                                <a href="{{ route('reservas.index', ['order_by' => 'fecha_entrada', 'direction' => (request()->get('order_by') == 'fecha_entrada' ? $orderDirection : 'asc'), 'search' => request()->get('search'),'perPage' => request()->get('perPage'), 'fecha_entrada' => request()->get('fecha_entrada'), 'fecha_salida' => request()->get('fecha_salida')]) }}" 
+                                <a href="{{ route('reservas.index', ['order_by' => 'mir_enviado', 'direction' => (request()->get('order_by') == 'mir_enviado' ? $orderDirection : 'asc'), 'search' => request()->get('search'),'perPage' => request()->get('perPage'), 'fecha_entrada' => request()->get('fecha_entrada'), 'fecha_salida' => request()->get('fecha_salida')]) }}"
+                                   class="text-decoration-none text-dark fw-semibold">
+                                    <i class="fas fa-building text-primary me-1"></i>MIR
+                                    @if(request()->get('order_by') == 'mir_enviado')
+                                        @if(request()->get('direction') == 'asc')
+                                            <i class="fas fa-sort-up text-primary"></i>
+                                        @else
+                                            <i class="fas fa-sort-down text-primary"></i>
+                                        @endif
+                                    @endif
+                                </a>
+                            </th>
+                            <th scope="col" class="border-0">
+                                <a href="{{ route('reservas.index', ['order_by' => 'created_at', 'direction' => (request()->get('order_by') == 'created_at' ? $orderDirection : 'asc'), 'search' => request()->get('search'),'perPage' => request()->get('perPage'), 'fecha_entrada' => request()->get('fecha_entrada'), 'fecha_salida' => request()->get('fecha_salida')]) }}"
+                                   class="text-decoration-none text-dark fw-semibold">
+                                    <i class="fas fa-calendar text-primary me-1"></i>F.Reserva
+                                    @if(request()->get('order_by') == 'created_at')
+                                        @if(request()->get('direction') == 'asc')
+                                            <i class="fas fa-sort-up text-primary"></i>
+                                        @else
+                                            <i class="fas fa-sort-down text-primary"></i>
+                                        @endif
+                                    @endif
+                                </a>
+                            </th>
+                            <th scope="col" class="border-0">
+                                <a href="{{ route('reservas.index', ['order_by' => 'fecha_entrada', 'direction' => (request()->get('order_by') == 'fecha_entrada' ? $orderDirection : 'asc'), 'search' => request()->get('search'),'perPage' => request()->get('perPage'), 'fecha_entrada' => request()->get('fecha_entrada'), 'fecha_salida' => request()->get('fecha_salida')]) }}"
                                    class="text-decoration-none text-dark fw-semibold">
                                     <i class="fas fa-calendar-plus text-primary me-1"></i>Entrada
                                     @if(request()->get('order_by') == 'fecha_entrada')
@@ -427,6 +453,20 @@
                                             <i class="fas fa-times me-1"></i>No entregado
                                         </span>
                                     @endif
+                                </td>
+                                <td>
+                                    @if($reserva->mir_enviado)
+                                        <span class="badge bg-success-subtle text-success">
+                                            <i class="fas fa-check me-1"></i>SI
+                                        </span>
+                                    @else
+                                        <span class="badge bg-warning-subtle text-warning">
+                                            <i class="fas fa-times me-1"></i>NO
+                                        </span>
+                                    @endif
+                                </td>
+                                <td>
+                                    <span class="fw-semibold">{{ $reserva->created_at ? $reserva->created_at->format('d/m/Y') : '-' }}</span>
                                 </td>
                                 <td>
                                     <div class="d-flex align-items-center">
