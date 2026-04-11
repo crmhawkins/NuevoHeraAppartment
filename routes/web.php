@@ -1407,6 +1407,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:ADMIN'])->grou
         Route::post('/{whatsappTemplate}/test', [WhatsappTemplateController::class, 'test'])->name('test');
         Route::get('/{whatsappTemplate}/check-status', [WhatsappTemplateController::class, 'checkStatus'])->name('check-status');
     });
+
+    // Conversaciones Channex (Booking/Airbnb)
+    Route::get('/channex-mensajes', [App\Http\Controllers\ChannexMensajesController::class, 'index'])->name('channex-mensajes.index');
+    Route::get('/channex-mensajes/{bookingId}', [App\Http\Controllers\ChannexMensajesController::class, 'mensajes'])->name('channex-mensajes.mensajes');
 });
 
 

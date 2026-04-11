@@ -433,8 +433,7 @@
                                         <li><hr class="dropdown-divider"></li>
                                         {{-- Channex (Booking/Airbnb) --}}
                                         <li class="nav-header" style="padding: 8px 16px; font-weight: 700; color: #6c757d; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">💬 Channex (Booking/Airbnb)</li>
-                                        {{-- TODO: implementar vista de conversaciones Channex --}}
-                                        <li><a class="dropdown-item" href="#">
+                                        <li><a class="dropdown-item" href="{{ route('admin.channex-mensajes.index') }}">
                                             <i class="fas fa-comments me-2"></i>Conversaciones Channex
                                         </a></li>
                                         <li><a class="dropdown-item" href="{{ route('admin.prompt.edit', 'channex') }}">
