@@ -237,12 +237,13 @@ class CheckInPublicController extends Controller
         // Save DNI photos for the main client
         $this->savePhotos($reserva, $cliente->id, 'cliente');
 
-        // Process additional guests -> create/update Huesped records
+        // Process ALL guests -> create/update Huesped records (incluido el titular)
+        // MIR exige al menos un Huesped con numero_identificacion
         $existingHuespedes = Huesped::where('reserva_id', $reserva->id)->orderBy('id')->get();
 
-        for ($i = 1; $i < count($guestsData); $i++) {
+        for ($i = 0; $i < count($guestsData); $i++) {
             $guestData = $guestsData[$i];
-            $huesped = $existingHuespedes->get($i - 1) ?? new Huesped();
+            $huesped = $existingHuespedes->get($i) ?? new Huesped();
             $this->updateHuesped($huesped, $guestData, $reserva->id);
         }
 
@@ -475,6 +476,8 @@ class CheckInPublicController extends Controller
             'codigo_postal' => $data['postal_code'] ?? $cliente->codigo_postal,
             'localidad' => $data['city'] ?? $cliente->localidad,
             'provincia' => $data['province'] ?? $data['city'] ?? $cliente->provincia,
+            'numero_soporte_documento' => $data['document_support_number'] ?? $cliente->numero_soporte_documento,
+            'nacionalidad' => $this->mapNacionalidadCodigo($data['nationality'] ?? $cliente->nacionalidad ?? ''),
         ];
 
         // Map sexo to numeric if the model uses numeric
@@ -766,6 +769,23 @@ class CheckInPublicController extends Controller
         if (in_array($gender, ['M', 'MASCULINO', 'MALE', 'HOMBRE', 'H'])) return 'M';
         if (in_array($gender, ['F', 'FEMENINO', 'FEMALE', 'MUJER'])) return 'F';
         return 'O';
+    }
+
+    private function mapNacionalidadCodigo($nacionalidad)
+    {
+        if (empty($nacionalidad)) return null;
+        $map = [
+            'ESPAÑOLA' => 'ES', 'ESPANOLA' => 'ES', 'SPAIN' => 'ES', 'ESPAÑA' => 'ES', 'ESP' => 'ES', 'ES' => 'ES',
+            'FRANCESA' => 'FR', 'FRENCH' => 'FR', 'FRANCE' => 'FR', 'FR' => 'FR',
+            'ALEMANA' => 'DE', 'GERMAN' => 'DE', 'GERMANY' => 'DE', 'DE' => 'DE',
+            'ITALIANA' => 'IT', 'ITALIAN' => 'IT', 'ITALY' => 'IT', 'IT' => 'IT',
+            'PORTUGUESA' => 'PT', 'PORTUGUESE' => 'PT', 'PORTUGAL' => 'PT', 'PT' => 'PT',
+            'BRITÁNICA' => 'GB', 'BRITISH' => 'GB', 'UK' => 'GB', 'GB' => 'GB',
+            'MARROQUÍ' => 'MA', 'MOROCCAN' => 'MA', 'MOROCCO' => 'MA', 'MA' => 'MA',
+            'RUMANA' => 'RO', 'ROMANIAN' => 'RO', 'ROMANIA' => 'RO', 'RO' => 'RO',
+        ];
+        $upper = strtoupper(trim($nacionalidad));
+        return $map[$upper] ?? (strlen($upper) <= 3 ? $upper : null);
     }
 
     /**
