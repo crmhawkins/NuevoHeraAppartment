@@ -720,16 +720,28 @@
                     <div class="booking-portal-properties-list">
                         @foreach($apartamentosDisponibles as $ap)
                             <div class="booking-portal-property-card">
-                                <!-- Imagen -->
-                                <div class="booking-portal-property-image">
-                                    @if($ap->photos && $ap->photos->first())
-                                        <img src="{{ asset('storage/' . $ap->photos->first()->path) }}" alt="{{ $ap->titulo ?? $ap->nombre }}">
+                                <!-- Imagen con carousel -->
+                                <div class="booking-portal-property-image" style="position: relative; overflow: hidden;">
+                                    @if($ap->photos && $ap->photos->count() > 0)
+                                        @foreach($ap->photos as $photoIdx => $photo)
+                                            <img src="{{ asset('storage/' . $photo->path) }}"
+                                                 alt="{{ $ap->titulo ?? $ap->nombre }}"
+                                                 class="carousel-img-{{ $ap->id }}"
+                                                 style="{{ $photoIdx > 0 ? 'display:none;' : '' }}position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;">
+                                        @endforeach
+                                        @if($ap->photos->count() > 1)
+                                            <button onclick="carouselNav({{ $ap->id }}, -1)" style="position:absolute;left:4px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.85);border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:14px;z-index:2;box-shadow:0 1px 4px rgba(0,0,0,0.2);">&#10094;</button>
+                                            <button onclick="carouselNav({{ $ap->id }}, 1)" style="position:absolute;right:4px;top:50%;transform:translateY(-50%);background:rgba(255,255,255,0.85);border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:14px;z-index:2;box-shadow:0 1px 4px rgba(0,0,0,0.2);">&#10095;</button>
+                                            <div style="position:absolute;bottom:8px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.5);color:white;padding:2px 8px;border-radius:10px;font-size:11px;z-index:2;">
+                                                <span id="carousel-counter-{{ $ap->id }}">1</span>/{{ $ap->photos->count() }}
+                                            </div>
+                                        @endif
                                     @else
                                         <div style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 64px; opacity: 0.3;">
                                             🏠
                                         </div>
                                     @endif
-                                    <div class="booking-portal-property-favorite" onclick="toggleFavorite(this)">
+                                    <div class="booking-portal-property-favorite" onclick="toggleFavorite(this)" style="z-index:3;">
                                         <i class="far fa-heart"></i>
                                     </div>
                                 </div>
@@ -810,9 +822,34 @@
                                                 </div>
                                             </div>
                                         @endif
+                                        <!-- Ver información completa -->
+                                        <div style="margin-top: 12px;">
+                                            <a href="javascript:void(0)" onclick="mostrarInfoApartamento({{ $ap->id }})"
+                                               style="color: #003580; font-weight: 600; font-size: 13px; text-decoration: none;">
+                                                <i class="fas fa-info-circle" style="margin-right: 4px;"></i>Ver información completa
+                                            </a>
+                                        </div>
                                     </div>
                                 </div>
-                                
+
+                                <!-- Modal de información del apartamento (oculto) -->
+                                <div id="info-modal-{{ $ap->id }}" style="display:none;">
+                                    <h3>{{ $ap->titulo ?? $ap->nombre }}</h3>
+                                    <p><strong>Ubicación:</strong> {{ optional($ap->edificioName)->nombre ?? 'Algeciras' }}</p>
+                                    @if($ap->bedrooms)<p><strong>Dormitorios:</strong> {{ $ap->bedrooms }}</p>@endif
+                                    @if($ap->bathrooms)<p><strong>Baños:</strong> {{ number_format($ap->bathrooms, 1) }}</p>@endif
+                                    @if($ap->size)<p><strong>Superficie:</strong> {{ $ap->size }} m²</p>@endif
+                                    @if($ap->max_guests)<p><strong>Máximo huéspedes:</strong> {{ $ap->max_guests }}</p>@endif
+                                    @if($ap->description)
+                                        <hr>
+                                        <h4>Descripción</h4>
+                                        <div>{!! $ap->getTranslated('description') !!}</div>
+                                    @endif
+                                    <hr>
+                                    <h4>Servicios incluidos</h4>
+                                    <p>WiFi gratis, Aire acondicionado, TV, Cocina, Ascensor, Parking</p>
+                                </div>
+
                                 <!-- Sección de Precio y Botón -->
                                 <div class="booking-portal-property-price-section">
                                     <div class="booking-portal-property-price">
@@ -830,9 +867,9 @@
                                             <i class="fas fa-credit-card" style="margin-right: 6px;"></i>Reservar
                                         </a>
                                     @else
-                                        <a href="{{ route('web.reservas.show', array_filter(['id' => $ap->id])) }}"
-                                           class="booking-portal-property-button">
-                                            {{ __('portal.view_availability') }}
+                                        <a href="javascript:void(0)" onclick="alertSeleccionarFechas()"
+                                           class="booking-portal-property-button" style="background: #28a745;">
+                                            <i class="fas fa-credit-card" style="margin-right: 6px;"></i>Reservar
                                         </a>
                                     @endif
                                 </div>
@@ -859,6 +896,53 @@
 
 @section('scripts')
 <script>
+    // Carousel de imágenes por apartamento
+    var carouselState = {};
+    function carouselNav(apId, dir) {
+        var imgs = document.querySelectorAll('.carousel-img-' + apId);
+        if (imgs.length <= 1) return;
+        if (!carouselState[apId]) carouselState[apId] = 0;
+        imgs[carouselState[apId]].style.display = 'none';
+        carouselState[apId] = (carouselState[apId] + dir + imgs.length) % imgs.length;
+        imgs[carouselState[apId]].style.display = 'block';
+        var counter = document.getElementById('carousel-counter-' + apId);
+        if (counter) counter.textContent = carouselState[apId] + 1;
+    }
+
+    // Alerta de seleccionar fechas
+    function alertSeleccionarFechas() {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'info',
+                title: 'Selecciona las fechas',
+                text: 'Debe seleccionar la fecha de entrada y salida antes de reservar.',
+                confirmButtonText: 'Entendido',
+                confirmButtonColor: '#003580'
+            });
+        } else {
+            alert('Debe seleccionar la fecha de entrada y salida antes de reservar.');
+        }
+    }
+
+    // Modal de información del apartamento
+    function mostrarInfoApartamento(apId) {
+        var modal = document.getElementById('info-modal-' + apId);
+        if (!modal) return;
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                title: '',
+                html: modal.innerHTML,
+                width: '600px',
+                showConfirmButton: true,
+                confirmButtonText: 'Cerrar',
+                confirmButtonColor: '#003580',
+                customClass: { htmlContainer: 'text-left' }
+            });
+        } else {
+            alert(modal.textContent);
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         // Función para formatear fecha sin problemas de zona horaria
         function formatDate(date) {
