@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\MensajeChat;
+use App\Models\ChatGpt;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -40,10 +41,46 @@ class ChannexMensajesController extends Controller
      */
     public function mensajes($bookingId)
     {
-        $mensajes = MensajeChat::where('booking_id', $bookingId)
+        // Obtener mensajes del huesped desde tabla mensajes
+        $mensajesHuesped = MensajeChat::where('booking_id', $bookingId)
             ->orderBy('received_at', 'asc')
             ->get();
 
-        return response()->json($mensajes);
+        // Obtener respuestas de la IA desde tabla chat_gpts
+        // Los mensajes de Channex se vinculan por id_mensaje (= mensajes.id)
+        $mensajeIds = $mensajesHuesped->pluck('id')->toArray();
+        $respuestasIA = ChatGpt::whereIn('id_mensaje', $mensajeIds)
+            ->whereNotNull('respuesta')
+            ->where('respuesta', '!=', '')
+            ->get()
+            ->keyBy('id_mensaje');
+
+        // Combinar: por cada mensaje del huesped, añadir la respuesta de la IA si existe
+        $resultado = [];
+        foreach ($mensajesHuesped as $msg) {
+            $resultado[] = [
+                'id' => $msg->id,
+                'booking_id' => $msg->booking_id,
+                'sender' => $msg->sender,
+                'message' => $msg->message,
+                'received_at' => $msg->received_at,
+                'type' => 'guest',
+            ];
+
+            // Si hay respuesta de la IA para este mensaje
+            if (isset($respuestasIA[$msg->id])) {
+                $respuesta = $respuestasIA[$msg->id];
+                $resultado[] = [
+                    'id' => 'ai_' . $respuesta->id,
+                    'booking_id' => $msg->booking_id,
+                    'sender' => 'Hawkins AI',
+                    'message' => $respuesta->respuesta,
+                    'received_at' => $respuesta->created_at,
+                    'type' => 'hotel',
+                ];
+            }
+        }
+
+        return response()->json($resultado);
     }
 }

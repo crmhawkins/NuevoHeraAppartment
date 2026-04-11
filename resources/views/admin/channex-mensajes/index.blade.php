@@ -461,9 +461,9 @@ document.addEventListener('DOMContentLoaded', function () {
                         lastDate = dateStr;
                     }
 
-                    const isGuest = (msg.sender === 'guest');
+                    const isGuest = (msg.type === 'guest' || msg.sender === 'guest');
                     const rowClass = isGuest ? 'msg-guest' : 'msg-hotel';
-                    const senderLabel = isGuest ? 'Huesped' : (msg.sender === 'hotel' ? 'Hotel (IA)' : msg.sender);
+                    const senderLabel = isGuest ? 'Huesped' : 'Hawkins IA';
 
                     html += '<div class="channex-msg-row ' + rowClass + '">';
                     html += '  <div class="channex-msg-bubble">';
