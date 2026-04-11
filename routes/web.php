@@ -1392,6 +1392,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:ADMIN'])->grou
     });
 
     // Plantillas WhatsApp (admin views)
+    // Prompts de IA (WhatsApp y Channex)
+    Route::get('/prompt/{tipo}', [App\Http\Controllers\PromptController::class, 'edit'])->name('prompt.edit');
+    Route::post('/prompt/{tipo}', [App\Http\Controllers\PromptController::class, 'update'])->name('prompt.update');
+
     Route::prefix('whatsapp-templates')->name('whatsapp-templates.')->group(function () {
         Route::get('/', [WhatsappTemplateController::class, 'index'])->name('index');
         Route::get('/create', [WhatsappTemplateController::class, 'create'])->name('create');

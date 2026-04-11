@@ -15,7 +15,8 @@ class PromptAsistente extends Model
     protected $table = 'prompt_asistente';
 
     protected $fillable = [
-        'prompt'
+        'prompt',
+        'tipo'
     ];
 
     /**

@@ -424,8 +424,7 @@
                                         <li><a target="_blank" class="dropdown-item" href="{{ route('whatsapp.mensajes') }}">
                                             <i class="fab fa-whatsapp me-2"></i>Conversaciones
                                         </a></li>
-                                        {{-- TODO: implementar ruta --}}
-                                        <li><a class="dropdown-item" href="#">
+                                        <li><a class="dropdown-item" href="{{ route('admin.prompt.edit', 'whatsapp') }}">
                                             <i class="fas fa-robot me-2"></i>Prompt WhatsApp
                                         </a></li>
                                         <li><a class="dropdown-item" href="{{ route('admin.whatsapp-templates.index') }}">
@@ -434,12 +433,11 @@
                                         <li><hr class="dropdown-divider"></li>
                                         {{-- Channex (Booking/Airbnb) --}}
                                         <li class="nav-header" style="padding: 8px 16px; font-weight: 700; color: #6c757d; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">💬 Channex (Booking/Airbnb)</li>
-                                        {{-- TODO: implementar ruta --}}
+                                        {{-- TODO: implementar vista de conversaciones Channex --}}
                                         <li><a class="dropdown-item" href="#">
                                             <i class="fas fa-comments me-2"></i>Conversaciones Channex
                                         </a></li>
-                                        {{-- TODO: implementar ruta --}}
-                                        <li><a class="dropdown-item" href="#">
+                                        <li><a class="dropdown-item" href="{{ route('admin.prompt.edit', 'channex') }}">
                                             <i class="fas fa-robot me-2"></i>Prompt Channex
                                         </a></li>
                                         <li><hr class="dropdown-divider"></li>
