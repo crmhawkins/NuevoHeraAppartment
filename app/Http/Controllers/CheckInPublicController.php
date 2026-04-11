@@ -81,21 +81,38 @@ class CheckInPublicController extends Controller
         // Process with Hawkins AI
         $extractedData = [];
         try {
+            Log::info('[CheckIn AI] Enviando foto frontal a Hawkins AI', ['path' => $frontPath]);
             $frontResult = $this->sendToAI($frontPath, 'front');
+            Log::info('[CheckIn AI] Resultado frontal', [
+                'success' => $frontResult['success'],
+                'data_keys' => !empty($frontResult['data']) ? array_keys($frontResult['data']) : [],
+                'error' => $frontResult['error'] ?? null,
+            ]);
             if ($frontResult['success'] && !empty($frontResult['data'])) {
                 $extractedData = $this->mapAIDataToFormFields($frontResult['data'], 'front');
+                Log::info('[CheckIn AI] Datos mapeados del frontal', ['fields' => array_keys($extractedData)]);
             }
 
             if ($backPath) {
+                Log::info('[CheckIn AI] Enviando foto reverso a Hawkins AI', ['path' => $backPath]);
                 $backResult = $this->sendToAI($backPath, 'rear');
+                Log::info('[CheckIn AI] Resultado reverso', [
+                    'success' => $backResult['success'],
+                    'data_keys' => !empty($backResult['data']) ? array_keys($backResult['data']) : [],
+                ]);
                 if ($backResult['success'] && !empty($backResult['data'])) {
                     $backMapped = $this->mapAIDataToFormFields($backResult['data'], 'rear');
                     $extractedData = array_merge($extractedData, $backMapped);
                 }
             }
         } catch (\Exception $e) {
-            Log::error('AI extraction error in CheckInPublic', ['error' => $e->getMessage()]);
+            Log::error('[CheckIn AI] Excepcion en extraccion', ['error' => $e->getMessage()]);
         }
+
+        Log::info('[CheckIn AI] Datos finales enviados al formulario', [
+            'total_fields' => count($extractedData),
+            'fields' => array_keys($extractedData),
+        ]);
 
         // Store image paths in session for later use
         session([
