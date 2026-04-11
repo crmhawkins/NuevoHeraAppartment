@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\BankinterSyncLog;
 use App\Services\BankinterScraperService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -142,6 +143,26 @@ class BankinterScraperApiController extends Controller
 
         $success = (bool) ($resumen['success'] ?? false);
         $statusCode = $success ? 200 : 500;
+
+        // Registrar en bankinter_sync_logs para que Diario de Caja muestre la última sincronización
+        try {
+            BankinterSyncLog::create([
+                'cuenta_alias'     => $alias,
+                'fecha_sync'       => now(),
+                'status'           => $success ? 'success' : 'error',
+                'total_filas'      => $resumen['total_filas'] ?? 0,
+                'procesados'       => $resumen['procesados'] ?? 0,
+                'duplicados'       => $resumen['duplicados'] ?? 0,
+                'errores'          => $resumen['errores'] ?? 0,
+                'ingresos_creados' => $resumen['ingresos_creados'] ?? 0,
+                'gastos_creados'   => $resumen['gastos_creados'] ?? 0,
+                'archivo'          => $filename,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('[BankinterScraperApi] No se pudo registrar sync log', [
+                'error' => $e->getMessage(),
+            ]);
+        }
 
         Log::info('[BankinterScraperApi] Importacion finalizada', [
             'ip' => $clientIp,

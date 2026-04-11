@@ -425,31 +425,34 @@
                 <input type="hidden" name="lugar_nacimiento" value="{{ $cliente->lugar_nacimiento }}">
                 <input type="hidden" name="fecha_caducidad" value="{{ now()->addYears(10)->format('Y-m-d') }}">
             @else
-                <!-- Formulario completo para otro huésped o cliente no logueado -->
+                <!-- Formulario simplificado: solo datos básicos para reservar y pagar -->
+                <!-- Los datos de DNI, nacionalidad, dirección, etc. se piden DESPUÉS via checkin -->
                 <div class="form-row">
                     <div class="form-group">
                         <label for="nombre">{{ __('reservation.name_label') }} <span class="required">*</span></label>
-                        <input 
-                            type="text" 
-                            id="nombre" 
-                            name="nombre" 
+                        <input
+                            type="text"
+                            id="nombre"
+                            name="nombre"
                             value="{{ old('nombre', '') }}"
                             required
+                            placeholder="Tu nombre"
                             class="{{ $errors->has('nombre') ? 'is-invalid' : '' }}"
                         >
                         @error('nombre')
                             <span class="error-message">{{ $message }}</span>
                         @enderror
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="apellido1">{{ __('reservation.surname1_label') }} <span class="required">*</span></label>
-                        <input 
-                            type="text" 
-                            id="apellido1" 
-                            name="apellido1" 
+                        <input
+                            type="text"
+                            id="apellido1"
+                            name="apellido1"
                             value="{{ old('apellido1', '') }}"
                             required
+                            placeholder="Tu apellido"
                             class="{{ $errors->has('apellido1') ? 'is-invalid' : '' }}"
                         >
                         @error('apellido1')
@@ -457,31 +460,33 @@
                         @enderror
                     </div>
                 </div>
-                
+
                 <div class="form-row">
                     <div class="form-group">
                         <label for="email">Email <span class="required">*</span></label>
-                        <input 
-                            type="email" 
-                            id="email" 
-                            name="email" 
+                        <input
+                            type="email"
+                            id="email"
+                            name="email"
                             value="{{ old('email', '') }}"
                             required
+                            placeholder="tu@email.com"
                             class="{{ $errors->has('email') ? 'is-invalid' : '' }}"
                         >
                         @error('email')
                             <span class="error-message">{{ $message }}</span>
                         @enderror
                     </div>
-                    
+
                     <div class="form-group">
                         <label for="telefono">{{ __('reservation.field_phone') }} <span class="required">*</span></label>
-                        <input 
-                            type="tel" 
-                            id="telefono" 
-                            name="telefono" 
+                        <input
+                            type="tel"
+                            id="telefono"
+                            name="telefono"
                             value="{{ old('telefono', '') }}"
                             required
+                            placeholder="+34 600 000 000"
                             class="{{ $errors->has('telefono') ? 'is-invalid' : '' }}"
                         >
                         @error('telefono')
@@ -489,231 +494,8 @@
                         @enderror
                     </div>
                 </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="apellido2">{{ __('reservation.surname2_label') }}</label>
-                        <input 
-                            type="text" 
-                            id="apellido2" 
-                            name="apellido2" 
-                            value="{{ old('apellido2', '') }}"
-                            class="{{ $errors->has('apellido2') ? 'is-invalid' : '' }}"
-                        >
-                        @error('apellido2')
-                            <span class="error-message">{{ $message }}</span>
-                        @enderror
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="fecha_nacimiento">{{ __('reservation.birth_date_label') }} <span class="required">*</span></label>
-                        <input 
-                            type="date" 
-                            id="fecha_nacimiento" 
-                            name="fecha_nacimiento" 
-                            value="{{ old('fecha_nacimiento', '') }}"
-                            required
-                            max="{{ now()->subYears(18)->format('Y-m-d') }}"
-                            class="{{ $errors->has('fecha_nacimiento') ? 'is-invalid' : '' }}"
-                        >
-                        @error('fecha_nacimiento')
-                            <span class="error-message">{{ $message }}</span>
-                        @enderror
-                    </div>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="lugar_nacimiento">{{ __('reservation.birth_place_label') }}</label>
-                        <input 
-                            type="text" 
-                            id="lugar_nacimiento" 
-                            name="lugar_nacimiento" 
-                            value="{{ old('lugar_nacimiento', '') }}"
-                            placeholder="{{ __('profile.birth_place_placeholder') }}"
-                            class="{{ $errors->has('lugar_nacimiento') ? 'is-invalid' : '' }}"
-                        >
-                        @error('lugar_nacimiento')
-                            <span class="error-message">{{ $message }}</span>
-                        @enderror
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="sexo">{{ __('reservation.gender_label') }} <span class="required">*</span></label>
-                        <select 
-                            id="sexo" 
-                            name="sexo" 
-                            required
-                            class="{{ $errors->has('sexo') ? 'is-invalid' : '' }}"
-                        >
-                            <option value="">{{ __('common.select') }}</option>
-                            <option value="Masculino" {{ old('sexo', '') == 'Masculino' ? 'selected' : '' }}>{{ __('reservation.gender_male') }}</option>
-                            <option value="Femenino" {{ old('sexo', '') == 'Femenino' ? 'selected' : '' }}>{{ __('reservation.gender_female') }}</option>
-                        </select>
-                        @error('sexo')
-                            <span class="error-message">{{ $message }}</span>
-                        @enderror
-                    </div>
-                </div>
-                
-                <!-- Documento de Identidad -->
-                <h3 class="form-section-title" style="margin-top: 32px;">{{ __('reservation.id_document') }}</h3>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="tipo_documento">{{ __('reservation.id_type_label') }} <span class="required">*</span></label>
-                        <select 
-                            id="tipo_documento" 
-                            name="tipo_documento" 
-                            required
-                            class="{{ $errors->has('tipo_documento') ? 'is-invalid' : '' }}"
-                        >
-                            <option value="">{{ __('common.select') }}</option>
-                            <option value="D" {{ old('tipo_documento', '') == 'D' ? 'selected' : '' }}>DNI</option>
-                            <option value="P" {{ old('tipo_documento', '') == 'P' ? 'selected' : '' }}>Pasaporte</option>
-                        </select>
-                        @error('tipo_documento')
-                            <span class="error-message">{{ $message }}</span>
-                        @enderror
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="num_identificacion">{{ __('reservation.id_number_label') }} <span class="required">*</span></label>
-                        <input 
-                            type="text" 
-                            id="num_identificacion" 
-                            name="num_identificacion" 
-                            value="{{ old('num_identificacion', '') }}"
-                            required
-                            class="{{ $errors->has('num_identificacion') ? 'is-invalid' : '' }}"
-                        >
-                        @error('num_identificacion')
-                            <span class="error-message">{{ $message }}</span>
-                        @enderror
-                    </div>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="fecha_expedicion">{{ __('reservation.id_issue_date_label') }} <span class="required">*</span></label>
-                        <input 
-                            type="date" 
-                            id="fecha_expedicion" 
-                            name="fecha_expedicion" 
-                            value="{{ old('fecha_expedicion', '') }}"
-                            required
-                            max="{{ now()->format('Y-m-d') }}"
-                            class="{{ $errors->has('fecha_expedicion') ? 'is-invalid' : '' }}"
-                        >
-                        @error('fecha_expedicion')
-                            <span class="error-message">{{ $message }}</span>
-                        @enderror
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="fecha_caducidad">{{ __('reservation.id_expiry_date_label') }} <span class="required">*</span></label>
-                        <input 
-                            type="date" 
-                            id="fecha_caducidad" 
-                            name="fecha_caducidad" 
-                            value="{{ old('fecha_caducidad') }}"
-                            required
-                            min="{{ now()->format('Y-m-d') }}"
-                            class="{{ $errors->has('fecha_caducidad') ? 'is-invalid' : '' }}"
-                        >
-                        @error('fecha_caducidad')
-                            <span class="error-message">{{ $message }}</span>
-                        @enderror
-                    </div>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="nacionalidad">{{ __('reservation.nationality_label') }} <span class="required">*</span></label>
-                        <input 
-                            type="text" 
-                            id="nacionalidad" 
-                            name="nacionalidad" 
-                            value="{{ old('nacionalidad', 'ES') }}"
-                            required
-                            maxlength="3"
-                            placeholder="ES"
-                            class="{{ $errors->has('nacionalidad') ? 'is-invalid' : '' }}"
-                        >
-                        <small style="color: #666; font-size: 12px;">{{ __('reservation.nationality_hint') }}</small>
-                        @error('nacionalidad')
-                            <span class="error-message">{{ $message }}</span>
-                        @enderror
-                    </div>
-                </div>
             @endif
-            
-            @if(!auth('cliente')->check() || !$esParaMi)
-                <!-- Dirección -->
-                <h3 class="form-section-title" style="margin-top: 32px;">{{ __('reservation.address_label') }}</h3>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="direccion">{{ __('reservation.address_label') }}</label>
-                        <input 
-                            type="text" 
-                            id="direccion" 
-                            name="direccion" 
-                            value="{{ old('direccion', '') }}"
-                            class="{{ $errors->has('direccion') ? 'is-invalid' : '' }}"
-                        >
-                        @error('direccion')
-                            <span class="error-message">{{ $message }}</span>
-                        @enderror
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="localidad">{{ __('reservation.city_label') }}</label>
-                        <input 
-                            type="text" 
-                            id="localidad" 
-                            name="localidad" 
-                            value="{{ old('localidad', '') }}"
-                            class="{{ $errors->has('localidad') ? 'is-invalid' : '' }}"
-                        >
-                        @error('localidad')
-                            <span class="error-message">{{ $message }}</span>
-                        @enderror
-                    </div>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="codigo_postal">{{ __('reservation.postal_code_label') }}</label>
-                        <input 
-                            type="text" 
-                            id="codigo_postal" 
-                            name="codigo_postal" 
-                            value="{{ old('codigo_postal', '') }}"
-                            class="{{ $errors->has('codigo_postal') ? 'is-invalid' : '' }}"
-                        >
-                        @error('codigo_postal')
-                            <span class="error-message">{{ $message }}</span>
-                        @enderror
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="provincia">{{ __('reservation.province_label') }} <span class="required">*</span></label>
-                        <input 
-                            type="text" 
-                            id="provincia" 
-                            name="provincia" 
-                            value="{{ old('provincia', '') }}"
-                            required
-                            class="{{ $errors->has('provincia') ? 'is-invalid' : '' }}"
-                        >
-                        @error('provincia')
-                            <span class="error-message">{{ $message }}</span>
-                        @enderror
-                    </div>
-                </div>
-            @endif
-            
+
             <!-- Cupón de Descuento -->
             <h3 class="form-section-title" style="margin-top: 32px;">
                 <i class="fas fa-tag me-2"></i>¿Tienes un cupón de descuento?
@@ -746,22 +528,6 @@
                 </div>
             </div>
 
-            <!-- Notas Adicionales -->
-            <h3 class="form-section-title" style="margin-top: 32px;">{{ __('reservation.notes_label') }}</h3>
-            
-            <div class="form-group">
-                <label for="notas">{{ __('reservation.notes_label') }}</label>
-                <textarea 
-                    id="notas" 
-                    name="notas" 
-                    rows="4"
-                    class="{{ $errors->has('notas') ? 'is-invalid' : '' }}"
-                >{{ old('notas') }}</textarea>
-                @error('notas')
-                    <span class="error-message">{{ $message }}</span>
-                @enderror
-            </div>
-            
             <!-- Botón de Envío -->
             <button type="submit" class="submit-btn" id="submitBtn">
                 <i class="fas fa-credit-card me-2"></i>

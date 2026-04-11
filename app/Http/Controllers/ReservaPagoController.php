@@ -324,32 +324,22 @@ class ReservaPagoController extends Controller
             'tiene_fecha_caducidad' => $request->has('fecha_caducidad'),
         ]);
 
-        // Validación base
+        // Validación simplificada: solo datos básicos del huésped.
+        // Los datos de MIR (DNI, nacionalidad, dirección, etc.) se piden DESPUÉS
+        // de la reserva via el link de checkin que se envía por email/WhatsApp.
         $rules = [
             'apartamento_id' => 'required|exists:apartamentos,id',
             'fecha_entrada' => 'required|date|after_or_equal:today',
             'fecha_salida' => 'required|date|after:fecha_entrada',
             'adultos' => 'required|integer|min:1|max:20',
             'ninos' => 'nullable|integer|min:0|max:10',
-            // Datos del huésped (obligatorios para MIR)
+            // Solo 4 campos del cliente (lo mínimo para reservar y pagar)
             'nombre' => 'required|string|max:255',
             'apellido1' => 'required|string|max:255',
-            'apellido2' => 'nullable|string|max:255',
             'email' => 'required|email|max:255',
             'telefono' => 'required|string|max:20',
-            'tipo_documento' => 'required|string|in:D,P',
-            'num_identificacion' => 'required|string|max:20|regex:/^[A-Za-z0-9\-]+$/',
-            'numero_soporte_documento' => 'nullable|required_if:tipo_documento,D|string|max:20',
-            'nacionalidad' => 'required|string|max:3',
-            'fecha_nacimiento' => 'required|date|before:today|after:1900-01-01',
-            'fecha_expedicion' => 'required|date|before_or_equal:today',
-            'fecha_caducidad' => 'required|date|after:today',
-            'sexo' => 'required|string|in:Masculino,Femenino',
-            'direccion' => 'required|string|max:500',
-            'localidad' => 'nullable|string|max:255',
-            'codigo_postal' => 'required|string|max:10',
-            'provincia' => 'required|string|max:255',
-            'lugar_nacimiento' => 'nullable|string|max:255',
+            // Opcionales
+            'codigo_cupon' => 'nullable|string|max:50',
             'notas' => 'nullable|string|max:1000',
         ];
 
