@@ -42,6 +42,14 @@
                             }
                         }
                         sessionStorage.removeItem('ai_extracted_data');
+
+                        // Ocultar campo soporte si es pasaporte
+                        var docTypeStored = sessionStorage.getItem('doc_type');
+                        if (docTypeStored === 'passport') {
+                            var supportGroup = document.getElementById('support-number-group');
+                            if (supportGroup) supportGroup.style.display = 'none';
+                        }
+                        sessionStorage.removeItem('doc_type');
                     } catch (e) { console.error('Error parsing AI data', e); }
                 }
             });
@@ -115,7 +123,7 @@
                     <input type="text" name="guests[0][document_number]" required value="{{ old('guests.0.document_number', $cliente->num_identificacion ?? '') }}">
                 </div>
 
-                <div class="form-group">
+                <div class="form-group" id="support-number-group">
                     <label>{{ __('Número de soporte') }}</label>
                     <input type="text" name="guests[0][document_support_number]" value="{{ old('guests.0.document_support_number') }}">
                 </div>

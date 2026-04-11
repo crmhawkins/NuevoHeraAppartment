@@ -66,14 +66,18 @@ class CheckInPublicController extends Controller
         $request->validate([
             'dni_front' => 'required|file|max:10240|mimes:jpeg,jpg,png,webp',
             'dni_back' => 'nullable|file|max:10240|mimes:jpeg,jpg,png,webp',
+            'doc_type' => 'nullable|string|in:dni,passport',
         ]);
+
+        $docType = $request->input('doc_type', 'dni');
+        $isPassport = $docType === 'passport';
 
         // Save uploaded files
         $frontFile = $request->file('dni_front');
-        $frontPath = $this->saveUploadedImage($frontFile, $reserva->cliente_id, 'front');
+        $frontPath = $this->saveUploadedImage($frontFile, $reserva->cliente_id, $isPassport ? 'passport' : 'front');
 
         $backPath = null;
-        if ($request->hasFile('dni_back')) {
+        if (!$isPassport && $request->hasFile('dni_back')) {
             $backFile = $request->file('dni_back');
             $backPath = $this->saveUploadedImage($backFile, $reserva->cliente_id, 'rear');
         }
@@ -81,8 +85,9 @@ class CheckInPublicController extends Controller
         // Process with Hawkins AI
         $extractedData = [];
         try {
-            Log::info('[CheckIn AI] Enviando foto frontal a Hawkins AI', ['path' => $frontPath]);
-            $frontResult = $this->sendToAI($frontPath, 'front');
+            $aiSide = $isPassport ? 'passport' : 'front';
+            Log::info('[CheckIn AI] Enviando foto a Hawkins AI', ['path' => $frontPath, 'side' => $aiSide, 'doc_type' => $docType]);
+            $frontResult = $this->sendToAI($frontPath, $aiSide);
             Log::info('[CheckIn AI] Resultado frontal', [
                 'success' => $frontResult['success'],
                 'data_keys' => !empty($frontResult['data']) ? array_keys($frontResult['data']) : [],
@@ -109,9 +114,31 @@ class CheckInPublicController extends Controller
             Log::error('[CheckIn AI] Excepcion en extraccion', ['error' => $e->getMessage()]);
         }
 
+        // Para pasaportes extranjeros, pre-rellenar dirección con la del apartamento
+        if ($isPassport) {
+            $apartamento = $reserva->apartamento;
+            $edificio = $apartamento->edificio ?? null;
+            if (empty($extractedData['address']) && $apartamento) {
+                $extractedData['address'] = $apartamento->direccion ?? ($edificio->direccion ?? '');
+            }
+            if (empty($extractedData['city'])) {
+                $extractedData['city'] = $apartamento->localidad ?? ($edificio->localidad ?? 'Algeciras');
+            }
+            if (empty($extractedData['postal_code'])) {
+                $extractedData['postal_code'] = $apartamento->codigo_postal ?? ($edificio->codigo_postal ?? '11201');
+            }
+            if (empty($extractedData['province'])) {
+                $extractedData['province'] = $apartamento->provincia ?? ($edificio->provincia ?? 'Cádiz');
+            }
+            $extractedData['doc_type'] = 'passport';
+        } else {
+            $extractedData['doc_type'] = 'dni';
+        }
+
         Log::info('[CheckIn AI] Datos finales enviados al formulario', [
             'total_fields' => count($extractedData),
             'fields' => array_keys($extractedData),
+            'doc_type' => $docType,
         ]);
 
         // Store image paths in session for later use
@@ -628,7 +655,22 @@ class CheckInPublicController extends Controller
 
         $fullUrl = rtrim($baseUrl, '/') . '/chat/analyze-image';
 
-        if ($side === 'front') {
+        if ($side === 'passport') {
+            $prompt = 'Extrae de la imagen del PASAPORTE todos los datos. Busca los datos tanto en el texto visible como en la zona MRZ (las dos lineas de caracteres en la parte inferior). Responde únicamente con un objeto JSON válido. No añadas texto adicional. Usa formato de fecha YYYY-MM-DD. Para nacionalidad usa el codigo ISO de 2 letras (ej: FR, DE, GB, IT, MA, US). Para sexo: M o F.
+
+{
+"nombre": "",
+"apellidos": "",
+"fecha_nacimiento": "",
+"lugar_nacimiento": "",
+"nacionalidad": "",
+"fecha_expedicion": "",
+"fecha_caducidad": "",
+"numero_dni_o_pasaporte": "",
+"tipo_documento": "Passport",
+"sexo": ""
+}';
+        } elseif ($side === 'front') {
             $prompt = 'Extrae de la imagen del DNI o pasaporte español TODOS los datos solicitados. Responde únicamente con un objeto JSON válido EXACTAMENTE en este formato. No añadas texto, explicaciones ni caracteres adicionales. Usa el formato de fecha YYYY-MM-DD. El numero_soporte es el código alfanumérico pequeño que aparece en el DNI español (suele empezar por letras como BAA, BAB, etc.).
 
 {

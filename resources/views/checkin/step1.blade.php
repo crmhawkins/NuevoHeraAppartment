@@ -11,15 +11,54 @@
     </div>
     @endif
 
+    {{-- Selector de tipo de documento --}}
+    <div id="doc-type-selector" style="margin-bottom: 20px;">
+        <p style="margin-bottom: 10px; color: var(--text-muted); font-size: 14px;">{{ __('Selecciona tu documento') }}</p>
+        <div style="display: flex; gap: 10px;">
+            <button type="button" id="btn-dni" onclick="selectDocType('dni')"
+                style="flex: 1; padding: 14px 10px; border: 2px solid var(--primary, #003580); border-radius: 10px; background: var(--primary, #003580); color: white; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                {{ __('DNI / NIE') }}
+            </button>
+            <button type="button" id="btn-passport" onclick="selectDocType('passport')"
+                style="flex: 1; padding: 14px 10px; border: 2px solid #ddd; border-radius: 10px; background: white; color: #333; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                {{ __('Pasaporte') }}
+            </button>
+        </div>
+    </div>
+
     <div id="upload-form">
-        <div class="file-upload-wrapper" id="front-wrapper">
-            <input type="file" id="dni_front" accept="image/*">
-            <div class="file-upload-text" id="front-text">{{ __('Foto DNI parte frontal') }}</div>
+        {{-- Fotos DNI (frontal + reverso) --}}
+        <div id="dni-uploads">
+            <div class="file-upload-wrapper" id="front-wrapper">
+                <input type="file" id="dni_front" accept="image/*" capture="environment">
+                <div class="file-upload-text" id="front-text">
+                    <span id="front-label">{{ __('Foto parte frontal') }}</span>
+                </div>
+            </div>
+
+            <div class="file-upload-wrapper" id="back-wrapper">
+                <input type="file" id="dni_back" accept="image/*" capture="environment">
+                <div class="file-upload-text" id="back-text">{{ __('Foto parte trasera') }}</div>
+            </div>
         </div>
 
-        <div class="file-upload-wrapper" id="back-wrapper">
-            <input type="file" id="dni_back" accept="image/*">
-            <div class="file-upload-text" id="back-text">{{ __('Foto DNI parte trasera (opcional)') }}</div>
+        {{-- Foto pasaporte (solo 1) --}}
+        <div id="passport-uploads" style="display: none;">
+            <div class="file-upload-wrapper" id="passport-wrapper">
+                <input type="file" id="passport_front" accept="image/*" capture="environment">
+                <div class="file-upload-text" id="passport-text">{{ __('Foto de la pagina con tus datos') }}</div>
+            </div>
+            <p style="font-size: 13px; color: var(--text-muted); text-align: center; margin-top: 8px;">
+                {{ __('Abre tu pasaporte por la pagina donde aparece tu foto y datos personales') }}
+            </p>
+        </div>
+
+        {{-- Barra de progreso --}}
+        <div id="progress-bar" style="display: none; margin: 16px 0;">
+            <div style="background: #e9ecef; border-radius: 8px; height: 8px; overflow: hidden;">
+                <div id="progress-fill" style="background: var(--primary, #003580); height: 100%; width: 0%; transition: width 0.5s ease; border-radius: 8px;"></div>
+            </div>
+            <p id="progress-text" style="text-align: center; font-size: 13px; color: var(--text-muted); margin-top: 8px;"></p>
         </div>
 
         <button type="button" class="btn" id="submit-btn" disabled>{{ __('Siguiente') }}</button>
@@ -29,27 +68,72 @@
         <h2 id="loader-text" style="color: var(--text-muted);">{{ __('Procesando...') }}</h2>
     </div>
 
+    <input type="hidden" id="selected-doc-type" value="dni">
+
     <script>
+        var docType = 'dni';
         var frontInput = document.getElementById('dni_front');
         var backInput = document.getElementById('dni_back');
-        var frontText = document.getElementById('front-text');
-        var backText = document.getElementById('back-text');
+        var passportInput = document.getElementById('passport_front');
         var submitBtn = document.getElementById('submit-btn');
 
-        function updateUI() {
-            if (frontInput.files.length > 0) {
-                frontText.textContent = frontInput.files[0].name;
-                frontText.style.color = "green";
-                submitBtn.disabled = false;
+        function selectDocType(type) {
+            docType = type;
+            document.getElementById('selected-doc-type').value = type;
+            var btnDni = document.getElementById('btn-dni');
+            var btnPass = document.getElementById('btn-passport');
+            var dniUploads = document.getElementById('dni-uploads');
+            var passUploads = document.getElementById('passport-uploads');
+
+            if (type === 'dni') {
+                btnDni.style.background = 'var(--primary, #003580)';
+                btnDni.style.color = 'white';
+                btnDni.style.borderColor = 'var(--primary, #003580)';
+                btnPass.style.background = 'white';
+                btnPass.style.color = '#333';
+                btnPass.style.borderColor = '#ddd';
+                dniUploads.style.display = 'block';
+                passUploads.style.display = 'none';
+            } else {
+                btnPass.style.background = 'var(--primary, #003580)';
+                btnPass.style.color = 'white';
+                btnPass.style.borderColor = 'var(--primary, #003580)';
+                btnDni.style.background = 'white';
+                btnDni.style.color = '#333';
+                btnDni.style.borderColor = '#ddd';
+                dniUploads.style.display = 'none';
+                passUploads.style.display = 'block';
             }
-            if (backInput.files.length > 0) {
-                backText.textContent = backInput.files[0].name;
-                backText.style.color = "green";
+            // Reset files
+            frontInput.value = ''; backInput.value = '';
+            if (passportInput) passportInput.value = '';
+            submitBtn.disabled = true;
+            updateUI();
+        }
+
+        function updateUI() {
+            if (docType === 'dni') {
+                submitBtn.disabled = !frontInput.files.length;
+                if (frontInput.files.length) {
+                    document.getElementById('front-text').textContent = '✅ ' + frontInput.files[0].name;
+                    document.getElementById('front-text').style.color = 'green';
+                }
+                if (backInput.files.length) {
+                    document.getElementById('back-text').textContent = '✅ ' + backInput.files[0].name;
+                    document.getElementById('back-text').style.color = 'green';
+                }
+            } else {
+                submitBtn.disabled = !passportInput.files.length;
+                if (passportInput.files.length) {
+                    document.getElementById('passport-text').textContent = '✅ ' + passportInput.files[0].name;
+                    document.getElementById('passport-text').style.color = 'green';
+                }
             }
         }
 
         frontInput.addEventListener('change', updateUI);
         backInput.addEventListener('change', updateUI);
+        if (passportInput) passportInput.addEventListener('change', updateUI);
 
         function resizeImage(file, maxDim, callback) {
             if (!file || !file.type.match(/image.*/)) return callback(file, false);
@@ -77,76 +161,103 @@
         function restoreUI() {
             document.getElementById('upload-form').style.display = 'block';
             document.getElementById('loader').style.display = 'none';
+            document.getElementById('progress-bar').style.display = 'none';
+        }
+
+        function setProgress(pct, text) {
+            var bar = document.getElementById('progress-bar');
+            bar.style.display = 'block';
+            document.getElementById('progress-fill').style.width = pct + '%';
+            document.getElementById('progress-text').textContent = text;
         }
 
         submitBtn.addEventListener('click', function() {
-            if (frontInput.files.length === 0) return;
+            var formData = new FormData();
+            formData.append('doc_type', docType);
+
             document.getElementById('upload-form').style.display = 'none';
             document.getElementById('loader').style.display = 'block';
-            var loaderText = document.getElementById('loader-text');
-            loaderText.innerText = '{{ __("Reescalando imagen...") }}';
 
-            var formData = new FormData();
-
-            var sendData = function() {
-                loaderText.innerText = '{{ __("Subiendo y procesando...") }}';
-                var xhr = new XMLHttpRequest();
-                xhr.open('POST', '/checkin/{{ $token }}/process', true);
-                var csrf = document.querySelector('meta[name="csrf-token"]');
-                if (csrf) xhr.setRequestHeader('X-CSRF-TOKEN', csrf.content);
-                xhr.setRequestHeader('Accept', 'application/json');
-
-                xhr.onload = function() {
-                    if (xhr.status >= 200 && xhr.status < 300) {
-                        var result;
-                        try { result = JSON.parse(xhr.responseText); } catch(e) {
-                            alert('{{ __("Error del servidor, por favor intente de nuevo.") }}');
-                            restoreUI(); return;
-                        }
-                        if (result.success || result.data) {
-                            sessionStorage.setItem('ai_extracted_data', JSON.stringify(result.data || {}));
-                            window.location.href = '/checkin/{{ $token }}/form';
-                        } else { restoreUI(); alert('{{ __("Error procesando la imagen.") }}'); }
-                    } else if (xhr.status === 419) {
-                        restoreUI();
-                        alert('{{ __("Tu sesión ha caducado. La página se recargará.") }}');
-                        window.location.reload();
-                    } else if (xhr.status === 422) {
-                        restoreUI();
-                        try {
-                            var err = JSON.parse(xhr.responseText);
-                            alert('{{ __("Error de validación:") }} ' + (err.message || ''));
-                        } catch(e) { alert('{{ __("Error de validación en la imagen.") }}'); }
+            if (docType === 'passport') {
+                // Pasaporte: solo 1 foto
+                setProgress(10, '{{ __("Reescalando imagen...") }}');
+                resizeImage(passportInput.files[0], 1920, function(resized) {
+                    formData.append('dni_front', resized, 'passport.jpg');
+                    setProgress(30, '{{ __("Subiendo y analizando pasaporte...") }}');
+                    sendData(formData);
+                });
+            } else {
+                // DNI: frontal obligatorio + reverso opcional
+                setProgress(10, '{{ __("Reescalando imagen...") }}');
+                resizeImage(frontInput.files[0], 1920, function(resizedFront) {
+                    formData.append('dni_front', resizedFront, 'front.jpg');
+                    if (backInput.files.length > 0) {
+                        resizeImage(backInput.files[0], 1920, function(resizedBack) {
+                            formData.append('dni_back', resizedBack, 'back.jpg');
+                            setProgress(30, '{{ __("Subiendo y analizando documento...") }}');
+                            sendData(formData);
+                        });
                     } else {
-                        restoreUI();
-                        alert('{{ __("Error de red o servidor.") }} (' + xhr.status + ')');
+                        setProgress(30, '{{ __("Subiendo y analizando documento...") }}');
+                        sendData(formData);
                     }
-                };
+                });
+            }
+        });
 
-                xhr.onerror = function() { restoreUI(); alert('{{ __("Error de conexión.") }}'); };
-                xhr.send(formData);
+        function sendData(formData) {
+            setProgress(50, '{{ __("Extrayendo datos con IA...") }}');
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', '/checkin/{{ $token }}/process', true);
+            var csrf = document.querySelector('meta[name="csrf-token"]');
+            if (csrf) xhr.setRequestHeader('X-CSRF-TOKEN', csrf.content);
+            xhr.setRequestHeader('Accept', 'application/json');
+
+            xhr.upload.onprogress = function(e) {
+                if (e.lengthComputable) {
+                    var pct = 30 + Math.round((e.loaded / e.total) * 30);
+                    setProgress(pct, '{{ __("Subiendo...") }} ' + Math.round(e.loaded/e.total*100) + '%');
+                }
             };
 
-            resizeImage(frontInput.files[0], 1920, function(frontBlob, isResized) {
-                var frontName = frontInput.files[0].name;
-                if (isResized && frontBlob.type === 'image/jpeg' && !frontName.toLowerCase().match(/\.(jpg|jpeg)$/)) {
-                    frontName = frontName.replace(/\.[^/.]+$/, "") + ".jpg";
-                }
-                formData.append('dni_front', frontBlob, frontName);
-
-                if (backInput.files.length > 0) {
-                    resizeImage(backInput.files[0], 1920, function(backBlob, isBackResized) {
-                        var backName = backInput.files[0].name;
-                        if (isBackResized && backBlob.type === 'image/jpeg' && !backName.toLowerCase().match(/\.(jpg|jpeg)$/)) {
-                            backName = backName.replace(/\.[^/.]+$/, "") + ".jpg";
-                        }
-                        formData.append('dni_back', backBlob, backName);
-                        sendData();
-                    });
+            xhr.onload = function() {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    setProgress(90, '{{ __("Datos extraidos, preparando formulario...") }}');
+                    var result;
+                    try { result = JSON.parse(xhr.responseText); } catch(e) {
+                        alert('{{ __("Error del servidor, por favor intente de nuevo.") }}');
+                        restoreUI(); return;
+                    }
+                    if (result.success || result.data) {
+                        sessionStorage.setItem('ai_extracted_data', JSON.stringify(result.data || {}));
+                        sessionStorage.setItem('doc_type', docType);
+                        setProgress(100, '{{ __("Listo!") }}');
+                        setTimeout(function() {
+                            window.location.href = '/checkin/{{ $token }}/form';
+                        }, 300);
+                    } else { restoreUI(); alert('{{ __("Error procesando la imagen.") }}'); }
+                } else if (xhr.status === 419) {
+                    restoreUI();
+                    alert('{{ __("Tu sesion ha caducado. La pagina se recargara.") }}');
+                    window.location.reload();
+                } else if (xhr.status === 422) {
+                    restoreUI();
+                    try {
+                        var err = JSON.parse(xhr.responseText);
+                        alert('{{ __("Error de validacion:") }} ' + (err.message || ''));
+                    } catch(e) { alert('{{ __("Error de validacion en la imagen.") }}'); }
                 } else {
-                    sendData();
+                    restoreUI();
+                    alert('{{ __("Error de red o servidor.") }} (' + xhr.status + ')');
                 }
-            });
-        });
+            };
+
+            xhr.onerror = function() {
+                restoreUI();
+                alert('{{ __("Error de conexion. Comprueba tu conexion a internet.") }}');
+            };
+
+            xhr.send(formData);
+        }
     </script>
 </x-checkin-layout>
