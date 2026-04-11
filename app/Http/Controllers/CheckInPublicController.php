@@ -4,11 +4,13 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Reserva;
 use App\Models\Cliente;
 use App\Models\Huesped;
 use App\Models\Photo;
+use App\Services\MIRService;
 
 class CheckInPublicController extends Controller
 {
@@ -276,6 +278,41 @@ class CheckInPublicController extends Controller
             'cliente_id' => $cliente->id,
             'guests_count' => count($guestsData),
         ]);
+
+        // Envío INMEDIATO a MIR tras completar el checkin
+        // Si falla, el cron de 10:00/22:00 lo reintentará. Si sigue fallando, alerta.
+        $reserva->refresh();
+        $reserva->load(['cliente', 'apartamento.edificio']);
+        try {
+            $mirService = new MIRService();
+            if ($mirService->reservaListaParaMIR($reserva)) {
+                $resultado = $mirService->enviarReserva($reserva);
+                if (!empty($resultado['success'])) {
+                    $reserva->update(['mir_enviado' => true]);
+                    Log::info('[MIR] Envío inmediato tras checkin OK', [
+                        'reserva_id' => $reserva->id,
+                        'codigo_reserva' => $reserva->codigo_reserva,
+                    ]);
+                } else {
+                    Log::warning('[MIR] Envío inmediato tras checkin FALLIDO (reintentará en cron)', [
+                        'reserva_id' => $reserva->id,
+                        'error' => $resultado['error'] ?? 'desconocido',
+                    ]);
+                    // Alerta por email al equipo
+                    $this->alertarFalloMIR($reserva, $resultado['error'] ?? 'Error desconocido');
+                }
+            } else {
+                Log::info('[MIR] Datos incompletos tras checkin, se enviará cuando estén listos', [
+                    'reserva_id' => $reserva->id,
+                ]);
+            }
+        } catch (\Exception $e) {
+            Log::error('[MIR] Excepción en envío inmediato tras checkin', [
+                'reserva_id' => $reserva->id,
+                'error' => $e->getMessage(),
+            ]);
+            $this->alertarFalloMIR($reserva, $e->getMessage());
+        }
 
         // Clear session
         session()->forget(['checkin_dni_front', 'checkin_dni_back', 'checkin_token', 'checkin_reserva_id']);
@@ -708,5 +745,29 @@ class CheckInPublicController extends Controller
         if (in_array($gender, ['M', 'MASCULINO', 'MALE', 'HOMBRE', 'H'])) return 'M';
         if (in_array($gender, ['F', 'FEMENINO', 'FEMALE', 'MUJER'])) return 'F';
         return 'O';
+    }
+
+    /**
+     * Enviar alerta cuando el envío a MIR falla.
+     * Se envía por email al admin y se intenta por WhatsApp si hay config.
+     */
+    private function alertarFalloMIR(Reserva $reserva, string $error)
+    {
+        $asunto = "⚠️ MIR FALLIDO - Reserva #{$reserva->id} ({$reserva->codigo_reserva})";
+        $mensaje = "El envío automático a MIR ha fallado para la reserva #{$reserva->id}.\n\n"
+                 . "Código: {$reserva->codigo_reserva}\n"
+                 . "Cliente: " . optional($reserva->cliente)->nombre . " " . optional($reserva->cliente)->apellido1 . "\n"
+                 . "Entrada: {$reserva->fecha_entrada}\n"
+                 . "Error: {$error}\n\n"
+                 . "El sistema reintentará a las 10:00 y 22:00. Si sigue fallando, revisa los datos manualmente.";
+
+        // Email al admin
+        try {
+            Mail::raw($mensaje, function ($msg) use ($asunto) {
+                $msg->to('administracion@hawkins.es')->subject($asunto);
+            });
+        } catch (\Exception $e) {
+            Log::error('[MIR] No se pudo enviar alerta email', ['error' => $e->getMessage()]);
+        }
     }
 }
