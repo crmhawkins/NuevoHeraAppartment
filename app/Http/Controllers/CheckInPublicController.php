@@ -626,7 +626,7 @@ class CheckInPublicController extends Controller
         $fullUrl = rtrim($baseUrl, '/') . '/chat/analyze-image';
 
         if ($side === 'front') {
-            $prompt = 'Extrae de la imagen del DNI o pasaporte español TODOS los datos solicitados. Responde únicamente con un objeto JSON válido EXACTAMENTE en este formato. No añadas texto, explicaciones ni caracteres adicionales. Usa el formato de fecha YYYY-MM-DD.
+            $prompt = 'Extrae de la imagen del DNI o pasaporte español TODOS los datos solicitados. Responde únicamente con un objeto JSON válido EXACTAMENTE en este formato. No añadas texto, explicaciones ni caracteres adicionales. Usa el formato de fecha YYYY-MM-DD. El numero_soporte es el código alfanumérico pequeño que aparece en el DNI español (suele empezar por letras como BAA, BAB, etc.).
 
 {
 "nombre": "",
@@ -637,6 +637,7 @@ class CheckInPublicController extends Controller
 "fecha_expedicion": "",
 "fecha_caducidad": "",
 "numero_dni_o_pasaporte": "",
+"numero_soporte": "",
 "tipo_documento": "",
 "sexo": ""
 }';
@@ -736,6 +737,7 @@ class CheckInPublicController extends Controller
             if (!empty($aiData['sexo'])) $mapped['gender'] = $this->normalizeGender($aiData['sexo']);
             if (!empty($aiData['fecha_expedicion'])) $mapped['exp_date'] = $aiData['fecha_expedicion'];
             if (!empty($aiData['fecha_caducidad'])) $mapped['expiry_date'] = $aiData['fecha_caducidad'];
+            if (!empty($aiData['numero_soporte'])) $mapped['document_support_number'] = $aiData['numero_soporte'];
             return $mapped;
         }
 

@@ -33,11 +33,15 @@
                     try {
                         var data = JSON.parse(dataStr);
                         for (var key in data) {
-                            if (data.hasOwnProperty(key)) {
+                            if (data.hasOwnProperty(key) && data[key]) {
                                 var field = document.querySelector('[name="guests[0][' + key + ']"]');
-                                if (field && !field.value) field.value = data[key];
+                                if (field) {
+                                    // Siempre sobrescribir con dato de IA (es mas fiable que el valor previo)
+                                    field.value = data[key];
+                                }
                             }
                         }
+                        sessionStorage.removeItem('ai_extracted_data');
                     } catch (e) { console.error('Error parsing AI data', e); }
                 }
             });
