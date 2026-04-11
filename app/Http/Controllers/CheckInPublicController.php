@@ -695,11 +695,13 @@ class CheckInPublicController extends Controller
         // Strategy 1: Direct JSON
         $data = json_decode($response, true);
         if (is_array($data) && !empty($data)) {
-            // If response has a nested 'response' or 'data' key
-            if (isset($data['response'])) {
-                $inner = json_decode($data['response'], true);
+            // If response has a nested 'response', 'respuesta' or 'data' key
+            $innerKey = $data['response'] ?? $data['respuesta'] ?? $data['content'] ?? null;
+            if ($innerKey) {
+                Log::debug('[CheckIn AI] Extrayendo JSON de key anidada', ['raw' => substr((string)$innerKey, 0, 300)]);
+                $inner = json_decode($innerKey, true);
                 if (is_array($inner)) return $inner;
-                return $this->extractJsonFromText($data['response']);
+                return $this->extractJsonFromText((string)$innerKey);
             }
             if (isset($data['data']) && is_array($data['data'])) {
                 return $data['data'];
