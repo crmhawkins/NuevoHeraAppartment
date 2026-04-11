@@ -68,6 +68,44 @@ class CancelarReservasWebPagoPendienteCommand extends Command
                 'codigo_reserva' => $reserva->codigo_reserva,
             ]);
 
+            // Enviar WhatsApp recordando que dejó el pago sin completar
+            $cliente = $reserva->cliente;
+            if ($cliente) {
+                $telefono = $cliente->telefono ?? $cliente->telefono_movil ?? null;
+                if (!empty($telefono)) {
+                    try {
+                        $token = env('TOKEN_WHATSAPP');
+                        $phoneId = env('WHATSAPP_PHONE_ID');
+                        if ($token && $phoneId) {
+                            $nombre = $cliente->nombre ?? 'Huésped';
+                            $mensaje = "Hola {$nombre}, hemos visto que iniciaste una reserva en Apartamentos Hawkins pero no completaste el pago. "
+                                     . "Si tuviste algún problema, puedes volver a intentarlo en https://apartamentosalgeciras.com/web "
+                                     . "o contactarnos si necesitas ayuda. ¡Te esperamos!";
+
+                            Http::withToken($token)->post(
+                                "https://graph.facebook.com/v20.0/{$phoneId}/messages",
+                                [
+                                    'messaging_product' => 'whatsapp',
+                                    'to' => preg_replace('/[^0-9]/', '', $telefono),
+                                    'type' => 'text',
+                                    'text' => ['body' => $mensaje],
+                                ]
+                            );
+
+                            Log::info('[ReservaWeb] WhatsApp de pago abandonado enviado', [
+                                'reserva_id' => $reserva->id,
+                                'telefono' => substr($telefono, 0, 6) . '***',
+                            ]);
+                        }
+                    } catch (\Exception $e) {
+                        Log::warning('[ReservaWeb] Error enviando WhatsApp de pago abandonado', [
+                            'reserva_id' => $reserva->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+            }
+
             // Liberar disponibilidad en Channex (solo reservas web sin id_channex)
             if (empty($reserva->id_channex)) {
                 $apartamento = $reserva->apartamento;

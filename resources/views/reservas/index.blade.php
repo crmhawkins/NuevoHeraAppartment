@@ -315,7 +315,10 @@
                                 </a>
                             </th>
                             <th scope="col" class="border-0">
-                                <a href="{{ route('reservas.index', ['order_by' => 'dni_entregado', 'direction' => (request()->get('order_by') == 'dni_entregado' ? $orderDirection : 'asc'), 'search' => request()->get('search'),'perPage' => request()->get('perPage'), 'fecha_entrada' => request()->get('fecha_entrada'), 'fecha_salida' => request()->get('fecha_salida')]) }}" 
+                                <i class="fas fa-money-bill-wave text-primary me-1"></i>Pago
+                            </th>
+                            <th scope="col" class="border-0">
+                                <a href="{{ route('reservas.index', ['order_by' => 'dni_entregado', 'direction' => (request()->get('order_by') == 'dni_entregado' ? $orderDirection : 'asc'), 'search' => request()->get('search'),'perPage' => request()->get('perPage'), 'fecha_entrada' => request()->get('fecha_entrada'), 'fecha_salida' => request()->get('fecha_salida')]) }}"
                                    class="text-decoration-none text-dark fw-semibold">
                                     <i class="fas fa-id-card text-primary me-1"></i>DNI
                                     @if(request()->get('order_by') == 'dni_entregado')
@@ -406,10 +409,10 @@
                                 </a>
                             </th>
                             <th scope="col" class="border-0">
-                                <i class="fas fa-key text-primary me-1"></i>Cód. Acceso
+                                <i class="fas fa-key text-primary me-1"></i>Código
                             </th>
-                            <th scope="col" class="border-0">
-                                <i class="fas fa-lock text-primary me-1"></i>Cerradura
+                            <th scope="col" class="border-0" data-bs-toggle="tooltip" title="Cerradura">
+                                <i class="fas fa-lock text-primary"></i>
                             </th>
                             <th scope="col" class="border-0">
                                 <i class="fas fa-euro-sign text-primary me-1"></i>Precio
@@ -444,13 +447,23 @@
                                     </div>
                                 </td>
                                 <td>
+                                    @php
+                                        $pagoCompletado = \App\Models\Pago::where('reserva_id', $reserva->id)->where('estado', 'completado')->exists();
+                                    @endphp
+                                    @if($pagoCompletado || $reserva->origen !== 'Web')
+                                        <span class="badge bg-success-subtle text-success"><i class="fas fa-check me-1"></i>SI</span>
+                                    @else
+                                        <span class="badge bg-danger-subtle text-danger"><i class="fas fa-times me-1"></i>NO</span>
+                                    @endif
+                                </td>
+                                <td>
                                     @if($reserva->dni_entregado == 1)
                                         <span class="badge bg-success-subtle text-success">
-                                            <i class="fas fa-check me-1"></i>Entregado
+                                            <i class="fas fa-check me-1"></i>SI
                                         </span>
                                     @else
                                         <span class="badge bg-danger-subtle text-danger">
-                                            <i class="fas fa-times me-1"></i>No entregado
+                                            <i class="fas fa-times me-1"></i>NO
                                         </span>
                                     @endif
                                 </td>
