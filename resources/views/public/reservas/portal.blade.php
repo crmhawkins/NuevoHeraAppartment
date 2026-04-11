@@ -824,10 +824,17 @@
                                         @endif
                                         <div class="booking-portal-property-price-note">{{ __('portal.includes_taxes') }}</div>
                                     </div>
-                                    <a href="{{ route('web.reservas.show', array_filter(['id' => $ap->id, 'fecha_entrada' => $fechaEntrada ?? null, 'fecha_salida' => $fechaSalida ?? null, 'adultos' => $adultos ?? null, 'ninos' => $ninos ?? null])) }}" 
-                                       class="booking-portal-property-button">
-                                        {{ __('portal.view_availability') }}
-                                    </a>
+                                    @if(!empty($fechaEntrada) && !empty($fechaSalida))
+                                        <a href="{{ route('web.reservas.formulario', array_filter(['apartamento' => $ap->id, 'fecha_entrada' => $fechaEntrada, 'fecha_salida' => $fechaSalida, 'adultos' => $adultos ?? 2, 'ninos' => $ninos ?? 0])) }}"
+                                           class="booking-portal-property-button" style="background: #28a745;">
+                                            <i class="fas fa-credit-card" style="margin-right: 6px;"></i>Reservar
+                                        </a>
+                                    @else
+                                        <a href="{{ route('web.reservas.show', array_filter(['id' => $ap->id])) }}"
+                                           class="booking-portal-property-button">
+                                            {{ __('portal.view_availability') }}
+                                        </a>
+                                    @endif
                                 </div>
                             </div>
                         @endforeach
