@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\BankinterSyncLog;
+use App\Services\AlertaEquipoService;
 use App\Services\BankinterScraperService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -135,6 +136,7 @@ class BankinterScraperApiController extends Controller
                 'alias' => $alias,
                 'error' => $e->getMessage(),
             ]);
+            AlertaEquipoService::scraperFallo($alias, $e->getMessage());
             return response()->json([
                 'success' => false,
                 'error' => 'Excepcion procesando el Excel: ' . $e->getMessage(),

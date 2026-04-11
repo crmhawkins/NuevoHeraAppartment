@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Models\Pago;
 use App\Models\Reserva;
 use App\Models\RoomType;
+use App\Services\AlertaEquipoService;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
@@ -67,6 +68,14 @@ class CancelarReservasWebPagoPendienteCommand extends Command
                 'reserva_id' => $reserva->id,
                 'codigo_reserva' => $reserva->codigo_reserva,
             ]);
+
+            // Alerta al equipo: pago abandonado
+            try {
+                $reserva->load(['cliente', 'apartamento']);
+                AlertaEquipoService::pagoAbandonado($reserva);
+            } catch (\Exception $e) {
+                Log::warning('[ReservaWeb] Error enviando alerta pago abandonado', ['error' => $e->getMessage()]);
+            }
 
             // Enviar WhatsApp recordando que dejó el pago sin completar
             $cliente = $reserva->cliente;

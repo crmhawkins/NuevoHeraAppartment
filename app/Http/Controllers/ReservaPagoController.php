@@ -822,6 +822,14 @@ class ReservaPagoController extends Controller
                     // Enviar mensajes de bienvenida + enlace DNI inmediatamente tras el pago
                     $this->enviarBienvenidaPostPago($pago->reserva);
 
+                    // Alerta al equipo: nueva reserva web pagada
+                    try {
+                        $pago->reserva->load(['cliente', 'apartamento']);
+                        \App\Services\AlertaEquipoService::nuevaReservaWeb($pago->reserva);
+                    } catch (\Exception $e) {
+                        Log::warning('[ReservaWeb] Error enviando alerta nueva reserva', ['error' => $e->getMessage()]);
+                    }
+
                     return view('public.reservas.reserva-exitosa', [
                         'reserva' => $pago->reserva,
                         'pago' => $pago,

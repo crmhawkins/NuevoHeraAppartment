@@ -11,6 +11,7 @@ use App\Models\Cliente;
 use App\Models\Huesped;
 use App\Models\Photo;
 use App\Services\MIRService;
+use App\Services\AlertaEquipoService;
 
 class CheckInPublicController extends Controller
 {
@@ -836,21 +837,6 @@ class CheckInPublicController extends Controller
      */
     private function alertarFalloMIR(Reserva $reserva, string $error)
     {
-        $asunto = "⚠️ MIR FALLIDO - Reserva #{$reserva->id} ({$reserva->codigo_reserva})";
-        $mensaje = "El envío automático a MIR ha fallado para la reserva #{$reserva->id}.\n\n"
-                 . "Código: {$reserva->codigo_reserva}\n"
-                 . "Cliente: " . optional($reserva->cliente)->nombre . " " . optional($reserva->cliente)->apellido1 . "\n"
-                 . "Entrada: {$reserva->fecha_entrada}\n"
-                 . "Error: {$error}\n\n"
-                 . "El sistema reintentará a las 10:00 y 22:00. Si sigue fallando, revisa los datos manualmente.";
-
-        // Email al admin
-        try {
-            Mail::raw($mensaje, function ($msg) use ($asunto) {
-                $msg->to('administracion@hawkins.es')->subject($asunto);
-            });
-        } catch (\Exception $e) {
-            Log::error('[MIR] No se pudo enviar alerta email', ['error' => $e->getMessage()]);
-        }
+        AlertaEquipoService::mirFallo($reserva, $error);
     }
 }
