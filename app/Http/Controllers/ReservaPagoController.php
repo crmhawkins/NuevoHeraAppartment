@@ -812,6 +812,9 @@ class ReservaPagoController extends Controller
                         ]);
                     }
 
+                    // Enviar mensajes de bienvenida + enlace DNI inmediatamente tras el pago
+                    $this->enviarBienvenidaPostPago($pago->reserva);
+
                     return view('public.reservas.reserva-exitosa', [
                         'reserva' => $pago->reserva,
                         'pago' => $pago,
