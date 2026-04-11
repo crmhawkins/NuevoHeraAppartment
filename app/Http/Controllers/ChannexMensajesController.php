@@ -46,9 +46,9 @@ class ChannexMensajesController extends Controller
             ->orderBy('received_at', 'asc')
             ->get();
 
-        // Obtener respuestas de la IA desde tabla chat_gpts
-        // Los mensajes de Channex se vinculan por id_mensaje (= mensajes.id)
-        $mensajeIds = $mensajesHuesped->pluck('id')->toArray();
+        // Obtener respuestas de la IA desde tabla whatsapp_mensaje_chatgpt
+        // id_mensaje es varchar, mensajes.id es int — convertimos a string para el match
+        $mensajeIds = $mensajesHuesped->pluck('id')->map(fn($id) => (string)$id)->toArray();
         $respuestasIA = ChatGpt::whereIn('id_mensaje', $mensajeIds)
             ->whereNotNull('respuesta')
             ->where('respuesta', '!=', '')

@@ -714,56 +714,59 @@ class WebhookController extends Controller
             'date' => now()
         ]);
 
-        // Historial: últimos 20 mensajes válidos (mensaje + respuesta)
-        $historial = ChatGpt::where('remitente', $remitente)
+        // Historial: últimos 20 mensajes válidos (mensaje + respuesta) en formato texto
+        $historialArray = ChatGpt::where('remitente', $remitente)
+            ->where(function ($q) {
+                $q->where('status', 1)->whereNotNull('respuesta')->where('respuesta', '!=', '');
+            })
             ->orderBy('date', 'desc')
             ->limit(20)
             ->get()
             ->reverse()
             ->flatMap(function ($chat) {
                 $mensajes = [];
-
                 if (!empty($chat->mensaje)) {
-                    $mensajes[] = [
-                        "role" => "user",
-                        "content" => $chat->mensaje,
-                    ];
+                    $mensajes[] = "Usuario: " . trim($chat->mensaje);
                 }
-
                 if (!empty($chat->respuesta)) {
-                    $mensajes[] = [
-                        "role" => "assistant",
-                        "content" => $chat->respuesta,
-                    ];
+                    $mensajes[] = "Asistente: " . trim($chat->respuesta);
                 }
-
                 return $mensajes;
             })
             ->toArray();
 
-        // Añadir nuevo mensaje del usuario
-        $historial[] = [
-            "role" => "user",
-            "content" => $nuevoMensaje,
-        ];
+        // Construir prompt completo en formato texto (como WhatsApp)
+        $promptSystem = $promptAsistente ? $promptAsistente->prompt : "Eres el asistente virtual de Apartamentos Hawkins.";
+        $promptCompleto = $promptSystem;
+        $promptCompleto .= "\n\nCONTEXTO: Esta conversación es con un huésped que ha contactado vía Booking/Airbnb (Channex). Responde en el idioma del huésped.";
 
-        // Unir con prompt
-        $mensajes = array_merge([$promptSystem], $historial);
+        if (!empty($historialArray)) {
+            $promptCompleto .= "\n\nHISTORIAL DE CONVERSACIÓN:\n" . implode("\n", $historialArray);
+        }
 
-        // Llamar a Hawkins AI (misma API que WhatsApp)
-        $response = Http::withToken($apiKey)
-            ->post($endpoint, [
-                'model' => $modelo,
-                'messages' => $mensajes,
-                'temperature' => 0.7,
-            ]);
+        $promptCompleto .= "\n\nUsuario: " . $nuevoMensaje . "\n\nAsistente:";
+
+        // Llamar a Hawkins AI con el MISMO formato que WhatsApp (prompt + modelo + x-api-key)
+        $response = Http::withHeaders([
+            'x-api-key' => $apiKey,
+            'Content-Type' => 'application/json',
+        ])->timeout(60)->post($endpoint, [
+            'prompt' => $promptCompleto,
+            'modelo' => $modelo,
+        ]);
 
         if ($response->failed()) {
             Log::error('[Booking IA] Error al enviar a Hawkins AI: ' . $response->body());
             return null;
         }
 
-        $respuestaTexto = $response->json('choices.0.message.content');
+        $data = $response->json();
+        $respuestaTexto = $data['respuesta'] ?? null;
+
+        if (!$respuestaTexto) {
+            Log::warning('[Booking IA] Respuesta vacía de Hawkins AI', ['data' => $data]);
+            return null;
+        }
 
         // Guardar la respuesta generada
         ChatGpt::where('remitente', $remitente)
