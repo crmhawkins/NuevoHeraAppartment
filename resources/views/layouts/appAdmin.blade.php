@@ -419,6 +419,32 @@
                                         <i class="fas fa-comments me-1"></i>Comunicación
                                     </a>
                                     <ul class="dropdown-menu">
+                                        {{-- WhatsApp --}}
+                                        <li class="nav-header" style="padding: 8px 16px; font-weight: 700; color: #6c757d; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">📱 WhatsApp</li>
+                                        <li><a target="_blank" class="dropdown-item" href="{{ route('whatsapp.mensajes') }}">
+                                            <i class="fab fa-whatsapp me-2"></i>Conversaciones
+                                        </a></li>
+                                        {{-- TODO: implementar ruta --}}
+                                        <li><a class="dropdown-item" href="#">
+                                            <i class="fas fa-robot me-2"></i>Prompt WhatsApp
+                                        </a></li>
+                                        <li><a class="dropdown-item" href="{{ route('admin.whatsapp-templates.index') }}">
+                                            <i class="fab fa-whatsapp me-2"></i>Plantillas WhatsApp
+                                        </a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        {{-- Channex (Booking/Airbnb) --}}
+                                        <li class="nav-header" style="padding: 8px 16px; font-weight: 700; color: #6c757d; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">💬 Channex (Booking/Airbnb)</li>
+                                        {{-- TODO: implementar ruta --}}
+                                        <li><a class="dropdown-item" href="#">
+                                            <i class="fas fa-comments me-2"></i>Conversaciones Channex
+                                        </a></li>
+                                        {{-- TODO: implementar ruta --}}
+                                        <li><a class="dropdown-item" href="#">
+                                            <i class="fas fa-robot me-2"></i>Prompt Channex
+                                        </a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        {{-- Email --}}
+                                        <li class="nav-header" style="padding: 8px 16px; font-weight: 700; color: #6c757d; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">📧 Email</li>
                                         <li><a class="dropdown-item" href="{{ route('admin.statusMail.index') }}">
                                             <i class="fas fa-envelope me-2"></i>Status de Emails
                                         </a></li>
@@ -426,19 +452,13 @@
                                             <i class="fas fa-tags me-2"></i>Categorías de Emails
                                         </a></li>
                                         <li><hr class="dropdown-divider"></li>
+                                        {{-- Otros --}}
+                                        <li class="nav-header" style="padding: 8px 16px; font-weight: 700; color: #6c757d; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">📋 Otros</li>
                                         <li><a class="dropdown-item" href="{{ route('templates.index') }}">
                                             <i class="fas fa-file-alt me-2"></i>Plantilla de Mensajes
                                         </a></li>
-                                        <li><a target="_blank" class="dropdown-item" href="{{ route('whatsapp.mensajes') }}">
-                                            <i class="fab fa-whatsapp me-2"></i>Conversaciones
-                                        </a></li>
-                                        <li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item" href="{{ route('admin.contactos-web.index') }}">
                                             <i class="fas fa-envelope-open-text me-2"></i>Contactos desde la Web
-                                        </a></li>
-                                        <li><hr class="dropdown-divider"></li>
-                                        <li><a class="dropdown-item" href="{{ route('admin.whatsapp-templates.index') }}">
-                                            <i class="fab fa-whatsapp me-2"></i>Plantillas WhatsApp
                                         </a></li>
                                     </ul>
                                 </li>
