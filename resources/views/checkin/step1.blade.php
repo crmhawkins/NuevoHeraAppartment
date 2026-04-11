@@ -65,7 +65,16 @@
     </div>
 
     <div id="loader" style="display: none; text-align: center; padding: 40px 0;">
-        <h2 id="loader-text" style="color: var(--text-muted);">{{ __('Procesando...') }}</h2>
+        <div style="margin-bottom: 20px;">
+            <div style="width: 50px; height: 50px; border: 4px solid #e9ecef; border-top: 4px solid var(--primary, #003580); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+        </div>
+        <h2 id="loader-text" style="color: var(--text-muted); font-size: 18px;">{{ __('Procesando...') }}</h2>
+        <div id="loader-progress" style="max-width: 300px; margin: 16px auto 0;">
+            <div style="background: #e9ecef; border-radius: 8px; height: 8px; overflow: hidden;">
+                <div id="loader-progress-fill" style="background: var(--primary, #003580); height: 100%; width: 0%; transition: width 0.5s ease; border-radius: 8px;"></div>
+            </div>
+        </div>
+        <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
     </div>
 
     <input type="hidden" id="selected-doc-type" value="dni">
@@ -165,10 +174,9 @@
         }
 
         function setProgress(pct, text) {
-            var bar = document.getElementById('progress-bar');
-            bar.style.display = 'block';
-            document.getElementById('progress-fill').style.width = pct + '%';
-            document.getElementById('progress-text').textContent = text;
+            document.getElementById('loader').style.display = 'block';
+            document.getElementById('loader-text').textContent = text;
+            document.getElementById('loader-progress-fill').style.width = pct + '%';
         }
 
         submitBtn.addEventListener('click', function() {

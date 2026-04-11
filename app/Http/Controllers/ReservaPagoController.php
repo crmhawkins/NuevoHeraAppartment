@@ -634,6 +634,13 @@ class ReservaPagoController extends Controller
                             'pago_id' => $pago->id,
                             'codigo_reserva' => $codigoReserva,
                         ],
+                        // Desactivar Stripe Link (confuso para huéspedes)
+                        'payment_method_options' => [
+                            'card' => [
+                                'setup_future_usage' => null,
+                            ],
+                        ],
+                        'allow_promotion_codes' => false,
                     ]);
 
                     // Actualizar pago con session ID
