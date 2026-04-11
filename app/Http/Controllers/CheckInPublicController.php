@@ -642,7 +642,7 @@ class CheckInPublicController extends Controller
 "sexo": ""
 }';
         } else {
-            $prompt = 'Extrae de la imagen del REVERSO del DNI español TODOS los datos. Responde únicamente con un objeto JSON válido. No añadas texto adicional.
+            $prompt = 'Extrae de la imagen del REVERSO del DNI español TODOS los datos. Responde únicamente con un objeto JSON válido. No añadas texto adicional. El codigo_postal es el numero de 5 digitos que aparece en la direccion (ej: 28001, 11201, 08012). Extráelo de la linea de domicilio separándolo del resto de la dirección.
 
 {
 "direccion": "",
