@@ -15,6 +15,12 @@ class EnsureUserRole
         }
 
         $user = Auth::user();
+
+        // ADMIN puede acceder a todos los paneles
+        if ( strtoupper(trim($user->role)) === 'ADMIN' ) {
+            return $next( $request );
+        }
+
         foreach ( $roles as $role ) {
             if ( strtoupper(trim($user->role)) === strtoupper(trim($role)) ) {
                 return $next( $request );

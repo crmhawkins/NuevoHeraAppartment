@@ -49,7 +49,7 @@ class LimpiadoraDashboardController extends Controller
             if (!$turnoHoy) {
                 return view('limpiadora.dashboard', [
                     'datos' => [
-                        'turnoHoy' => null,
+                        'diaSemana' => Carbon::now()->locale('es')->isoFormat('dddd'), 'hoy' => Carbon::now()->format('d/m/Y'), 'turnoHoy' => null,
                         'tareasAsignadas' => collect(),
                         'limpiezasHoy' => 0,
                         'limpiezasAsignadas' => 0,
