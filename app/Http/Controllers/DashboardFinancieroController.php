@@ -82,7 +82,6 @@ class DashboardFinancieroController extends Controller
             ->where('fecha', '>=', '2026-01-01')
             ->where('fecha', '<', now()->subDays(7))
             ->orderBy('fecha', 'asc')
-            ->limit(20)
             ->get();
 
         return view('admin.tesoreria.dashboard-financiero', compact(
