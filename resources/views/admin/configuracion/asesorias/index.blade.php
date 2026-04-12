@@ -20,7 +20,7 @@
         <h5 class="fw-bold mb-0" style="font-size: 16px;">
             <i class="fas fa-building me-1" style="color: #0891b2;"></i>Asesorias Fiscales
         </h5>
-        <a href="{{ route('admin.asesorias.create') }}" class="btn df-btn-sm" style="background:#0891b2;color:#fff;">
+        <a href="{{ route('configuracion.asesorias.create') }}" class="btn df-btn-sm" style="background:#0891b2;color:#fff;">
             <i class="fas fa-plus me-1"></i>Nueva Asesoria
         </a>
     </div>
@@ -59,13 +59,13 @@
                             @endif
                         </td>
                         <td>
-                            <a href="{{ route('admin.asesorias.edit', $asesoria->id) }}" class="btn btn-outline-primary df-btn-sm" title="Editar">
+                            <a href="{{ route('configuracion.asesorias.edit', $asesoria->id) }}" class="btn btn-outline-primary df-btn-sm" title="Editar">
                                 <i class="fas fa-edit"></i>
                             </a>
                             <button class="btn btn-outline-success df-btn-sm" onclick="enviarAhora({{ $asesoria->id }})" title="Enviar Ahora">
                                 <i class="fas fa-paper-plane"></i>
                             </button>
-                            <form action="{{ route('admin.asesorias.destroy', $asesoria->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Eliminar esta asesoria?');">
+                            <form action="{{ route('configuracion.asesorias.destroy', $asesoria->id) }}" method="POST" class="d-inline" onsubmit="return confirm('Eliminar esta asesoria?');">
                                 @csrf
                                 @method('DELETE')
                                 <button type="submit" class="btn btn-outline-danger df-btn-sm" title="Eliminar">

@@ -17,7 +17,7 @@
             <i class="fas fa-building me-1" style="color: #0891b2;"></i>
             {{ isset($asesoria) ? 'Editar Asesoria' : 'Nueva Asesoria' }}
         </h5>
-        <a href="{{ route('admin.asesorias.index') }}" class="btn btn-outline-secondary df-btn-sm">
+        <a href="{{ route('configuracion.asesorias.index') }}" class="btn btn-outline-secondary df-btn-sm">
             <i class="fas fa-arrow-left me-1"></i>Volver
         </a>
     </div>
@@ -36,7 +36,7 @@
     {{-- Form --}}
     <div class="card shadow-sm border-0">
         <div class="card-body py-3 px-4">
-            <form method="POST" action="{{ isset($asesoria) ? route('admin.asesorias.update', $asesoria->id) : route('admin.asesorias.store') }}">
+            <form method="POST" action="{{ isset($asesoria) ? route('configuracion.asesorias.update', $asesoria->id) : route('configuracion.asesorias.store') }}">
                 @csrf
                 @if(isset($asesoria))
                     @method('PUT')
@@ -140,7 +140,7 @@
                     <button type="submit" class="btn" style="background:#0891b2;color:#fff;font-size:13px;padding:6px 24px;">
                         <i class="fas fa-save me-1"></i>Guardar
                     </button>
-                    <a href="{{ route('admin.asesorias.index') }}" class="btn btn-outline-secondary" style="font-size:13px;padding:6px 24px;">
+                    <a href="{{ route('configuracion.asesorias.index') }}" class="btn btn-outline-secondary" style="font-size:13px;padding:6px 24px;">
                         Cancelar
                     </a>
                 </div>
