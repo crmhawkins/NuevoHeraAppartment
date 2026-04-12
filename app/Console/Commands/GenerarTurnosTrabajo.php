@@ -180,95 +180,7 @@ class GenerarTurnosTrabajo extends Command
         return \App\Models\EmpleadaDiasLibres::estaDisponibleEnFecha($empleada->id, $fecha);
     }
     
-    /**
-     * Generar lista de tareas pendientes para la fecha
-     */
-    private function generarTareasPendientes2($fecha)
-    {
-        $tareas = collect();
-        
-        // 1. Apartamentos que necesitan limpieza HOY (usando la lógica correcta del sistema)
-        $apartamentosPendientesHoy = $this->obtenerApartamentosPendientesHoy($fecha);
-            
-        foreach ($apartamentosPendientesHoy as $apartamento) {
-            $tipoTarea = TipoTarea::activos()
-                ->limpiezaApartamentos()
-                ->first();
-                
-            if ($tipoTarea) {
-                $tareas->push([
-                    'tipo_tarea' => $tipoTarea,
-                    'apartamento_id' => $apartamento->id,
-                    'zona_comun_id' => null,
-                    'prioridad' => $this->calcularPrioridadApartamento($apartamento, $tipoTarea),
-                    'tiempo_estimado' => $tipoTarea->tiempo_estimado_minutos
-                ]);
-            }
-        }
-        
-        // 2. Limpiezas de zonas comunes pendientes
-        $limpiezasZonasComunes = ApartamentoLimpieza::whereDate('fecha_comienzo', $fecha)
-            ->where('tipo_limpieza', 'zona_comun')
-            ->whereIn('status_id', [1, 2])
-            ->with(['zonaComun'])
-            ->get();
-            
-        foreach ($limpiezasZonasComunes as $limpieza) {
-            $tipoTarea = TipoTarea::activos()
-                ->limpiezaZonasComunes()
-                ->first();
-                
-            if ($tipoTarea) {
-                $tareas->push([
-                    'tipo_tarea' => $tipoTarea,
-                    'apartamento_id' => null,
-                    'zona_comun_id' => $limpieza->zona_comun_id,
-                    'prioridad' => $this->calcularPrioridadLimpieza($limpieza, $tipoTarea),
-                    'tiempo_estimado' => $tipoTarea->tiempo_estimado_minutos
-                ]);
-            }
-        }
-        
-        // 3. Tareas de limpieza común por TODOS los edificios (siempre se generan)
-        $todosLosEdificios = \App\Models\Edificio::all();
-        
-        foreach ($todosLosEdificios as $edificio) {
-            $tipoTareaLimpiezaComun = TipoTarea::activos()
-                ->limpiezaZonasComunes()
-                ->first();
-                
-            if ($tipoTareaLimpiezaComun) {
-                $tareas->push([
-                    'tipo_tarea' => $tipoTareaLimpiezaComun,
-                    'apartamento_id' => null,
-                    'zona_comun_id' => null,
-                    'edificio_id' => $edificio->id,
-                    'prioridad' => $tipoTareaLimpiezaComun->prioridad_base,
-                    'tiempo_estimado' => $tipoTareaLimpiezaComun->tiempo_estimado_minutos,
-                    'motivo_prioridad' => "Limpieza común edificio {$edificio->nombre} (ID: {$edificio->id}) - SIEMPRE OBLIGATORIA"
-                ]);
-            }
-        }
-        
-        // 4. Tareas generales (oficinas, amenities, etc.) - excluyendo limpieza y mantenimiento
-        $tareasGenerales = TipoTarea::activos()
-            ->whereNotIn('categoria', ['limpieza_apartamento', 'limpieza_zona_comun', 'mantenimiento'])
-            ->get();
-            
-        foreach ($tareasGenerales as $tipoTarea) {
-            $tareas->push([
-                'tipo_tarea' => $tipoTarea,
-                'apartamento_id' => null,
-                'zona_comun_id' => null,
-                'edificio_id' => null,
-                'prioridad' => $tipoTarea->prioridad_base,
-                'tiempo_estimado' => $tipoTarea->tiempo_estimado_minutos
-            ]);
-        }
-        
-        // Ordenar por prioridad (mayor primero)
-        return $tareas->sortByDesc('prioridad')->values();
-    }
+    // generarTareasPendientes2 eliminado - sustituido por el nuevo sistema de prioridades
     
     private function obtenerApartamentosPendientesHoy(Carbon $fecha)
     {
@@ -310,107 +222,184 @@ class GenerarTurnosTrabajo extends Command
     }
     
     /**
-     * Obtener apartamentos que necesitan limpieza HOY usando la lógica correcta del sistema
+     * Generar tareas pendientes organizadas por prioridad (P1, P2, P3).
+     *
+     * Devuelve una colección con la clave 'nivel_prioridad':
+     *   P1 = obligatorias, P2 = zonas comunes, P3 = secundarias
      */
     private function generarTareasPendientes($fecha)
-{
-    $tareas = collect();
-    $ya = [];
+    {
+        $tareas = collect();
 
-    // 1) APARTAMENTOS (salidas hoy) – igual que tu lógica
-    $apartamentosPendientesHoy = $this->obtenerApartamentosPendientesHoy($fecha);
+        // ── P1-A: LAVANDERIA (se genera una por cada limpiadora, se asigna en distribución) ──
+        $tipoLavanderia = TipoTarea::where('id', 6)->first()
+            ?? TipoTarea::where('nombre', 'LIKE', '%lavanderia%')->orWhere('nombre', 'LIKE', '%Lavandería%')->first();
 
-    foreach ($apartamentosPendientesHoy as $apartamento) {
-        $tipoTarea = TipoTarea::activos()->limpiezaApartamentos()->first();
-        if (!$tipoTarea) continue;
-
-        $t = [
-            'tipo_tarea'      => $tipoTarea,
-            'apartamento_id'  => $apartamento->id,
-            'zona_comun_id'   => null,
-            'edificio_id'     => null,
-            'prioridad'       => $this->calcularPrioridadApartamento($apartamento, $tipoTarea),
-            'tiempo_estimado' => $tipoTarea->tiempo_estimado_minutos
-        ];
-
-        $tareas->push($t);
-    }
-
-    // 2) ZONAS COMUNES PROGRAMADAS HOY -> como genéricas (SIN zona_comun_id)
-    $limpiezasZonasComunes = ApartamentoLimpieza::whereDate('fecha_comienzo', $fecha)
-        ->where('tipo_limpieza', 'zona_comun')
-        ->whereIn('status_id', [1, 2])
-        ->with('zonaComun') // solo para log si hace falta
-        ->get();
-
-    $tipoZonaComun = TipoTarea::activos()->limpiezaZonasComunes()->first();
-
-    if ($tipoZonaComun) {
-        // Si hay al menos una programada hoy, empujamos UNA tarea genérica de "Limpieza Zonas Comunes"
-        if ($limpiezasZonasComunes->count() > 0) {
-            $t = [
-                'tipo_tarea'      => $tipoZonaComun,
-                'apartamento_id'  => null,
-                'zona_comun_id'   => null, // <- clave: la tratamos como genérica
-                'edificio_id'     => null,
-                'prioridad'       => $tipoZonaComun->prioridad_base,
-                'tiempo_estimado' => $tipoZonaComun->tiempo_estimado_minutos
-            ];
-            $key = $this->hashTarea($t);
-            if (!isset($ya[$key])) { $ya[$key] = true; $tareas->push($t); }
+        if ($tipoLavanderia) {
+            $tareas->push([
+                'tipo_tarea'       => $tipoLavanderia,
+                'apartamento_id'   => null,
+                'zona_comun_id'    => null,
+                'edificio_id'      => null,
+                'nivel_prioridad'  => 'P1',
+                'subtipo'          => 'lavanderia',
+                'prioridad'        => 100,
+                'tiempo_estimado'  => 60, // 60 min por limpiadora (se clona en distribución)
+            ]);
+            Log::info('[TURNOS] P1 Lavandería encontrada', ['tipo_tarea_id' => $tipoLavanderia->id]);
+        } else {
+            Log::warning('[TURNOS] No se encontró tipo de tarea de Lavandería (id=6)');
         }
+
+        // ── P1-B: APARTAMENTOS CON CHECKOUT HOY ──
+        $apartamentosPendientesHoy = $this->obtenerApartamentosPendientesHoy($fecha);
+        $tipoLimpApto = TipoTarea::activos()->limpiezaApartamentos()->first();
+
+        foreach ($apartamentosPendientesHoy as $apartamento) {
+            if (!$tipoLimpApto) continue;
+            $tareas->push([
+                'tipo_tarea'       => $tipoLimpApto,
+                'apartamento_id'   => $apartamento->id,
+                'zona_comun_id'    => null,
+                'edificio_id'      => $apartamento->edificio_id ?? null,
+                'nivel_prioridad'  => 'P1',
+                'subtipo'          => 'checkout',
+                'prioridad'        => 90,
+                'tiempo_estimado'  => 60, // 1 hora por apartamento
+            ]);
+        }
+        Log::info('[TURNOS] P1 Checkouts hoy: ' . $apartamentosPendientesHoy->count());
+
+        // ── P1-C: OFICINA URGENTE (+7 días sin limpiar) ──
+        $oficinaUrgente = $this->verificarOficinaUrgente();
+        if ($oficinaUrgente) {
+            // Buscar tipo tarea de oficina (id 2 o 11)
+            $tipoOficina = TipoTarea::whereIn('id', [2, 11])->first()
+                ?? TipoTarea::where('nombre', 'LIKE', '%Oficina%')->first();
+            if ($tipoOficina) {
+                $tareas->push([
+                    'tipo_tarea'       => $tipoOficina,
+                    'apartamento_id'   => 18, // OFICINA
+                    'zona_comun_id'    => null,
+                    'edificio_id'      => null,
+                    'nivel_prioridad'  => 'P1',
+                    'subtipo'          => 'oficina_urgente',
+                    'prioridad'        => 80,
+                    'tiempo_estimado'  => 60,
+                ]);
+                Log::info('[TURNOS] P1 Oficina URGENTE - más de 7 días sin limpiar');
+            }
+        }
+
+        // ── P2: ZONAS COMUNES ──
+        $zonasComunes = ZonaComun::activas()->ordenadas()->get();
+        // tipo_tarea_id 3 = Costa, 7 = Suite
+        $tipoZonaCosta = TipoTarea::find(3);
+        $tipoZonaSuite = TipoTarea::find(7);
+        $tipoZonaDefault = $tipoZonaCosta ?? $tipoZonaSuite ?? TipoTarea::activos()->limpiezaZonasComunes()->first();
+
+        foreach ($zonasComunes as $zona) {
+            $tipoZona = $tipoZonaDefault;
+            // Si la zona tiene tipo, intentar asociar Costa/Suite
+            if (stripos($zona->nombre, 'costa') !== false && $tipoZonaCosta) {
+                $tipoZona = $tipoZonaCosta;
+            } elseif (stripos($zona->nombre, 'suite') !== false && $tipoZonaSuite) {
+                $tipoZona = $tipoZonaSuite;
+            }
+
+            if ($tipoZona) {
+                $tareas->push([
+                    'tipo_tarea'       => $tipoZona,
+                    'apartamento_id'   => null,
+                    'zona_comun_id'    => $zona->id,
+                    'edificio_id'      => null,
+                    'nivel_prioridad'  => 'P2',
+                    'subtipo'          => 'zona_comun',
+                    'prioridad'        => 50,
+                    'tiempo_estimado'  => 60, // 1 hora por zona (ajustado de los 30min de DB)
+                ]);
+            }
+        }
+        Log::info('[TURNOS] P2 Zonas comunes: ' . $zonasComunes->count());
+
+        // ── P3-A: LIMPIEZA A FONDO ──
+        $limpiezasFondoEsteMes = $this->verificarLimpiezaFondoMensual();
+        if ($limpiezasFondoEsteMes < 2) {
+            $tipoLimpiezaFondo = TipoTarea::find(14)
+                ?? TipoTarea::where('nombre', 'LIKE', '%fondo%')->first();
+            if ($tipoLimpiezaFondo) {
+                // Buscar apartamento que no haya tenido limpieza a fondo recientemente
+                $aptoParaFondo = $this->obtenerApartamentoParaLimpiezaFondo();
+                $tareas->push([
+                    'tipo_tarea'       => $tipoLimpiezaFondo,
+                    'apartamento_id'   => $aptoParaFondo ? $aptoParaFondo->id : null,
+                    'zona_comun_id'    => null,
+                    'edificio_id'      => $aptoParaFondo ? ($aptoParaFondo->edificio_id ?? null) : null,
+                    'nivel_prioridad'  => 'P3',
+                    'subtipo'          => 'limpieza_fondo',
+                    'prioridad'        => 40,
+                    'tiempo_estimado'  => 120, // 2 horas
+                ]);
+                Log::info('[TURNOS] P3 Limpieza a fondo necesaria (este mes: ' . $limpiezasFondoEsteMes . '/2)');
+            }
+        }
+
+        // ── P3-B: OFICINA (si no fue P1) ──
+        if (!$oficinaUrgente) {
+            $tipoOficina = TipoTarea::whereIn('id', [2, 11])->first()
+                ?? TipoTarea::where('nombre', 'LIKE', '%Oficina%')->first();
+            if ($tipoOficina) {
+                $tareas->push([
+                    'tipo_tarea'       => $tipoOficina,
+                    'apartamento_id'   => 18,
+                    'zona_comun_id'    => null,
+                    'edificio_id'      => null,
+                    'nivel_prioridad'  => 'P3',
+                    'subtipo'          => 'oficina_normal',
+                    'prioridad'        => 30,
+                    'tiempo_estimado'  => 60,
+                ]);
+            }
+        }
+
+        // ── P3-C: INVENTARIO/STOCK ──
+        $tipoInventario = TipoTarea::find(9)
+            ?? TipoTarea::where('nombre', 'LIKE', '%inventario%')->orWhere('nombre', 'LIKE', '%stock%')->first();
+        if ($tipoInventario) {
+            $tareas->push([
+                'tipo_tarea'       => $tipoInventario,
+                'apartamento_id'   => null,
+                'zona_comun_id'    => null,
+                'edificio_id'      => null,
+                'nivel_prioridad'  => 'P3',
+                'subtipo'          => 'inventario',
+                'prioridad'        => 20,
+                'tiempo_estimado'  => 30,
+            ]);
+        }
+
+        // ── P3-D: OTRAS TAREAS (planchado, amenities, etc.) ──
+        $tareasOtras = TipoTarea::activos()
+            ->whereNotIn('id', $tareas->pluck('tipo_tarea')->pluck('id')->filter()->unique()->toArray())
+            ->whereNotIn('categoria', ['limpieza_apartamento'])
+            ->get();
+
+        foreach ($tareasOtras as $tipoTarea) {
+            $tareas->push([
+                'tipo_tarea'       => $tipoTarea,
+                'apartamento_id'   => null,
+                'zona_comun_id'    => null,
+                'edificio_id'      => null,
+                'nivel_prioridad'  => 'P3',
+                'subtipo'          => 'otra',
+                'prioridad'        => 10,
+                'tiempo_estimado'  => $tipoTarea->tiempo_estimado_minutos ?? 30,
+            ]);
+        }
+
+        // Ordenar: P1 primero (prioridad desc), luego P2, luego P3
+        return $tareas->sortByDesc('prioridad')->values();
     }
-
-    // 3) OBLIGATORIAS DIARIAS (prioridad 10) – todas las activas, menos "limpieza_apartamento"
-    $mustDoTipos = TipoTarea::activos()
-        ->where('prioridad_base', 10)
-        ->where('categoria', '!=', 'limpieza_apartamento')
-        ->get();
-
-    foreach ($mustDoTipos as $tipo) {
-        $t = [
-            'tipo_tarea'      => $tipo,
-            'apartamento_id'  => null,
-            'zona_comun_id'   => null,
-            'edificio_id'     => null,
-            'prioridad'       => 10,
-            'tiempo_estimado' => $tipo->tiempo_estimado_minutos
-        ];
-        $key = $this->hashTarea($t);
-        if (!isset($ya[$key])) { $ya[$key] = true; $tareas->push($t); }
-    }
-
-    // 4) TAREAS GENERALES (oficinas, amenities, etc.) – igual que tenías
-    $tareasGenerales = TipoTarea::activos()
-        ->whereNotIn('categoria', ['limpieza_apartamento', 'limpieza_zona_comun', 'mantenimiento'])
-        ->get();
-
-    foreach ($tareasGenerales as $tipoTarea) {
-        $t = [
-            'tipo_tarea'      => $tipoTarea,
-            'apartamento_id'  => null,
-            'zona_comun_id'   => null,
-            'edificio_id'     => null,
-            'prioridad'       => $tipoTarea->prioridad_base,
-            'tiempo_estimado' => $tipoTarea->tiempo_estimado_minutos
-        ];
-        $key = $this->hashTarea($t);
-        if (!isset($ya[$key])) { $ya[$key] = true; $tareas->push($t); }
-    }
-
-    // 5) (Opcional) Limpieza común por edificio – si quieres mantenerlo, aquí lo dejaría tal cual,
-    //     pero como pides que zona común "sea como las demás", no meto tareas por edificio.
-
-    // Orden: primero prioridad 10, luego resto por prioridad
-    return $tareas
-        ->sortByDesc(function ($t) {
-            return [
-                (int)($t['prioridad'] === 10), // must primero
-                (int)$t['prioridad'],          // luego prioridad
-            ];
-        })
-        ->values();
-}
 
     
     /**
@@ -451,123 +440,327 @@ class GenerarTurnosTrabajo extends Command
     }
     
     /**
-     * Distribuir tareas entre empleadas disponibles
+     * Distribuir tareas entre empleadas disponibles usando el sistema de prioridades P1/P2/P3.
+     *
+     * Algoritmo:
+     *   Para cada limpiadora:
+     *     1. Lavandería 60min (P1 obligatoria)
+     *     2. Apartamentos checkout (P1)
+     *     3. Oficina urgente si +7 días (P1)
+     *     4. Zonas comunes (P2)
+     *     5. Limpieza a fondo, oficina normal, inventario, otras (P3)
      */
     private function distribuirTareasEntreEmpleadas($empleadas, $tareas, $fecha)
     {
         $turnosGenerados = 0;
         $turnos = [];
-        
-        // Crear turnos para cada empleada
+
+        // ── Crear turnos para cada empleada ──
         foreach ($empleadas as $empleada) {
             $turno = TurnoTrabajo::create([
-                'fecha' => $fecha,
-                'user_id' => $empleada->user_id,
-                'hora_inicio' => $empleada->hora_inicio_atencion,
-                'hora_fin' => $empleada->hora_fin_atencion,
-                'estado' => 'programado',
-                'fecha_creacion' => now()
+                'fecha'          => $fecha,
+                'user_id'        => $empleada->user_id,
+                'hora_inicio'    => $empleada->hora_inicio_atencion,
+                'hora_fin'       => $empleada->hora_fin_atencion,
+                'estado'         => 'programado',
+                'fecha_creacion' => now(),
             ]);
-            
-            // Si solo hay una empleada disponible, asignar 8 horas completas
-            $tiempoDisponible = $empleadas->count() === 1 ? 8 * 60 : $empleada->horas_contratadas_dia * 60;
-            
+
+            $tiempoDisponible = $empleada->horas_contratadas_dia * 60;
+
             $turnos[] = [
-                'turno' => $turno,
-                'empleada' => $empleada,
-                'tiempo_disponible' => $tiempoDisponible, // 8 horas si es la única, sino su jornada normal
-                'tiempo_asignado' => 0,
-                'tareas_asignadas' => 0
+                'turno'             => $turno,
+                'empleada'          => $empleada,
+                'tiempo_disponible' => $tiempoDisponible,
+                'tiempo_asignado'   => 0,
+                'tareas_asignadas'  => 0,
+                'orden_ejecucion'   => 1,
             ];
-            
+
             $turnosGenerados++;
+            Log::info("[TURNOS] Turno creado para {$empleada->user->name} ({$tiempoDisponible}min disponibles)");
         }
-        
-        // Separar tareas de apartamentos (prioridad máxima) de tareas generales
-        $tareasApartamentos = $tareas->filter(function($tarea) {
-            return $tarea['apartamento_id'] !== null;
-        });
-        
-        $tareasGenerales = $tareas->filter(function($tarea) {
-            return $tarea['apartamento_id'] === null;
-        });
-        
-        // Agrupar tareas de apartamentos por edificio para optimizar asignación
-        $tareasPorEdificio = $this->agruparTareasPorEdificio($tareasApartamentos);
-        
-        $ordenEjecucion = 1;
-        
-        // 1. PRIMERO: Asignar tareas de apartamentos agrupadas por edificio
-        foreach ($tareasPorEdificio as $edificioId => $tareasEdificio) {
-            $this->info("🏢 Procesando edificio {$edificioId} con " . count($tareasEdificio) . " apartamentos");
-            
-            // Intentar asignar todo el edificio a la misma empleada
-            $edificioAsignado = $this->asignarEdificioCompleto($turnos, $tareasEdificio, $ordenEjecucion);
-            
-            if ($edificioAsignado['asignado']) {
-                $this->info("✅ Edificio {$edificioId} asignado completamente a {$edificioAsignado['empleada']}");
-                $ordenEjecucion = $edificioAsignado['ordenEjecucion'];
-            } else {
-                // Si no se puede asignar completo, asignar apartamentos individualmente
-                $this->info("⚠️  Edificio {$edificioId} no se puede asignar completo, distribuyendo apartamentos");
+
+        // ── Separar tareas por nivel de prioridad ──
+        $tareasP1Lavanderia = $tareas->where('subtipo', 'lavanderia');
+        $tareasP1Checkout   = $tareas->where('subtipo', 'checkout');
+        $tareasP1Oficina    = $tareas->where('subtipo', 'oficina_urgente');
+        $tareasP2           = $tareas->where('nivel_prioridad', 'P2');
+        $tareasP3           = $tareas->where('nivel_prioridad', 'P3')->sortByDesc('prioridad')->values();
+
+        // ══════════════════════════════════════════════════
+        // PASO 1: P1-A  LAVANDERIA (1h por cada limpiadora)
+        // ══════════════════════════════════════════════════
+        $tipoLavanderia = $tareasP1Lavanderia->first();
+        if ($tipoLavanderia) {
+            foreach ($turnos as $i => &$t) {
+                if ($t['tiempo_asignado'] + 60 <= $t['tiempo_disponible']) {
+                    TareaAsignada::create([
+                        'turno_id'           => $t['turno']->id,
+                        'tipo_tarea_id'      => $tipoLavanderia['tipo_tarea']->id,
+                        'apartamento_id'     => null,
+                        'zona_comun_id'      => null,
+                        'prioridad_calculada' => 100,
+                        'orden_ejecucion'    => $t['orden_ejecucion'],
+                        'estado'             => 'pendiente',
+                        'dias_sin_limpiar'   => 0,
+                    ]);
+                    $t['tiempo_asignado'] += 60;
+                    $t['tareas_asignadas']++;
+                    $t['orden_ejecucion']++;
+                    Log::info("[TURNOS] P1 Lavandería asignada a {$t['empleada']->user->name}");
+                }
+            }
+            unset($t);
+        }
+
+        // ══════════════════════════════════════════════════
+        // PASO 2: P1-B  APARTAMENTOS CHECKOUT
+        // ══════════════════════════════════════════════════
+        // Agrupar por edificio para intentar mantener mismo edificio = misma limpiadora
+        $checkoutPorEdificio = $this->agruparTareasPorEdificio($tareasP1Checkout);
+        $apartamentosNoAsignados = [];
+
+        foreach ($checkoutPorEdificio as $edificioId => $tareasEdificio) {
+            $this->info("P1 Edificio {$edificioId}: " . count($tareasEdificio) . " checkouts");
+
+            // Intentar asignar todo el edificio a una sola limpiadora
+            $tiempoNecesario = count($tareasEdificio) * 60;
+            $asignadoCompleto = false;
+
+            // Buscar la limpiadora con menos carga que pueda asumir el edificio entero
+            $mejorIdx = -1;
+            $mejorCarga = PHP_INT_MAX;
+            foreach ($turnos as $idx => $turno) {
+                $restante = $turno['tiempo_disponible'] - $turno['tiempo_asignado'];
+                if ($restante >= $tiempoNecesario && $turno['tiempo_asignado'] < $mejorCarga) {
+                    $mejorIdx = $idx;
+                    $mejorCarga = $turno['tiempo_asignado'];
+                }
+            }
+
+            if ($mejorIdx >= 0) {
                 foreach ($tareasEdificio as $tarea) {
-                    $asignado = $this->asignarTareaIndividual($turnos, $tarea, $ordenEjecucion);
-                    if ($asignado) {
-                        $ordenEjecucion++;
+                    TareaAsignada::create([
+                        'turno_id'           => $turnos[$mejorIdx]['turno']->id,
+                        'tipo_tarea_id'      => $tarea['tipo_tarea']->id,
+                        'apartamento_id'     => $tarea['apartamento_id'],
+                        'zona_comun_id'      => null,
+                        'prioridad_calculada' => $tarea['prioridad'],
+                        'orden_ejecucion'    => $turnos[$mejorIdx]['orden_ejecucion'],
+                        'estado'             => 'pendiente',
+                        'dias_sin_limpiar'   => 0,
+                    ]);
+                    $turnos[$mejorIdx]['tiempo_asignado'] += 60;
+                    $turnos[$mejorIdx]['tareas_asignadas']++;
+                    $turnos[$mejorIdx]['orden_ejecucion']++;
+                }
+                $asignadoCompleto = true;
+                $this->info("  -> Edificio completo asignado a {$turnos[$mejorIdx]['empleada']->user->name}");
+            }
+
+            // Si no cabe completo, asignar apartamentos individualmente
+            if (!$asignadoCompleto) {
+                foreach ($tareasEdificio as $tarea) {
+                    $asignado = false;
+                    // Buscar limpiadora con menos carga que tenga al menos 60min
+                    $mejorIdx2 = -1;
+                    $mejorCarga2 = PHP_INT_MAX;
+                    foreach ($turnos as $idx => $turno) {
+                        $restante = $turno['tiempo_disponible'] - $turno['tiempo_asignado'];
+                        if ($restante >= 60 && $turno['tiempo_asignado'] < $mejorCarga2) {
+                            $mejorIdx2 = $idx;
+                            $mejorCarga2 = $turno['tiempo_asignado'];
+                        }
+                    }
+
+                    if ($mejorIdx2 >= 0) {
+                        TareaAsignada::create([
+                            'turno_id'           => $turnos[$mejorIdx2]['turno']->id,
+                            'tipo_tarea_id'      => $tarea['tipo_tarea']->id,
+                            'apartamento_id'     => $tarea['apartamento_id'],
+                            'zona_comun_id'      => null,
+                            'prioridad_calculada' => $tarea['prioridad'],
+                            'orden_ejecucion'    => $turnos[$mejorIdx2]['orden_ejecucion'],
+                            'estado'             => 'pendiente',
+                            'dias_sin_limpiar'   => 0,
+                        ]);
+                        $turnos[$mejorIdx2]['tiempo_asignado'] += 60;
+                        $turnos[$mejorIdx2]['tareas_asignadas']++;
+                        $turnos[$mejorIdx2]['orden_ejecucion']++;
+                        $asignado = true;
+                    }
+
+                    if (!$asignado) {
+                        $apartamentosNoAsignados[] = $tarea['apartamento_id'];
+                        $this->error("  ALERTA: Apartamento {$tarea['apartamento_id']} NO CABE en ninguna jornada");
                     }
                 }
             }
         }
-        
-        // 2. SEGUNDO: Asignar tareas generales respetando la jornada diaria
-        foreach ($tareasGenerales as $tarea) {
-            // Encontrar el turno con menos tiempo asignado que tenga capacidad
-            $turnoSeleccionado = null;
-            $turnoIndex = -1;
-            
-            foreach ($turnos as $index => $turno) {
-                if ($turno['tiempo_asignado'] + $tarea['tiempo_estimado'] <= $turno['tiempo_disponible']) {
-                    if (!$turnoSeleccionado || $turno['tiempo_asignado'] < $turnoSeleccionado['tiempo_asignado']) {
-                        $turnoSeleccionado = $turno;
-                        $turnoIndex = $index;
-                    }
-                }
+
+        // Alerta si hay apartamentos sin asignar
+        if (!empty($apartamentosNoAsignados)) {
+            $msg = "SOBRECARGA: " . count($apartamentosNoAsignados) . " apartamentos checkout no pudieron asignarse (IDs: " . implode(', ', $apartamentosNoAsignados) . ")";
+            Log::warning("[TURNOS] {$msg}");
+            $this->error($msg);
+            try {
+                \App\Services\AlertaEquipoService::alertar(
+                    'Turnos Sobrecargados',
+                    $msg . "\nFecha: {$fecha->format('Y-m-d')}\nSe necesita personal adicional.",
+                    'urgente'
+                );
+            } catch (\Exception $e) {
+                Log::error("[TURNOS] Error enviando alerta: " . $e->getMessage());
             }
-            
-            // Si no hay turno con capacidad, NO asignar la tarea general
-            if (!$turnoSeleccionado) {
-                $this->warn("⚠️  Tarea general '{$tarea['tipo_tarea']->nombre}' no asignada - jornada completa");
-                continue;
-            }
-            
-            // Verificar que no se sobrepase la jornada después de asignar
-            if ($turnoSeleccionado['tiempo_asignado'] + $tarea['tiempo_estimado'] > $turnoSeleccionado['tiempo_disponible']) {
-                $this->warn("⚠️  Tarea general '{$tarea['tipo_tarea']->nombre}' no asignada - sobrepasa jornada");
-                continue;
-            }
-            
-            // Crear la tarea asignada
-            TareaAsignada::create([
-                'turno_id' => $turnoSeleccionado['turno']->id,
-                'tipo_tarea_id' => $tarea['tipo_tarea']->id,
-                'apartamento_id' => $tarea['apartamento_id'],
-                'zona_comun_id' => $tarea['zona_comun_id'] ?? null,
-                'prioridad_calculada' => $tarea['prioridad'],
-                'orden_ejecucion' => $ordenEjecucion,
-                'estado' => 'pendiente',
-                'dias_sin_limpiar' => 0
-            ]);
-            
-            // Actualizar estadísticas del turno en el array original
-            $turnos[$turnoIndex]['tiempo_asignado'] += $tarea['tiempo_estimado'];
-            $turnos[$turnoIndex]['tareas_asignadas']++;
-            
-            $ordenEjecucion++;
         }
-        
+
+        // ══════════════════════════════════════════════════
+        // PASO 3: P1-C  OFICINA URGENTE (+7 días)
+        // ══════════════════════════════════════════════════
+        foreach ($tareasP1Oficina as $tarea) {
+            $this->asignarTareaAlMenosCargado($turnos, $tarea, 'P1 Oficina urgente');
+        }
+
+        // ══════════════════════════════════════════════════
+        // PASO 4: P2  ZONAS COMUNES (60min cada una)
+        // ══════════════════════════════════════════════════
+        foreach ($tareasP2 as $tarea) {
+            $this->asignarTareaAlMenosCargado($turnos, $tarea, 'P2 Zona Comun');
+        }
+
+        // ══════════════════════════════════════════════════
+        // PASO 5: P3  TAREAS SECUNDARIAS (rellenar tiempo)
+        // ══════════════════════════════════════════════════
+        foreach ($tareasP3 as $tarea) {
+            $this->asignarTareaAlMenosCargado($turnos, $tarea, 'P3 ' . ($tarea['subtipo'] ?? 'otra'));
+        }
+
+        // Log resumen por limpiadora
+        foreach ($turnos as $t) {
+            $pct = $t['tiempo_disponible'] > 0
+                ? round(($t['tiempo_asignado'] / $t['tiempo_disponible']) * 100)
+                : 0;
+            Log::info("[TURNOS] {$t['empleada']->user->name}: {$t['tareas_asignadas']} tareas, {$t['tiempo_asignado']}/{$t['tiempo_disponible']}min ({$pct}%)");
+        }
+
         return $turnosGenerados;
     }
+
+    /**
+     * Asignar una tarea a la limpiadora con menos carga que tenga tiempo suficiente.
+     * No excede nunca la jornada contratada.
+     */
+    private function asignarTareaAlMenosCargado(array &$turnos, array $tarea, string $label = ''): bool
+    {
+        $tiempoNecesario = $tarea['tiempo_estimado'];
+        $mejorIdx = -1;
+        $mejorCarga = PHP_INT_MAX;
+
+        foreach ($turnos as $idx => $turno) {
+            $restante = $turno['tiempo_disponible'] - $turno['tiempo_asignado'];
+            if ($restante >= $tiempoNecesario && $turno['tiempo_asignado'] < $mejorCarga) {
+                $mejorIdx = $idx;
+                $mejorCarga = $turno['tiempo_asignado'];
+            }
+        }
+
+        if ($mejorIdx < 0) {
+            Log::info("[TURNOS] {$label} '{$tarea['tipo_tarea']->nombre}' no asignada - sin capacidad");
+            return false;
+        }
+
+        TareaAsignada::create([
+            'turno_id'           => $turnos[$mejorIdx]['turno']->id,
+            'tipo_tarea_id'      => $tarea['tipo_tarea']->id,
+            'apartamento_id'     => $tarea['apartamento_id'] ?? null,
+            'zona_comun_id'      => $tarea['zona_comun_id'] ?? null,
+            'prioridad_calculada' => $tarea['prioridad'],
+            'orden_ejecucion'    => $turnos[$mejorIdx]['orden_ejecucion'],
+            'estado'             => 'pendiente',
+            'dias_sin_limpiar'   => 0,
+        ]);
+
+        $turnos[$mejorIdx]['tiempo_asignado'] += $tiempoNecesario;
+        $turnos[$mejorIdx]['tareas_asignadas']++;
+        $turnos[$mejorIdx]['orden_ejecucion']++;
+
+        Log::info("[TURNOS] {$label} '{$tarea['tipo_tarea']->nombre}' -> {$turnos[$mejorIdx]['empleada']->user->name}");
+        return true;
+    }
     
+    /**
+     * Verificar si la oficina (apartamento_id=18) lleva +7 días sin limpiar.
+     * Devuelve true si es urgente (necesita limpieza P1).
+     */
+    private function verificarOficinaUrgente(): bool
+    {
+        $ultimaLimpieza = ApartamentoLimpieza::where('apartamento_id', 18)
+            ->whereIn('status_id', [3, 4]) // completada / finalizada
+            ->orderByDesc('fecha_comienzo')
+            ->first();
+
+        if (!$ultimaLimpieza) {
+            Log::info('[TURNOS] Oficina: nunca limpiada -> URGENTE');
+            return true;
+        }
+
+        $dias = Carbon::parse($ultimaLimpieza->fecha_comienzo)->diffInDays(now());
+        Log::info("[TURNOS] Oficina: ultima limpieza hace {$dias} dias");
+
+        return $dias > 7;
+    }
+
+    /**
+     * Contar cuantas limpiezas a fondo se han realizado este mes.
+     * El objetivo es un minimo de 2 al mes.
+     */
+    private function verificarLimpiezaFondoMensual(): int
+    {
+        $count = \App\Models\LimpiezaFondo::whereYear('fecha', now()->year)
+            ->whereMonth('fecha', now()->month)
+            ->count();
+
+        Log::info("[TURNOS] Limpiezas a fondo este mes: {$count}/2");
+        return $count;
+    }
+
+    /**
+     * Obtener un apartamento que no haya tenido limpieza a fondo recientemente.
+     * Devuelve el apartamento con mas tiempo sin limpieza a fondo.
+     */
+    private function obtenerApartamentoParaLimpiezaFondo()
+    {
+        // Todos los apartamentos activos, excluyendo oficina (18)
+        $apartamentos = Apartamento::where('id', '!=', 18)
+            ->where('activo', true)
+            ->get();
+
+        $mejorApto = null;
+        $maxDias = -1;
+
+        foreach ($apartamentos as $apto) {
+            $ultimaFondo = \App\Models\LimpiezaFondo::where('apartamento_id', $apto->id)
+                ->orderByDesc('fecha')
+                ->first();
+
+            $dias = $ultimaFondo
+                ? Carbon::parse($ultimaFondo->fecha)->diffInDays(now())
+                : 999;
+
+            if ($dias > $maxDias) {
+                $maxDias = $dias;
+                $mejorApto = $apto;
+            }
+        }
+
+        if ($mejorApto) {
+            Log::info("[TURNOS] Apartamento para limpieza a fondo: {$mejorApto->id} ({$maxDias} dias sin fondo)");
+        }
+
+        return $mejorApto;
+    }
+
     /**
      * Mostrar resumen de turnos generados
      */

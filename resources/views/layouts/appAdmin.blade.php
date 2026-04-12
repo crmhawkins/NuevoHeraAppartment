@@ -257,6 +257,9 @@
                                         <li><a class="dropdown-item" href="{{ route('gestion.turnos.index') }}">
                                             <i class="fas fa-calendar-check me-2"></i>Turnos de Trabajo
                                         </a></li>
+                                        <li><a class="dropdown-item {{ request()->routeIs('admin.turnos-panel.*') ? 'active' : '' }}" href="{{ route('admin.turnos-panel.index') }}">
+                                            <i class="fas fa-th-large me-2"></i>Panel Turnos (Drag & Drop)
+                                        </a></li>
                                         <li><a class="dropdown-item" href="{{ route('admin.tipos-tareas.index') }}">
                                             <i class="fas fa-list-ul me-2"></i>Tipos de Tareas
                                         </a></li>

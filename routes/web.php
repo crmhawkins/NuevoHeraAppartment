@@ -967,6 +967,13 @@ Route::middleware(['auth', 'role:ADMIN'])->group(function () {
     Route::post('admin/turnos/{turno}/reordenar-tareas', [App\Http\Controllers\Admin\TurnosTrabajoController::class, 'reordenarTareas'])->name('admin.turnos.reordenar-tareas');
     Route::post('admin/empleada-horarios/crear-horario-rapido', [App\Http\Controllers\Admin\EmpleadaHorariosController::class, 'crearHorarioRapido'])->name('admin.empleada-horarios.crear-horario-rapido');
 
+    // Admin: Panel Drag & Drop de Turnos
+    Route::get('admin/turnos-panel', [App\Http\Controllers\Admin\TurnosAdminController::class, 'index'])->name('admin.turnos-panel.index');
+    Route::post('admin/turnos-panel/agregar-tarea', [App\Http\Controllers\Admin\TurnosAdminController::class, 'agregarTarea'])->name('admin.turnos-panel.agregarTarea');
+    Route::delete('admin/turnos-panel/quitar-tarea/{id}', [App\Http\Controllers\Admin\TurnosAdminController::class, 'quitarTarea'])->name('admin.turnos-panel.quitarTarea');
+    Route::post('admin/turnos-panel/mover-tarea', [App\Http\Controllers\Admin\TurnosAdminController::class, 'moverTarea'])->name('admin.turnos-panel.moverTarea');
+    Route::post('admin/turnos-panel/regenerar', [App\Http\Controllers\Admin\TurnosAdminController::class, 'regenerar'])->name('admin.turnos-panel.regenerar');
+
     // Rutas para gestión de días libres por semana
     Route::get('admin/empleada-horarios/{empleadaHorario}/dias-libres', [App\Http\Controllers\Admin\EmpleadaDiasLibresController::class, 'index'])->name('admin.empleada-dias-libres.index');
     Route::get('admin/empleada-horarios/{empleadaHorario}/dias-libres/create', [App\Http\Controllers\Admin\EmpleadaDiasLibresController::class, 'create'])->name('admin.empleada-dias-libres.create');
