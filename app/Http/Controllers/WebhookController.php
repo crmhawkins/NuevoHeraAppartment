@@ -226,7 +226,9 @@ class WebhookController extends Controller
                 // $responseMessage = $this->procesarMensajeConAsistente($payload['message'], $openaiThreadId);
                 //function enviarMensajeOpenAiChatCompletions($id, $nuevoMensaje, $remitente)
 
-                $enviaChatGPT = $this->enviarMensajeOpenAiChatCompletions($mensajeChat->id, $messageText, $payload['sender']);
+                // Usar booking_id como remitente (no 'guest') para que cada conversación tenga su propio historial
+                $remitente = 'channex_' . ($payload['booking_id'] ?? $payload['sender']);
+                $enviaChatGPT = $this->enviarMensajeOpenAiChatCompletions($mensajeChat->id, $messageText, $remitente);
                 // Enviar la respuesta a Channex
                 $this->enviarRespuestaAChannex($enviaChatGPT, $payload['booking_id']);
 
@@ -684,25 +686,13 @@ class WebhookController extends Controller
         // Usar Hawkins AI (aiapi.hawkins.es) en lugar de OpenAI directo
         $config = config('services.hawkins_whatsapp_ai');
         $endpoint = $config['base_url'];
-
-        // Asegurar que la URL termine en /chat/chat
         if (!str_ends_with($endpoint, '/chat/chat')) {
-            if (str_ends_with($endpoint, '/chat')) {
-                $endpoint = rtrim($endpoint, '/chat') . '/chat/chat';
-            } else {
-                $endpoint = rtrim($endpoint, '/') . '/chat/chat';
-            }
+            $endpoint = rtrim($endpoint, '/') . (str_ends_with($endpoint, '/chat') ? '/chat' : '/chat/chat');
         }
-
         $apiKey = $config['api_key'];
         $modelo = $config['model'];
 
         $promptAsistente = PromptAsistente::first();
-
-        $promptSystem = [
-            "role" => "system",
-            "content" => $promptAsistente ? $promptAsistente->prompt : "No hay prompt configurado aún."
-        ];
 
         // Guardar el mensaje del usuario
         ChatGpt::create([
@@ -714,71 +704,204 @@ class WebhookController extends Controller
             'date' => now()
         ]);
 
-        // Historial: últimos 20 mensajes válidos (mensaje + respuesta) en formato texto
+        // Historial: últimos 20 mensajes con respuesta
         $historialArray = ChatGpt::where('remitente', $remitente)
-            ->where(function ($q) {
-                $q->where('status', 1)->whereNotNull('respuesta')->where('respuesta', '!=', '');
-            })
-            ->orderBy('date', 'desc')
-            ->limit(20)
-            ->get()
-            ->reverse()
-            ->flatMap(function ($chat) {
-                $mensajes = [];
-                if (!empty($chat->mensaje)) {
-                    $mensajes[] = "Usuario: " . trim($chat->mensaje);
-                }
-                if (!empty($chat->respuesta)) {
-                    $mensajes[] = "Asistente: " . trim($chat->respuesta);
-                }
-                return $mensajes;
-            })
-            ->toArray();
+            ->where('status', 1)->whereNotNull('respuesta')->where('respuesta', '!=', '')
+            ->orderBy('date', 'desc')->limit(20)->get()->reverse()
+            ->flatMap(fn($c) => array_filter([
+                !empty($c->mensaje) ? "Usuario: " . trim($c->mensaje) : null,
+                !empty($c->respuesta) ? "Asistente: " . trim($c->respuesta) : null,
+            ]))->toArray();
 
-        // Construir prompt completo en formato texto (como WhatsApp)
-        $promptSystem = $promptAsistente ? $promptAsistente->prompt : "Eres el asistente virtual de Apartamentos Hawkins.";
-        $promptCompleto = $promptSystem;
-        $promptCompleto .= "\n\nCONTEXTO: Esta conversación es con un huésped que ha contactado vía Booking/Airbnb (Channex). Responde en el idioma del huésped.";
+        $historialTexto = implode("\n", $historialArray);
+
+        // Construir prompt con MISMAS reglas que WhatsApp (herramientas, brevedad, seguridad)
+        $promptBase = $promptAsistente ? $promptAsistente->prompt : "Eres María, el asistente virtual de Apartamentos Hawkins.";
+        $promptCompleto = $promptBase;
+
+        $promptCompleto .= "\n\nCONTEXTO: Esta conversación es con un huésped que contacta vía Booking/Airbnb. "
+            . "Responde en el IDIOMA del huésped (detecta su idioma por el mensaje). Sé breve y directo. "
+            . "Responde SOLO a lo que se te pregunta. NO des información que no se ha pedido.\n\n"
+            . "FORMATO OBLIGATORIO PARA USAR HERRAMIENTAS:\n"
+            . "- Cuando necesites ejecutar una acción, usa: [FUNCION:nombre_funcion:parametro1=valor1:parametro2=valor2]\n"
+            . "- Funciones disponibles:\n"
+            . "  * [FUNCION:obtener_claves:codigo_reserva=XXXXXXX] - Para dar claves de acceso al huésped\n"
+            . "  * [FUNCION:notificar_tecnico:descripcion_problema=XXX:urgencia=alta] - Para reportar averías\n"
+            . "  * [FUNCION:notificar_limpieza:tipo_limpieza=XXX:observaciones=XXX] - Para solicitudes de limpieza\n"
+            . "- NO escribas explicaciones antes o después del formato [FUNCION:...]\n"
+            . "- Si NO necesitas usar herramientas, responde normalmente.\n\n"
+            . "HORARIO DE ENTREGA DE CLAVES:\n"
+            . "- Las claves se entregan a las 15:00h del día de entrada.\n"
+            . "- Si la reserva es para HOY pero NO son las 15:00h, informa que estarán disponibles a esa hora.\n"
+            . "- NUNCA des códigos de acceso genéricos. USA la función obtener_claves para verificar.\n\n"
+            . "SEGURIDAD:\n"
+            . "- NUNCA menciones códigos de emergencia.\n"
+            . "- NUNCA inventes códigos de acceso. Siempre usa la función obtener_claves.\n"
+            . "- NUNCA ofrezcas descuentos, compensaciones o cosas gratis.\n\n"
+            . "BREVEDAD:\n"
+            . "- Responde SOLO a lo preguntado.\n"
+            . "- NO repitas información de bienvenida, WiFi, horarios etc. a menos que se pregunte.\n"
+            . "- Máximo 2-3 frases por respuesta salvo que sea necesario más.";
 
         if (!empty($historialArray)) {
-            $promptCompleto .= "\n\nHISTORIAL DE CONVERSACIÓN:\n" . implode("\n", $historialArray);
+            $promptCompleto .= "\n\nHISTORIAL:\n" . $historialTexto;
         }
 
         $promptCompleto .= "\n\nUsuario: " . $nuevoMensaje . "\n\nAsistente:";
 
-        // Llamar a Hawkins AI con el MISMO formato que WhatsApp (prompt + modelo + x-api-key)
+        // Llamar a Hawkins AI
         $response = Http::withHeaders([
-            'x-api-key' => $apiKey,
-            'Content-Type' => 'application/json',
-        ])->timeout(60)->post($endpoint, [
-            'prompt' => $promptCompleto,
-            'modelo' => $modelo,
-        ]);
+            'x-api-key' => $apiKey, 'Content-Type' => 'application/json',
+        ])->timeout(60)->post($endpoint, ['prompt' => $promptCompleto, 'modelo' => $modelo]);
 
         if ($response->failed()) {
             Log::error('[Booking IA] Error al enviar a Hawkins AI: ' . $response->body());
             return null;
         }
 
-        $data = $response->json();
-        $respuestaTexto = $data['respuesta'] ?? null;
-
+        $respuestaTexto = $response->json('respuesta') ?? null;
         if (!$respuestaTexto) {
-            Log::warning('[Booking IA] Respuesta vacía de Hawkins AI', ['data' => $data]);
+            Log::warning('[Booking IA] Respuesta vacía', ['data' => $response->json()]);
             return null;
         }
 
-        // Guardar la respuesta generada
+        Log::info('[Booking IA] Respuesta recibida', ['preview' => substr($respuestaTexto, 0, 100)]);
+
+        // DETECTAR Y EJECUTAR FUNCIONES [FUNCION:...]
+        if (preg_match('/\[FUNCION:([^:\]]+):?(.*?)\]/', $respuestaTexto, $matches)) {
+            $nombreFuncion = trim($matches[1]);
+            $parametrosStr = $matches[2] ?? '';
+            $parametros = [];
+            foreach (explode(':', $parametrosStr) as $param) {
+                if (strpos($param, '=') !== false) {
+                    [$key, $value] = explode('=', $param, 2);
+                    $parametros[trim($key)] = trim($value);
+                }
+            }
+
+            Log::info('[Booking IA] Función detectada', ['funcion' => $nombreFuncion, 'params' => $parametros]);
+
+            if ($nombreFuncion === 'obtener_claves') {
+                $codigo = $parametros['codigo_reserva'] ?? $this->bookingDetectarCodigo($nuevoMensaje, $historialTexto);
+                $respuestaTexto = $this->bookingEjecutarObtenerClaves($codigo, $promptBase, $historialTexto, $nuevoMensaje, $endpoint, $apiKey, $modelo);
+            } elseif ($nombreFuncion === 'notificar_tecnico') {
+                $desc = $parametros['descripcion_problema'] ?? $nuevoMensaje;
+                $urgencia = $parametros['urgencia'] ?? 'media';
+                $this->bookingGestionarAveria($remitente, $desc);
+                $respuestaTexto = $this->bookingLlamarConContexto($promptBase, $historialTexto, $nuevoMensaje,
+                    "He notificado al técnico sobre el problema. Te contactarán pronto.", $endpoint, $apiKey, $modelo);
+            } elseif ($nombreFuncion === 'notificar_limpieza') {
+                $tipo = $parametros['tipo_limpieza'] ?? 'Limpieza general';
+                $obs = $parametros['observaciones'] ?? '';
+                $this->bookingGestionarLimpieza($remitente, $tipo . ($obs ? " - $obs" : ''));
+                $respuestaTexto = $this->bookingLlamarConContexto($promptBase, $historialTexto, $nuevoMensaje,
+                    "He notificado al equipo de limpieza. Te avisaremos cuando esté confirmado.", $endpoint, $apiKey, $modelo);
+            }
+        }
+
+        // Limpiar marcadores de función restantes
+        $respuestaTexto = preg_replace('/\[FUNCION:[^\]]+\]/', '', $respuestaTexto);
+        $respuestaTexto = trim($respuestaTexto);
+
+        // Guardar la respuesta
         ChatGpt::where('remitente', $remitente)
-            ->whereNull('respuesta')
-            ->orderByDesc('created_at')
-            ->limit(1)
-            ->update([
-                'respuesta' => $respuestaTexto,
-                'status' => 1,
-            ]);
+            ->whereNull('respuesta')->orderByDesc('created_at')->limit(1)
+            ->update(['respuesta' => $respuestaTexto, 'status' => 1]);
 
         return $respuestaTexto;
+    }
+
+    // === HERRAMIENTAS DE BOOKING IA ===
+
+    private function bookingDetectarCodigo($mensaje, $historial)
+    {
+        if (preg_match('/\b([A-Z0-9]{8,15})\b/i', $mensaje, $m)) {
+            if (preg_match('/[0-9]/', $m[1])) return strtoupper($m[1]);
+        }
+        if (preg_match('/\b([0-9]{8,15})\b/', $mensaje, $m)) return $m[1];
+        if (!empty($historial)) {
+            if (preg_match('/\b([A-Z0-9]{8,15})\b/i', $historial, $m) && preg_match('/[0-9]/', $m[1])) {
+                return strtoupper($m[1]);
+            }
+        }
+        return null;
+    }
+
+    private function bookingEjecutarObtenerClaves($codigoReserva, $promptBase, $historial, $mensaje, $endpoint, $apiKey, $modelo)
+    {
+        if (!$codigoReserva) {
+            return $this->bookingLlamarConContexto($promptBase, $historial, $mensaje,
+                "No se pudo identificar el código de reserva. Pide al huésped su código de reserva.", $endpoint, $apiKey, $modelo);
+        }
+
+        $reserva = \App\Models\Reserva::where('codigo_reserva', $codigoReserva)->first();
+        if (!$reserva) {
+            return $this->bookingLlamarConContexto($promptBase, $historial, $mensaje,
+                "No se encontró reserva con código {$codigoReserva}. Pide que verifique el código.", $endpoint, $apiKey, $modelo);
+        }
+
+        $fechaEntrada = \Carbon\Carbon::parse($reserva->fecha_entrada);
+        $horaActual = now()->format('H:i');
+
+        if (empty($reserva->dni_entregado)) {
+            $url = 'https://crm.apartamentosalgeciras.com/dni-user/' . $reserva->token;
+            return $this->bookingLlamarConContexto($promptBase, $historial, $mensaje,
+                "Para dar las claves, el huésped necesita completar su DNI primero. Link: {$url}", $endpoint, $apiKey, $modelo);
+        }
+
+        if ($fechaEntrada->isToday()) {
+            if ($horaActual < '15:00') {
+                return $this->bookingLlamarConContexto($promptBase, $historial, $mensaje,
+                    "Las claves estarán disponibles a partir de las 15:00h de hoy.", $endpoint, $apiKey, $modelo);
+            }
+            $claveApto = $reserva->apartamento->claves ?? 'No asignada';
+            $claveEdificio = optional($reserva->apartamento->edificioName)->clave ?? 'No asignada';
+            return $this->bookingLlamarConContexto($promptBase, $historial, $mensaje,
+                "Código puerta edificio: *{$claveEdificio}*\nCódigo apartamento: *{$claveApto}*", $endpoint, $apiKey, $modelo);
+        }
+
+        return $this->bookingLlamarConContexto($promptBase, $historial, $mensaje,
+            "Las claves se entregan el día de entrada ({$fechaEntrada->format('d/m/Y')}). Aún no es ese día.", $endpoint, $apiKey, $modelo);
+    }
+
+    private function bookingLlamarConContexto($promptBase, $historial, $mensaje, $resultadoFuncion, $endpoint, $apiKey, $modelo)
+    {
+        $promptCompleto = $promptBase;
+        $promptCompleto .= "\n\nCONTEXTO: Conversación vía Booking/Airbnb. Responde en el idioma del huésped. Sé breve.";
+        if (!empty($historial)) {
+            $promptCompleto .= "\n\nHISTORIAL:\n" . $historial;
+        }
+        $promptCompleto .= "\n\nUsuario: " . $mensaje;
+        $promptCompleto .= "\nAsistente: [He ejecutado una función: " . $resultadoFuncion . "]\n\nAsistente:";
+
+        $response = Http::withHeaders([
+            'x-api-key' => $apiKey, 'Content-Type' => 'application/json',
+        ])->timeout(60)->post($endpoint, ['prompt' => $promptCompleto, 'modelo' => $modelo]);
+
+        if ($response->failed()) {
+            Log::error('[Booking IA] Error en segunda llamada: ' . $response->body());
+            return $resultadoFuncion;
+        }
+
+        $respuesta = $response->json('respuesta') ?? $resultadoFuncion;
+        $respuesta = preg_replace('/\[FUNCION:[^\]]+\]/', '', $respuesta);
+        return trim($respuesta) ?: $resultadoFuncion;
+    }
+
+    private function bookingGestionarAveria($remitente, $descripcion)
+    {
+        Log::info('[Booking IA] Avería reportada', ['remitente' => $remitente, 'descripcion' => $descripcion]);
+        \App\Services\AlertaEquipoService::enviarWhatsApp(
+            "🔧 AVERÍA REPORTADA (Booking)\n\nDescripción: {$descripcion}\nRemitente: {$remitente}", 'averia'
+        );
+    }
+
+    private function bookingGestionarLimpieza($remitente, $descripcion)
+    {
+        Log::info('[Booking IA] Limpieza solicitada', ['remitente' => $remitente, 'descripcion' => $descripcion]);
+        \App\Services\AlertaEquipoService::enviarWhatsApp(
+            "🧹 LIMPIEZA SOLICITADA (Booking)\n\nTipo: {$descripcion}\nRemitente: {$remitente}", 'limpieza'
+        );
     }
     private function enviarRespuestaAChannex($mensaje, $bookingId)
     {
