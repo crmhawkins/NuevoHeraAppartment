@@ -204,9 +204,9 @@
                         <td class="fw-bold">{{ number_format($f->total, 2, ',', '.') }} &euro;</td>
                         <td>
                             <select class="form-select form-select-sm estado-select" data-factura-id="{{ $f->id }}" style="width: 130px; font-size: 12px;">
-                                <option value="pendiente" {{ in_array($f->invoice_status_id, [1,3,5]) ? 'selected' : '' }}>Pendiente</option>
-                                <option value="cobrada" {{ $f->invoice_status_id == 6 ? 'selected' : '' }}>Cobrada</option>
-                                <option value="cancelada" {{ $f->invoice_status_id == 7 ? 'selected' : '' }}>Cancelada</option>
+                                <option value="pendiente" {{ in_array($f->invoice_status_id, [1,2]) ? 'selected' : '' }}>Pendiente</option>
+                                <option value="cobrada" {{ in_array($f->invoice_status_id, [3,4,6]) ? 'selected' : '' }}>Cobrada</option>
+                                <option value="cancelada" {{ in_array($f->invoice_status_id, [5,7]) ? 'selected' : '' }}>Cancelada</option>
                             </select>
                         </td>
                         <td>

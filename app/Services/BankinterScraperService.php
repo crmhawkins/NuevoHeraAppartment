@@ -547,11 +547,11 @@ class BankinterScraperService
                             // Auto-marcar factura como cobrada si la reserva tiene factura pendiente
                             try {
                                 $factura = \App\Models\Invoices::where('reserva_id', $reservaMatch)
-                                    ->whereIn('invoice_status_id', [1, 3, 5])
+                                    ->whereIn('invoice_status_id', [1, 2]) // pendiente o no cobrada
                                     ->first();
                                 if ($factura) {
                                     $factura->update([
-                                        'invoice_status_id' => 6, // cobrada
+                                        'invoice_status_id' => 3, // cobrada
                                         'fecha_cobro' => $fechaContable,
                                     ]);
                                     Log::info('[Bankinter] Factura auto-marcada como cobrada', [

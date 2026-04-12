@@ -21,9 +21,9 @@ class DashboardFinancieroController extends Controller
         $queryBase = Invoices::whereBetween('fecha', [$fechaDesde, $fechaHasta]);
 
         $totalFacturado = (clone $queryBase)->sum('total');
-        $totalCobrado = (clone $queryBase)->where('invoice_status_id', 6)->sum('total');
-        $totalPendiente = (clone $queryBase)->whereIn('invoice_status_id', [1, 3, 5])->sum('total');
-        $totalCancelado = (clone $queryBase)->where('invoice_status_id', 7)->sum('total');
+        $totalCobrado = (clone $queryBase)->whereIn('invoice_status_id', [3, 4, 6])->sum('total');
+        $totalPendiente = (clone $queryBase)->whereIn('invoice_status_id', [1, 2])->sum('total');
+        $totalCancelado = (clone $queryBase)->whereIn('invoice_status_id', [5, 7])->sum('total');
         $numFacturas = (clone $queryBase)->count();
 
         // Facturas con filtro de estado
@@ -31,11 +31,11 @@ class DashboardFinancieroController extends Controller
             ->whereBetween('fecha', [$fechaDesde, $fechaHasta]);
 
         if ($estado === 'pendiente') {
-            $queryFacturas->whereIn('invoice_status_id', [1, 3, 5]);
+            $queryFacturas->whereIn('invoice_status_id', [1, 2]);
         } elseif ($estado === 'cobrada') {
-            $queryFacturas->where('invoice_status_id', 6);
+            $queryFacturas->whereIn('invoice_status_id', [3, 4, 6]);
         } elseif ($estado === 'cancelada') {
-            $queryFacturas->where('invoice_status_id', 7);
+            $queryFacturas->whereIn('invoice_status_id', [5, 7]);
         }
 
         $facturas = $queryFacturas->orderBy('fecha', 'desc')->paginate(25);
@@ -93,8 +93,8 @@ class DashboardFinancieroController extends Controller
         $factura = Invoices::findOrFail($id);
         $estadoMap = [
             'pendiente' => 1,
-            'cobrada' => 6,
-            'cancelada' => 7,
+            'cobrada' => 3,
+            'cancelada' => 5,
         ];
 
         $nuevoEstado = $estadoMap[$request->estado];
