@@ -63,46 +63,59 @@ class AlertasCentralController extends Controller
     public function historial(Request $request)
     {
         $tipo = $request->get('tipo', 'todos'); // todos | alertas | notificaciones
+        $leidas = $request->get('leidas', 'todas'); // todas | leidas | no_leidas
+        $desde = $request->get('desde');
+        $hasta = $request->get('hasta');
         $page = (int) $request->get('page', 1);
         $perPage = 25;
 
         $items = collect();
 
         if ($tipo === 'todos' || $tipo === 'alertas') {
-            $alerts = Alert::orderBy('created_at', 'desc')
-                ->limit(200)
-                ->get()
-                ->map(function ($a) {
-                    return [
-                        'fecha' => $a->created_at->format('d/m/Y H:i'),
-                        'tipo' => $a->type ?? 'info',
-                        'titulo' => $a->title,
-                        'destinatario' => $a->user ? $a->user->name : 'Sistema',
-                        'canal' => 'crm',
-                        'estado' => $a->is_read ? 'leida' : 'no_leida',
-                        'origen' => 'alert',
-                        'created_at' => $a->created_at,
-                    ];
-                });
+            $query = Alert::orderBy('created_at', 'desc');
+            if ($desde) $query->whereDate('created_at', '>=', $desde);
+            if ($hasta) $query->whereDate('created_at', '<=', $hasta);
+            if ($leidas === 'leidas') $query->where('is_read', true);
+            if ($leidas === 'no_leidas') $query->where('is_read', false);
+
+            $alerts = $query->limit(500)->get()->map(function ($a) {
+                return [
+                    'id' => $a->id,
+                    'fecha' => $a->created_at->format('d/m/Y H:i'),
+                    'tipo' => $a->type ?? 'info',
+                    'titulo' => $a->title,
+                    'destinatario' => $a->user ? $a->user->name : 'Sistema',
+                    'canal' => 'crm',
+                    'estado' => $a->is_read ? 'leida' : 'no_leida',
+                    'origen' => 'alert',
+                    'action_url' => $a->action_url,
+                    'created_at' => $a->created_at,
+                ];
+            });
             $items = $items->merge($alerts);
         }
 
         if ($tipo === 'todos' || $tipo === 'notificaciones') {
-            $notifications = Notification::orderBy('created_at', 'desc')
-                ->limit(200)
-                ->get()
-                ->map(function ($n) {
-                    return [
-                        'fecha' => $n->created_at->format('d/m/Y H:i'),
-                        'tipo' => $n->type ?? 'info',
-                        'titulo' => $n->title,
-                        'destinatario' => $n->user ? $n->user->name : 'Sistema',
-                        'canal' => $n->type === 'whatsapp' ? 'whatsapp' : 'crm',
-                        'estado' => $n->read_at ? 'leida' : 'no_leida',
-                        'origen' => 'notification',
-                        'created_at' => $n->created_at,
-                    ];
-                });
+            $query = Notification::orderBy('created_at', 'desc');
+            if ($desde) $query->whereDate('created_at', '>=', $desde);
+            if ($hasta) $query->whereDate('created_at', '<=', $hasta);
+            if ($leidas === 'leidas') $query->whereNotNull('read_at');
+            if ($leidas === 'no_leidas') $query->whereNull('read_at');
+
+            $notifications = $query->limit(500)->get()->map(function ($n) {
+                return [
+                    'id' => $n->id,
+                    'fecha' => $n->created_at->format('d/m/Y H:i'),
+                    'tipo' => $n->type ?? 'info',
+                    'titulo' => $n->title,
+                    'destinatario' => $n->user ? $n->user->name : 'Sistema',
+                    'canal' => $n->type === 'whatsapp' ? 'whatsapp' : 'crm',
+                    'estado' => $n->read_at ? 'leida' : 'no_leida',
+                    'origen' => 'notification',
+                    'action_url' => $n->action_url,
+                    'created_at' => $n->created_at,
+                ];
+            });
             $items = $items->merge($notifications);
         }
 
@@ -118,6 +131,72 @@ class AlertasCentralController extends Controller
             'per_page' => $perPage,
             'last_page' => (int) ceil($total / $perPage),
         ]);
+    }
+
+    /**
+     * Detalle de una alerta/notificacion (AJAX modal).
+     */
+    public function detalle(Request $request)
+    {
+        $tipo = $request->get('tipo'); // 'alert' or 'notification'
+        $id = $request->get('id');
+
+        if ($tipo === 'alert') {
+            $item = \App\Models\Alert::find($id);
+            if ($item && !$item->is_read) {
+                $item->update(['is_read' => true]);
+            }
+        } else {
+            $item = \DB::table('notifications')->where('id', $id)->first();
+            if ($item && !$item->read_at) {
+                \DB::table('notifications')->where('id', $id)->update(['read_at' => now()]);
+            }
+        }
+
+        return response()->json(['success' => true, 'item' => $item]);
+    }
+
+    /**
+     * WhatsApp templates list.
+     */
+    public function plantillas()
+    {
+        try {
+            $templates = \App\Models\WhatsappTemplate::all();
+            return response()->json(['success' => true, 'templates' => $templates]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'templates' => [], 'error' => 'Tabla no disponible']);
+        }
+    }
+
+    /**
+     * Channex/OTA messages history.
+     */
+    public function mensajesOTA(Request $request)
+    {
+        try {
+            $mensajes = \DB::table('whatsapp_mensaje_chatgpt')
+                ->orderBy('created_at', 'desc')
+                ->paginate(30);
+            return response()->json(['success' => true, 'mensajes' => $mensajes]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'mensajes' => ['data' => []], 'error' => 'Tabla no disponible']);
+        }
+    }
+
+    /**
+     * Email history.
+     */
+    public function emailsEnviados(Request $request)
+    {
+        try {
+            $emails = \DB::table('emails')
+                ->orderBy('created_at', 'desc')
+                ->paginate(30);
+            return response()->json(['success' => true, 'emails' => $emails]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'emails' => ['data' => []], 'error' => 'Tabla no disponible']);
+        }
     }
 
     /**

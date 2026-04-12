@@ -1443,9 +1443,13 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:ADMIN'])->grou
     Route::get('/channex-mensajes', [App\Http\Controllers\ChannexMensajesController::class, 'index'])->name('channex-mensajes.index');
     Route::get('/channex-mensajes/{bookingId}', [App\Http\Controllers\ChannexMensajesController::class, 'mensajes'])->name('channex-mensajes.mensajes');
 
-    // Centro de Alertas
+    // Centro de Alertas / Comunicaciones
     Route::get('/comunicacion/alertas', [App\Http\Controllers\AlertasCentralController::class, 'index'])->name('alertas.index');
     Route::get('/comunicacion/alertas/historial', [App\Http\Controllers\AlertasCentralController::class, 'historial'])->name('alertas.historial');
+    Route::get('/comunicacion/alertas/detalle', [App\Http\Controllers\AlertasCentralController::class, 'detalle'])->name('admin.alertas.detalle');
+    Route::get('/comunicacion/alertas/plantillas', [App\Http\Controllers\AlertasCentralController::class, 'plantillas'])->name('admin.alertas.plantillas');
+    Route::get('/comunicacion/alertas/mensajes-ota', [App\Http\Controllers\AlertasCentralController::class, 'mensajesOTA'])->name('admin.alertas.mensajesOTA');
+    Route::get('/comunicacion/alertas/emails', [App\Http\Controllers\AlertasCentralController::class, 'emailsEnviados'])->name('admin.alertas.emails');
 });
 
 // Descargas temporales (publico, sin auth)
