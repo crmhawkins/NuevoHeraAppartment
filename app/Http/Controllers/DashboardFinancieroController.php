@@ -76,12 +76,11 @@ class DashboardFinancieroController extends Controller
             ->orderBy('total', 'desc')
             ->get();
 
-        // Facturas pendientes (>7 días, solo desde 2026)
+        // Todas las facturas pendientes desde 2026
         $facturasAntiguas = Invoices::with(['cliente', 'reserva'])
             ->whereIn('invoice_status_id', [1, 2])
             ->where('fecha', '>=', '2026-01-01')
-            ->where('fecha', '<', now()->subDays(7))
-            ->orderBy('fecha', 'asc')
+            ->orderBy('fecha', 'desc')
             ->get();
 
         return view('admin.tesoreria.dashboard-financiero', compact(

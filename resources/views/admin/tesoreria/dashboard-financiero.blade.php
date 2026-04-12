@@ -100,7 +100,7 @@
     @if($facturasAntiguas->count() > 0)
     <div class="card shadow-sm border-0 mb-2" style="border-left:3px solid #f59e0b!important;">
         <div class="card-body py-2 px-3">
-            <p class="df-section-title text-warning mb-1"><i class="fas fa-exclamation-triangle me-1"></i>Pendientes (+7d) — {{ $facturasAntiguas->count() }}</p>
+            <p class="df-section-title text-warning mb-1"><i class="fas fa-exclamation-triangle me-1"></i>Facturas Pendientes 2026 — {{ $facturasAntiguas->count() }}</p>
             <div style="max-height: 250px; overflow-y: auto;">
                 <table class="table table-hover mb-0 df-table">
                     <thead><tr><th>Ref.</th><th>Cliente</th><th>Fecha</th><th>Total</th><th>Dias</th><th>Accion</th></tr></thead>
@@ -140,7 +140,9 @@
                             <th><a href="{{ route('admin.tesoreria.dashboard', array_merge($qParams, ['order_by'=>'reference','direction'=>$orderBy==='reference'?$toggleDir:'desc'])) }}" class="text-dark text-decoration-none">Ref. {!! $orderBy==='reference' ? ($direction==='asc'?'&#9650;':'&#9660;') : '' !!}</a></th>
                             <th>Cliente</th>
                             <th>Reserva</th>
-                            <th><a href="{{ route('admin.tesoreria.dashboard', array_merge($qParams, ['order_by'=>'fecha','direction'=>$orderBy==='fecha'?$toggleDir:'desc'])) }}" class="text-dark text-decoration-none">Fecha {!! $orderBy==='fecha' ? ($direction==='asc'?'&#9650;':'&#9660;') : '' !!}</a></th>
+                            <th>Entrada</th>
+                            <th>Salida</th>
+                            <th><a href="{{ route('admin.tesoreria.dashboard', array_merge($qParams, ['order_by'=>'fecha','direction'=>$orderBy==='fecha'?$toggleDir:'desc'])) }}" class="text-dark text-decoration-none">F.Factura {!! $orderBy==='fecha' ? ($direction==='asc'?'&#9650;':'&#9660;') : '' !!}</a></th>
                             <th><a href="{{ route('admin.tesoreria.dashboard', array_merge($qParams, ['order_by'=>'total','direction'=>$orderBy==='total'?$toggleDir:'desc'])) }}" class="text-dark text-decoration-none">Total {!! $orderBy==='total' ? ($direction==='asc'?'&#9650;':'&#9660;') : '' !!}</a></th>
                             <th>Estado</th>
                             <th></th>
@@ -152,6 +154,8 @@
                             <td class="fw-semibold">{{ $f->reference }}</td>
                             <td>{{ optional($f->cliente)->nombre ?? '' }} {{ optional($f->cliente)->apellido1 ?? '' }}</td>
                             <td><small class="text-muted">{{ optional($f->reserva)->codigo_reserva ?? '-' }}</small></td>
+                            <td>{{ optional($f->reserva)->fecha_entrada ? \Carbon\Carbon::parse($f->reserva->fecha_entrada)->format('d/m') : '-' }}</td>
+                            <td>{{ optional($f->reserva)->fecha_salida ? \Carbon\Carbon::parse($f->reserva->fecha_salida)->format('d/m') : '-' }}</td>
                             <td>{{ $f->fecha ? \Carbon\Carbon::parse($f->fecha)->format('d/m/Y') : '-' }}</td>
                             <td class="fw-bold">{{ number_format($f->total, 2, ',', '.') }}&euro;</td>
                             <td>
@@ -164,7 +168,7 @@
                             <td><a href="{{ route('admin.facturas.generatePdf', $f->id) }}" class="text-muted" title="PDF"><i class="fas fa-file-pdf"></i></a></td>
                         </tr>
                     @empty
-                        <tr><td colspan="7" class="text-center py-2 text-muted">Sin facturas</td></tr>
+                        <tr><td colspan="9" class="text-center py-2 text-muted">Sin facturas</td></tr>
                     @endforelse
                     </tbody>
                 </table>
