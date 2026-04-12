@@ -528,6 +528,20 @@ Route::get('/admin/historial-descuentos/{historial}/datos-momento', [HistorialDe
     // Dashboard Financiero
     Route::get('/tesoreria/dashboard', [App\Http\Controllers\DashboardFinancieroController::class, 'index'])->name('admin.tesoreria.dashboard');
     Route::post('/admin/tesoreria/factura/{id}/estado', [App\Http\Controllers\DashboardFinancieroController::class, 'cambiarEstado'])->name('admin.tesoreria.cambiarEstado');
+    Route::post('/admin/tesoreria/facturas/asignar-referencias', [App\Http\Controllers\DashboardFinancieroController::class, 'asignarReferencias'])->name('admin.tesoreria.asignarReferencias');
+    // Configuracion Asesorias
+    Route::get('/configuracion/asesorias', [App\Http\Controllers\AsesoriaConfigController::class, 'index'])->name('configuracion.asesorias.index');
+    Route::get('/configuracion/asesorias/crear', [App\Http\Controllers\AsesoriaConfigController::class, 'create'])->name('configuracion.asesorias.create');
+    Route::post('/configuracion/asesorias', [App\Http\Controllers\AsesoriaConfigController::class, 'store'])->name('configuracion.asesorias.store');
+    Route::get('/configuracion/asesorias/{id}/editar', [App\Http\Controllers\AsesoriaConfigController::class, 'edit'])->name('configuracion.asesorias.edit');
+    Route::put('/configuracion/asesorias/{id}', [App\Http\Controllers\AsesoriaConfigController::class, 'update'])->name('configuracion.asesorias.update');
+    Route::delete('/configuracion/asesorias/{id}', [App\Http\Controllers\AsesoriaConfigController::class, 'destroy'])->name('configuracion.asesorias.destroy');
+    Route::post('/configuracion/asesorias/{id}/enviar-ahora', [App\Http\Controllers\AsesoriaConfigController::class, 'enviarAhora'])->name('configuracion.asesorias.enviarAhora');
+
+    // Facturas Recibidas
+    Route::get('/facturas-recibidas', [App\Http\Controllers\FacturasRecibidasController::class, 'index'])->name('admin.facturasRecibidas.index');
+    Route::post('/facturas-recibidas/{id}/subir', [App\Http\Controllers\FacturasRecibidasController::class, 'subirFactura'])->name('admin.facturasRecibidas.subir');
+    Route::get('/facturas-recibidas/{id}/descargar', [App\Http\Controllers\FacturasRecibidasController::class, 'descargarFactura'])->name('admin.facturasRecibidas.descargar');
 
     // Diario de Caja
     Route::get('/diario-caja', [App\Http\Controllers\DiarioCajaController::class, 'index'])->name('admin.diarioCaja.index');
@@ -1417,4 +1431,5 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:ADMIN'])->grou
     Route::get('/channex-mensajes/{bookingId}', [App\Http\Controllers\ChannexMensajesController::class, 'mensajes'])->name('channex-mensajes.mensajes');
 });
 
-
+// Descargas temporales (publico, sin auth)
+Route::get("/descargas/asesoria/{token}", [App\Http\Controllers\DescargaTemporalController::class, "descargar"])->name("descarga.temporal");

@@ -159,4 +159,26 @@ class AlertaEquipoService
             'nueva_reserva_web'
         );
     }
+
+    /**
+     * Alerta: fallo en envio de informe trimestral a asesoria.
+     */
+    public static function asesoriaFallo(string $asesoria, string $email, string $error): void
+    {
+        self::alertar(
+            "FALLO ENVIO ASESORIA",
+            "No se ha podido enviar el informe trimestral a la asesoria.
+
+"
+            . "Asesoria: {$asesoria}
+"
+            . "Email: {$email}
+"
+            . "Error: {$error}
+
+"
+            . "Revisa la configuracion de email y reintenta manualmente.",
+            "asesoria_fallo"
+        );
+    }
 }

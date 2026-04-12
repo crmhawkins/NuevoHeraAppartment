@@ -429,7 +429,10 @@
                                         </a></li>
                                         <li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item" href="{{ route('admin.facturas.index') }}">
-                                            <i class="fas fa-file-invoice me-2"></i>Facturas
+                                            <i class="fas fa-file-invoice me-2"></i>Facturas Emitidas
+                                        </a></li>
+                                        <li><a class="dropdown-item" href="{{ route('metalicos.index') }}">
+                                            <i class="fas fa-file-invoice-dollar me-2"></i>Facturas Recibidas
                                         </a></li>
                                         <li><a class="dropdown-item" href="{{ route('metalicos.index') }}">
                                             <i class="fas fa-coins me-2"></i>Metálicos
@@ -518,7 +521,12 @@
                                         <li><a class="dropdown-item {{ request()->routeIs('configuracion.mir.*') ? 'active' : '' }}" href="{{ route('configuracion.mir.index') }}">
                                             <i class="fas fa-shield-alt me-2"></i>MIR Hospedajes
                                         </a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item" href="{{ route('configuracion.asesorias.index') }}">
+                                            <i class="fas fa-briefcase me-2"></i>Asesorias
+                                        </a></li>
                                     </ul>
+
                                 </li>
                             </ul>
 

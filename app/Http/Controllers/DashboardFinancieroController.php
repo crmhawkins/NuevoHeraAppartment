@@ -50,7 +50,7 @@ class DashboardFinancieroController extends Controller
 
         $facturas = $queryFacturas->orderBy($orderBy, $direction)->paginate(25);
 
-        // Ingresos por mes (últimos 6 meses)
+        // Ingresos por mes (ultimos 6 meses)
         $ingresosPorMes = DB::table('ingresos')
             ->selectRaw('DATE_FORMAT(date, "%Y-%m") as mes, SUM(quantity) as total')
             ->where('date', '>=', now()->subMonths(6)->startOfMonth())
@@ -58,7 +58,7 @@ class DashboardFinancieroController extends Controller
             ->orderBy('mes')
             ->get();
 
-        // Ingresos por canal (último mes)
+        // Ingresos por canal (ultimo mes)
         $ingresosPorCanal = DB::table('ingresos')
             ->selectRaw('
                 CASE
@@ -76,12 +76,12 @@ class DashboardFinancieroController extends Controller
             ->orderBy('total', 'desc')
             ->get();
 
-        // Todas las facturas pendientes desde 2026
+        // Facturas pendientes desde 2026 - PAGINADAS 15/pagina
         $facturasAntiguas = Invoices::with(['cliente', 'reserva'])
             ->whereIn('invoice_status_id', [1, 2])
             ->where('fecha', '>=', '2026-01-01')
             ->orderBy('fecha', 'desc')
-            ->get();
+            ->paginate(15, ['*'], 'pend_page');
 
         return view('admin.tesoreria.dashboard-financiero', compact(
             'totalFacturado', 'totalCobrado', 'totalPendiente', 'totalCancelado',
@@ -116,6 +116,56 @@ class DashboardFinancieroController extends Controller
         return response()->json([
             'success' => true,
             'message' => "Factura #{$factura->reference} marcada como {$request->estado}",
+        ]);
+    }
+
+    /**
+     * Asignar referencias consecutivas a facturas de 2026 que no tengan.
+     */
+    public function asignarReferencias()
+    {
+        // Obtener ultimo numero de referencia de 2026
+        $ultimaRef = DB::table('invoices')
+            ->whereNotNull('reference')
+            ->where('reference', 'like', 'R2026%')
+            ->orderByDesc('reference')
+            ->value('reference');
+
+        // Extraer el numero secuencial
+        $ultimoNumero = 0;
+        if ($ultimaRef && preg_match('/R\d{4}\/\d{2}\/(\d+)/', $ultimaRef, $matches)) {
+            $ultimoNumero = (int) $matches[1];
+        }
+
+        // Obtener facturas sin referencia de 2026, ordenadas por fecha e id
+        $facturasSinRef = DB::table('invoices')
+            ->where(function($q) {
+                $q->whereNull('reference')->orWhere('reference', '');
+            })
+            ->whereYear('fecha', 2026)
+            ->orderBy('fecha', 'asc')
+            ->orderBy('id', 'asc')
+            ->get(['id', 'fecha']);
+
+        $asignadas = 0;
+        foreach ($facturasSinRef as $f) {
+            $ultimoNumero++;
+            $mes = Carbon::parse($f->fecha)->format('m');
+            $referencia = sprintf('R2026/%s/%06d', $mes, $ultimoNumero);
+
+            DB::table('invoices')->where('id', $f->id)->update([
+                'reference' => $referencia,
+                'updated_at' => now(),
+            ]);
+            $asignadas++;
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => "Se han asignado {$asignadas} referencias consecutivas.",
+            'desde' => $ultimaRef,
+            'primera_nueva' => $facturasSinRef->first() ? sprintf('R2026/%s/%06d', Carbon::parse($facturasSinRef->first()->fecha)->format('m'), ($ultimoNumero - $asignadas + 1)) : null,
+            'ultima_nueva' => $facturasSinRef->last() ? sprintf('R2026/%s/%06d', Carbon::parse($facturasSinRef->last()->fecha)->format('m'), $ultimoNumero) : null,
         ]);
     }
 }
