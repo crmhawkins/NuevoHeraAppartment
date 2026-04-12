@@ -16,6 +16,16 @@ class DashboardFinancieroController extends Controller
         $fechaDesde = $request->get('fecha_desde', now()->startOfMonth()->format('Y-m-d'));
         $fechaHasta = $request->get('fecha_hasta', now()->format('Y-m-d'));
         $estado = $request->get('estado', 'todos');
+        $orderBy = $request->get('order_by', 'fecha');
+        $direction = $request->get('direction', 'desc');
+
+        // Validar campos de orden permitidos
+        if (!in_array($orderBy, ['fecha', 'total', 'reference', 'created_at'])) {
+            $orderBy = 'fecha';
+        }
+        if (!in_array($direction, ['asc', 'desc'])) {
+            $direction = 'desc';
+        }
 
         // Totales
         $queryBase = Invoices::whereBetween('fecha', [$fechaDesde, $fechaHasta]);
@@ -38,7 +48,7 @@ class DashboardFinancieroController extends Controller
             $queryFacturas->whereIn('invoice_status_id', [5, 7]);
         }
 
-        $facturas = $queryFacturas->orderBy('fecha', 'desc')->paginate(25);
+        $facturas = $queryFacturas->orderBy($orderBy, $direction)->paginate(25);
 
         // Ingresos por mes (últimos 6 meses)
         $ingresosPorMes = DB::table('ingresos')
@@ -77,7 +87,8 @@ class DashboardFinancieroController extends Controller
         return view('admin.tesoreria.dashboard-financiero', compact(
             'totalFacturado', 'totalCobrado', 'totalPendiente', 'totalCancelado',
             'numFacturas', 'facturas', 'ingresosPorMes', 'ingresosPorCanal',
-            'facturasAntiguas', 'fechaDesde', 'fechaHasta', 'estado'
+            'facturasAntiguas', 'fechaDesde', 'fechaHasta', 'estado',
+            'orderBy', 'direction'
         ));
     }
 

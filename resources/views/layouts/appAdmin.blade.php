@@ -103,6 +103,20 @@
             .bg-color-primero-table th {
                 background-color: #0891b2 !important;
             }
+            /* Forzar texto blanco en todo el navbar para contraste */
+            .navbar-dark .nav-link,
+            .navbar-dark .navbar-nav .nav-link,
+            .navbar-dark .dropdown-toggle {
+                color: rgba(255, 255, 255, 0.95) !important;
+            }
+            .navbar-dark .nav-link:hover,
+            .navbar-dark .nav-link:focus,
+            .navbar-dark .nav-link.active {
+                color: #ffffff !important;
+            }
+            .navbar-dark .navbar-brand {
+                color: #ffffff !important;
+            }
 
             /* Estilos para dropdown items activos en navbar */
             .navbar-dark .dropdown-menu .dropdown-item.active {

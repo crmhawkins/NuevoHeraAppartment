@@ -173,15 +173,31 @@
         </div>
         <div class="card-body p-0">
             <table class="table table-hover mb-0">
+                @php
+                    $toggleDir = $direction === 'asc' ? 'desc' : 'asc';
+                    $qParams = request()->except(['order_by', 'direction', 'page']);
+                @endphp
                 <thead style="background: #f8fafc;">
                     <tr>
-                        <th>Referencia</th>
+                        <th>
+                            <a href="{{ route('admin.tesoreria.dashboard', array_merge($qParams, ['order_by' => 'reference', 'direction' => $orderBy === 'reference' ? $toggleDir : 'desc'])) }}" class="text-dark text-decoration-none">
+                                Referencia {!! $orderBy === 'reference' ? ($direction === 'asc' ? '<i class="fas fa-sort-up"></i>' : '<i class="fas fa-sort-down"></i>') : '' !!}
+                            </a>
+                        </th>
                         <th>Cliente</th>
                         <th>Reserva</th>
-                        <th>Fecha</th>
+                        <th>
+                            <a href="{{ route('admin.tesoreria.dashboard', array_merge($qParams, ['order_by' => 'fecha', 'direction' => $orderBy === 'fecha' ? $toggleDir : 'desc'])) }}" class="text-dark text-decoration-none">
+                                Fecha {!! $orderBy === 'fecha' ? ($direction === 'asc' ? '<i class="fas fa-sort-up"></i>' : '<i class="fas fa-sort-down"></i>') : '' !!}
+                            </a>
+                        </th>
                         <th>Base</th>
                         <th>IVA</th>
-                        <th>Total</th>
+                        <th>
+                            <a href="{{ route('admin.tesoreria.dashboard', array_merge($qParams, ['order_by' => 'total', 'direction' => $orderBy === 'total' ? $toggleDir : 'desc'])) }}" class="text-dark text-decoration-none">
+                                Total {!! $orderBy === 'total' ? ($direction === 'asc' ? '<i class="fas fa-sort-up"></i>' : '<i class="fas fa-sort-down"></i>') : '' !!}
+                            </a>
+                        </th>
                         <th>Estado</th>
                         <th>Acciones</th>
                     </tr>
@@ -210,7 +226,7 @@
                             </select>
                         </td>
                         <td>
-                            <a href="{{ route('admin.invoices.generateInvoicePDF', $f->id) }}" class="btn btn-outline-secondary btn-sm" title="PDF">
+                            <a href="{{ route('admin.facturas.generatePdf', $f->id) }}" class="btn btn-outline-secondary btn-sm" title="PDF">
                                 <i class="fas fa-file-pdf"></i>
                             </a>
                         </td>
