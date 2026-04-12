@@ -232,6 +232,19 @@ class LimpiezaAccionesController extends Controller
                 }
             }
 
+            // Notificar equipo de gestion por WhatsApp
+            try {
+                \App\Services\AlertaEquipoService::alertar(
+                    'INCIDENCIA LIMPIEZA - ' . strtoupper($request->prioridad ?? 'media'),
+                    "Reportada por: " . Auth::user()->name . "\n"
+                    . "Apartamento: " . $elementoNombre . "\n"
+                    . "Descripción: " . $request->descripcion,
+                    'incidencia_limpieza'
+                );
+            } catch (\Exception $e) {
+                Log::error('Error WhatsApp incidencia limpieza: ' . $e->getMessage());
+            }
+
             // Log de la acción
             Log::info('Avería reportada desde limpieza', [
                 'user_id' => Auth::id(),

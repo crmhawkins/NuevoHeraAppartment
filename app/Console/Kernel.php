@@ -47,6 +47,7 @@ class Kernel extends ConsoleKernel
         \App\Console\Commands\ProgramarCerradurasProximas::class,
         \App\Console\Commands\VerificarCheckinHoy::class,
         \App\Console\Commands\ImportarMovimientosBanco::class,
+        \App\Console\Commands\DetectOrphanedReservations::class,
     ];
 
 
@@ -58,6 +59,7 @@ class Kernel extends ConsoleKernel
 
         //$schedule->command('reservas:sincronizar')->hourly(); // o daily(), hourly(), etc.
         $schedule->command('reservas:check-overlaps')->everyMinute()->withoutOverlapping();
+        $schedule->command('reservas:detectar-huerfanas')->dailyAt('06:00');
 
         // Generar token DNI en reservas activas que no tienen token (enlace DNI roto)
         $schedule->command('reservas:generar-token-dni')->everyMinute()->withoutOverlapping();

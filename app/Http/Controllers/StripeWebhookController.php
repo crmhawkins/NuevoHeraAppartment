@@ -232,6 +232,35 @@ class StripeWebhookController extends Controller
                     Log::info('[ReservaWeb] Stripe checkout.session.completed: extras marcados como pagados', [
                         'reserva_id' => $pago->reserva_id,
                     ]);
+
+                    // Notificar al equipo si es early check-in o late checkout
+                    $reserva = $pago->reserva;
+                    $reservaServicios = \App\Models\ReservaServicio::where('pago_id', $pago->id)->with('servicio')->get();
+                    foreach ($reservaServicios as $rs) {
+                        $servicio = $rs->servicio;
+                        if ($servicio && (
+                            stripos($servicio->nombre, 'early') !== false ||
+                            stripos($servicio->nombre, 'late') !== false ||
+                            stripos($servicio->nombre, 'temprano') !== false ||
+                            stripos($servicio->nombre, 'tardío') !== false ||
+                            stripos($servicio->nombre, 'tardio') !== false
+                        )) {
+                            try {
+                                \App\Services\AlertaEquipoService::alertar(
+                                    'SERVICIO EXTRA CONTRATADO',
+                                    "Reserva: {$reserva->codigo_reserva}\n"
+                                    . "Servicio: {$servicio->nombre}\n"
+                                    . "Apartamento: " . ($reserva->apartamento->titulo ?? 'N/A') . "\n"
+                                    . "Entrada: {$reserva->fecha_entrada}\n"
+                                    . "Salida: {$reserva->fecha_salida}\n"
+                                    . "PRIORIZAR LIMPIEZA DE ESTE APARTAMENTO",
+                                    'servicio_extra'
+                                );
+                            } catch (\Exception $e) {
+                                Log::error('Error notificando servicio extra desde webhook: ' . $e->getMessage());
+                            }
+                        }
+                    }
                 }
 
                 Log::info('[ReservaWeb] Stripe checkout.session.completed: flujo completado', [

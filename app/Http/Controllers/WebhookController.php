@@ -300,7 +300,24 @@ class WebhookController extends Controller
         if ($estadoReserva === 'cancelled') {
             $codigoReserva = $bookingData['ota_reservation_code'] ?? $bookingData['booking_id'];
 
-            $reserva = Reserva::where('codigo_reserva', $codigoReserva)->first();
+            $reserva = Reserva::where('codigo_reserva', $codigoReserva)
+                ->orWhere('id_channex', $bookingId)
+                ->first();
+
+            if (!$reserva) {
+                Log::warning('[Channex] Cancellation received but reservation not found', [
+                    'booking_id' => $bookingId,
+                    'codigo_reserva' => $codigoReserva,
+                    'estado_channex' => $estadoReserva,
+                ]);
+                \App\Services\AlertaEquipoService::alertar(
+                    'CANCELACIÓN NO PROCESADA',
+                    "Booking ID: {$bookingId}\nCodigo: {$codigoReserva}\nNo se encontró la reserva en el sistema.",
+                    'channex_cancel_fail'
+                );
+                return response()->json(['error' => 'Reservation not found'], 404);
+            }
+
             if ($reserva) {
                 $reserva->estado_id = 4; // ID 4 es "Cancelado"
                 $reserva->save();
@@ -329,8 +346,6 @@ class WebhookController extends Controller
                 }
                 // Llamar a la función fullSync
                 return response()->json(['status' => true, 'message' => 'Reserva cancelada actualizada en el sistema']);
-            } else {
-                return response()->json(['status' => false, 'message' => 'Reserva cancelada no encontrada en la base de datos']);
             }
         }
 
@@ -535,13 +550,31 @@ class WebhookController extends Controller
 
                 // Log warning if overlap detected (reservation still created - it's confirmed in OTA)
                 foreach ($bookingData['rooms'] as $checkRoom) {
-                    \App\Services\ReservationValidationService::hasOverlap(
+                    $overlap = \App\Services\ReservationValidationService::findOverlap(
                         $apartamento->id,
                         $checkRoom['checkin_date'],
                         \Carbon\Carbon::parse($checkRoom['checkout_date'])->toDateString(),
-                        null,
-                        'Channex webhook'
+                        null
                     );
+
+                    if ($overlap) {
+                        Log::warning("ReservationValidation: solapamiento detectado [Channex webhook]", [
+                            'apartamento_id' => $apartamento->id,
+                            'fecha_entrada' => $checkRoom['checkin_date'],
+                            'fecha_salida' => \Carbon\Carbon::parse($checkRoom['checkout_date'])->toDateString(),
+                            'conflicto_reserva_id' => $overlap->id,
+                            'conflicto_codigo' => $overlap->codigo_reserva,
+                        ]);
+
+                        \App\Services\AlertaEquipoService::alertar(
+                            'DOBLE RESERVA DETECTADA',
+                            "Apartamento: {$apartamento->titulo}\n"
+                            . "Reserva nueva: {$codigoReserva} ({$checkRoom['checkin_date']} - " . \Carbon\Carbon::parse($checkRoom['checkout_date'])->toDateString() . ")\n"
+                            . "Conflicto con: #{$overlap->id} ({$overlap->fecha_entrada} - {$overlap->fecha_salida})\n"
+                            . "Resolver manualmente.",
+                            'doble_reserva'
+                        );
+                    }
                 }
 
                 foreach ($bookingData['rooms'] as $room) {

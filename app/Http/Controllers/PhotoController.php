@@ -24,12 +24,6 @@ class PhotoController extends Controller
             ->get()
             ->keyBy('item_id');
 
-        // Obtener análisis existentes de fotos
-        $analisisExistentes = \App\Models\PhotoAnalysis::where('limpieza_id', $id)
-            ->whereIn('categoria_id', $categorias->pluck('id'))
-            ->get()
-            ->keyBy('categoria_id');
-
         return view('photos.index', [
             'limpieza' => $limpieza,
             'categorias' => $categorias,
@@ -37,7 +31,6 @@ class PhotoController extends Controller
             'id' => $id,
             'cat' => $cat,
             'checklist' => Checklist::find($cat),
-            'analisisExistentes' => $analisisExistentes
         ]);
     }
 

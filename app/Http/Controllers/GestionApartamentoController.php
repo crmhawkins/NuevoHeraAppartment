@@ -754,6 +754,9 @@ class GestionApartamentoController extends Controller
                     'fecha_fin' => $hoy
                 ]);
 
+                // Notificar al huésped
+                \App\Services\GuestCleaningNotificationService::notificar($apartamentoLimpieza);
+
                 // Actualizar fecha_limpieza en la reserva si existe
                 $reserva = Reserva::find($apartamentoLimpieza->reserva_id);
                 if ($reserva != null) {
@@ -1261,6 +1264,9 @@ class GestionApartamentoController extends Controller
                     'fecha_fin' => $hoy
                 ]);
 
+                // Notificar al huésped
+                \App\Services\GuestCleaningNotificationService::notificar($apartamentoLimpieza);
+
                 // Actualizar fecha_limpieza en la reserva si existe
                 $reserva = Reserva::find($apartamentoLimpieza->reserva_id);
                 if ($reserva != null) {
@@ -1636,6 +1642,9 @@ class GestionApartamentoController extends Controller
                     'fecha_fin' => $hoy
                 ]);
 
+                // Notificar al huésped
+                \App\Services\GuestCleaningNotificationService::notificar($apartamentoLimpieza);
+
                 // Actualizar fecha_limpieza en la reserva si existe
                 $reserva = Reserva::find($apartamentoLimpieza->reserva_id);
                 if ($reserva != null) {
@@ -1707,6 +1716,7 @@ class GestionApartamentoController extends Controller
 
         $apartamentoLimpio = ApartamentoLimpieza::where('fecha_fin', null)
             ->where('apartamento_id', explode(' - ', $id)[1])
+            ->whereDate('fecha_comienzo', \Carbon\Carbon::today())
             ->first();
         $reserva = Reserva::find($id);
             if ($reserva == null) {
@@ -1818,6 +1828,7 @@ class GestionApartamentoController extends Controller
 
         $apartamentoLimpio = ApartamentoLimpieza::where('fecha_fin', null)
             ->where('apartamento_id', $reserva->apartamento_id)
+            ->whereDate('fecha_comienzo', \Carbon\Carbon::today())
             ->first();
 
         // Buscar y actualizar la tarea asignada relacionada con esta reserva
@@ -2510,6 +2521,9 @@ public function updateZonaComun(Request $request, ApartamentoLimpieza $apartamen
         $apartamentoLimpieza->fecha_fin = $hoy;
         $apartamentoLimpieza->save();
 
+        // Notificar al huésped
+        \App\Services\GuestCleaningNotificationService::notificar($apartamentoLimpieza);
+
         // Actualizar tarea asignada si existe
         if ($apartamentoLimpieza->tarea_asignada_id) {
             $tarea = TareaAsignada::find($apartamentoLimpieza->tarea_asignada_id);
@@ -2605,6 +2619,9 @@ public function updateZonaComun(Request $request, ApartamentoLimpieza $apartamen
         $apartamentoLimpieza->status_id = 3; // Finalizado
         $apartamentoLimpieza->fecha_fin = $hoy;
         $apartamentoLimpieza->save();
+
+        // Notificar al huésped
+        \App\Services\GuestCleaningNotificationService::notificar($apartamentoLimpieza);
 
         // Actualizar tarea asignada si existe
         if ($apartamentoLimpieza->tarea_asignada_id) {
@@ -3188,6 +3205,24 @@ public function updateZonaComun(Request $request, ApartamentoLimpieza $apartamen
                         // Verificar si el stock está bajo después del descuento
                         if ($amenity->verificarStockBajo()) {
                             \Alert::warning('Stock Bajo', "El amenity '{$amenity->nombre}' tiene stock bajo (actual: {$amenity->stock_actual} {$amenity->unidad_medida})");
+                            // CRM notification
+                            try {
+                                \App\Services\NotificationService::notifyLowStock($amenity);
+                            } catch (\Exception $e) {
+                                \Log::error('Error notificación stock bajo: ' . $e->getMessage());
+                            }
+                            // WhatsApp alert
+                            try {
+                                \App\Services\AlertaEquipoService::alertar(
+                                    'STOCK BAJO - AMENITY',
+                                    "Amenity: " . $amenity->nombre . "\n"
+                                    . "Stock actual: " . $amenity->stock_actual . "\n"
+                                    . "Stock mínimo: " . $amenity->stock_minimo,
+                                    'stock_bajo'
+                                );
+                            } catch (\Exception $e) {
+                                \Log::error('Error WhatsApp stock bajo: ' . $e->getMessage());
+                            }
                         }
 
                     } catch (\Exception $e) {

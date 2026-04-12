@@ -313,13 +313,27 @@ class CheckAmenityStock extends Command
 
         if (count($amenitiesConStockBajo) > 0) {
             $this->error("🔴 AMENITIES CON STOCK BAJO:");
+            $mensajeWhatsApp = "";
             foreach ($amenitiesConStockBajo as $bajo) {
                 $a = $bajo['amenity'];
                 $this->line("   • [{$a->id}] {$a->nombre}");
                 $this->line("     Stock actual: " . number_format($bajo['stock_actual'], 2) . " {$a->unidad_medida}");
                 $this->line("     Stock mínimo: " . number_format($bajo['stock_minimo'], 2) . " {$a->unidad_medida}");
+                $mensajeWhatsApp .= "- {$a->nombre}: " . number_format($bajo['stock_actual'], 2) . " / " . number_format($bajo['stock_minimo'], 2) . " {$a->unidad_medida}\n";
             }
             $this->newLine();
+
+            // Enviar alerta WhatsApp con resumen de todos los amenities con stock bajo
+            try {
+                \App\Services\AlertaEquipoService::alertar(
+                    'STOCK BAJO - ' . count($amenitiesConStockBajo) . ' AMENITIES',
+                    "Amenities con stock por debajo del mínimo:\n" . $mensajeWhatsApp,
+                    'stock_bajo'
+                );
+                $this->info("📲 Alerta WhatsApp enviada al equipo de gestión.");
+            } catch (\Exception $e) {
+                $this->warn("⚠️  Error al enviar alerta WhatsApp: " . $e->getMessage());
+            }
         }
 
         if (count($amenitiesConProblemas) === 0 && count($amenitiesConStockBajo) === 0) {
