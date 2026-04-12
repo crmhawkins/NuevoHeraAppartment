@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="{{ Auth::check() && Auth::user()->idioma_preferido ? Auth::user()->idioma_preferido : str_replace('_', '-', app()->getLocale()) }}" dir="{{ Auth::check() && Auth::user()->idioma_preferido === 'ar' ? 'rtl' : 'ltr' }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1198,11 +1198,16 @@
                 </div>
                 <div class="apple-header-center">
                     <div class="apple-welcome">
-                        <span class="apple-welcome-text">Bienvenid@</span>
+                        <span class="apple-welcome-text">{{ Auth::user()->idioma_preferido === 'ar' ? "\u0645\u0631\u062D\u0628\u0627" : 'Bienvenid@' }}</span>
                         <span class="apple-user-name">{{Auth::user()->name}}</span>
                     </div>
                 </div>
                 <div class="apple-header-right">
+                    @if(Auth::user()->role === 'LIMPIEZA')
+                    <a href="{{ route('limpiadora.cambiar-idioma', Auth::user()->idioma_preferido === 'ar' ? 'es' : 'ar') }}" class="apple-user-button" title="{{ Auth::user()->idioma_preferido === 'ar' ? 'Cambiar a Espanol' : 'التبديل إلى العربية' }}" style="font-size:16px;margin-right:6px;">
+                        @if(Auth::user()->idioma_preferido === 'ar') &#127466;&#127480; @else &#127480;&#127462; @endif
+                    </a>
+                    @endif
                     <a href="{{ route('user.profile') }}" class="apple-user-button" title="Mi Perfil">
                         <i class="bi bi-person-fill"></i>
                     </a>
@@ -1254,8 +1259,17 @@
                     <div class="apple-tab-icon">
                         <i class="bi bi-calendar-week"></i>
                     </div>
-                    <span class="apple-tab-label">Mis Turnos</span>
+                    <span class="apple-tab-label">{{ Auth::user()->idioma_preferido === 'ar' ? "\u0627\u0644\u0648\u0631\u062F\u064A\u0627\u062A" : 'Mis Turnos' }}</span>
                 </a>
+
+                @if(Auth::user()->role === 'LIMPIEZA')
+                <a href="{{ route('limpiadora.planificacion') }}" class="apple-tab-item {{ request()->routeIs('limpiadora.planificacion') ? 'active' : '' }}">
+                    <div class="apple-tab-icon">
+                        <i class="bi bi-calendar-month"></i>
+                    </div>
+                    <span class="apple-tab-label">{{ Auth::user()->idioma_preferido === 'ar' ? "\u062A\u062E\u0637\u064A\u0637" : 'Plan' }}</span>
+                </a>
+                @endif
 
                 <a href="{{route('gestion.incidencias.index')}}" class="apple-tab-item {{ request()->routeIs('gestion.incidencias.*') ? 'active' : '' }}">
                     <div class="apple-tab-icon">

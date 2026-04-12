@@ -1308,6 +1308,12 @@ Route::middleware(['auth'])->prefix('limpiadora')->name('limpiadora.')->group(fu
 
     // Estadísticas de limpiadoras
     Route::get('/estadisticas', [App\Http\Controllers\LimpiadoraTurnosController::class, 'estadisticas'])->name('estadisticas');
+
+    // Planificación mensual
+    Route::get('/planificacion', [App\Http\Controllers\LimpiadoraDashboardController::class, 'planificacion'])->name('planificacion');
+
+    // Cambiar idioma
+    Route::get('/cambiar-idioma/{idioma}', [App\Http\Controllers\LimpiadoraDashboardController::class, 'cambiarIdioma'])->name('cambiar-idioma');
 });
 
 // Rutas para panel de mantenimiento

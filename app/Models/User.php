@@ -30,7 +30,8 @@ class User extends Authenticatable
         'address',
         'birth_date',
         'emergency_contact',
-        'emergency_phone'
+        'emergency_phone',
+        'idioma_preferido'
     ];
 
     /**

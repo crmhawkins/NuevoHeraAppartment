@@ -227,6 +227,82 @@ class LimpiadoraDashboardController extends Controller
         }
     }
     
+    public function planificacion(Request $request)
+    {
+        $user = Auth::user();
+        $mes = $request->get('mes') ? Carbon::parse($request->get('mes') . '-01') : Carbon::now()->startOfMonth();
+
+        // Get the empleada_horario for this user
+        $horario = \App\Models\EmpleadaHorario::where('user_id', $user->id)->where('activo', 1)->first();
+
+        if (!$horario) {
+            return view('limpiadora.planificacion', [
+                'diasTrabajo' => [],
+                'mes' => $mes,
+                'nombreEmpleada' => $user->name,
+            ]);
+        }
+
+        // Get dias libres for this month's weeks
+        $diasLibres = \App\Models\EmpleadaDiasLibres::where('empleada_horario_id', $horario->id)
+            ->where('semana_inicio', '>=', $mes->copy()->subWeek()->format('Y-m-d'))
+            ->where('semana_inicio', '<=', $mes->copy()->endOfMonth()->format('Y-m-d'))
+            ->get();
+
+        // Build day-by-day calendar
+        $diasTrabajo = [];
+        $inicio = $mes->copy()->startOfMonth();
+        $fin = $mes->copy()->endOfMonth();
+
+        for ($dia = $inicio->copy(); $dia->lte($fin); $dia->addDay()) {
+            $diaSemana = $dia->dayOfWeek; // 0=Sunday, 1=Monday, ... 6=Saturday
+
+            // Check base schedule (does this user work this day of week?)
+            $trabajaBase = match($diaSemana) {
+                1 => $horario->lunes,
+                2 => $horario->martes,
+                3 => $horario->miercoles,
+                4 => $horario->jueves,
+                5 => $horario->viernes,
+                6 => $horario->sabado,
+                0 => $horario->domingo,
+            };
+
+            // Check if there's a dias_libres entry for the week containing this day
+            $libreHoy = false;
+            foreach ($diasLibres as $dl) {
+                $semanaInicio = Carbon::parse($dl->semana_inicio);
+                $semanaFin = $semanaInicio->copy()->addDays(6);
+
+                if ($dia->between($semanaInicio, $semanaFin)) {
+                    $diasLibresArray = json_decode($dl->dias_libres, true) ?? [];
+                    if (in_array((string)$diaSemana, $diasLibresArray)) {
+                        $libreHoy = true;
+                    }
+                    break;
+                }
+            }
+
+            $diasTrabajo[$dia->format('Y-m-d')] = $trabajaBase && !$libreHoy;
+        }
+
+        return view('limpiadora.planificacion', [
+            'diasTrabajo' => $diasTrabajo,
+            'mes' => $mes,
+            'nombreEmpleada' => $user->name,
+        ]);
+    }
+
+    public function cambiarIdioma(Request $request, $idioma)
+    {
+        $user = Auth::user();
+        if (in_array($idioma, ['es', 'ar'])) {
+            $user->idioma_preferido = $idioma;
+            $user->save();
+        }
+        return redirect()->back();
+    }
+
     public function estadisticas()
     {
         $user = Auth::user();
