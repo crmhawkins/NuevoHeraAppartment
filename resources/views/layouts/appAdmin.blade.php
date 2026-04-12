@@ -448,7 +448,7 @@
 
                                 <!-- Comunicación -->
                                 <li class="nav-item dropdown">
-                                    <a class="nav-link dropdown-toggle {{ request()->is('emails*') || request()->is('status-mail*') || request()->is('category-email*') || request()->is('whatsapp*') || request()->is('templates*') ? 'active' : '' }}" href="#" data-bs-toggle="dropdown" role="button" aria-expanded="false">
+                                    <a class="nav-link dropdown-toggle {{ request()->is('emails*') || request()->is('status-mail*') || request()->is('category-email*') || request()->is('whatsapp*') || request()->is('templates*') || request()->is('admin/comunicacion/alertas*') ? 'active' : '' }}" href="#" data-bs-toggle="dropdown" role="button" aria-expanded="false">
                                         <i class="fas fa-comments me-1"></i>Comunicación
                                     </a>
                                     <ul class="dropdown-menu">
@@ -489,6 +489,11 @@
                                         </a></li>
                                         <li><a class="dropdown-item" href="{{ route('admin.contactos-web.index') }}">
                                             <i class="fas fa-envelope-open-text me-2"></i>Contactos desde la Web
+                                        </a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li class="nav-header" style="padding: 8px 16px; font-weight: 700; color: #6c757d; font-size: 11px; text-transform: uppercase; letter-spacing: 1px;">🔔 Alertas</li>
+                                        <li><a class="dropdown-item" href="{{ route('admin.alertas.index') }}">
+                                            <i class="fas fa-bell me-2"></i>Centro de Alertas
                                         </a></li>
                                     </ul>
                                 </li>

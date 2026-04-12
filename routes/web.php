@@ -1442,6 +1442,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:ADMIN'])->grou
     // Conversaciones Channex (Booking/Airbnb)
     Route::get('/channex-mensajes', [App\Http\Controllers\ChannexMensajesController::class, 'index'])->name('channex-mensajes.index');
     Route::get('/channex-mensajes/{bookingId}', [App\Http\Controllers\ChannexMensajesController::class, 'mensajes'])->name('channex-mensajes.mensajes');
+
+    // Centro de Alertas
+    Route::get('/comunicacion/alertas', [App\Http\Controllers\AlertasCentralController::class, 'index'])->name('alertas.index');
+    Route::get('/comunicacion/alertas/historial', [App\Http\Controllers\AlertasCentralController::class, 'historial'])->name('alertas.historial');
 });
 
 // Descargas temporales (publico, sin auth)
