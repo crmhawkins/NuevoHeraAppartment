@@ -184,7 +184,7 @@ class InvoicesController extends Controller
     public function index(Request $request)
     {
         $orderBy = $request->get('order_by', 'fecha');
-        $direction = $request->get('direction', 'asc');
+        $direction = $request->get('direction', 'desc');
         $perPage = $request->get('perPage', 10);
         $searchTerm = $request->get('search', '');
         $fechaInicio = $request->get('fecha_inicio');
