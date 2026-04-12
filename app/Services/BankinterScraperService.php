@@ -449,6 +449,15 @@ class BankinterScraperService
             $haber = (float)($row[$colMap['haber']] ?? 0);
             $saldo = (float)($row[$colMap['saldo']] ?? 0);
 
+            // Extraer referencia bancaria (Ref.16) si existe en el mapeo de columnas
+            $referenciaBancaria = null;
+            if (isset($colMap['ref16']) && $colMap['ref16'] !== null) {
+                $ref16Raw = trim((string)($row[$colMap['ref16']] ?? ''));
+                // Limpiar prefijo "Ref.16: " si viene
+                $referenciaBancaria = preg_replace('/^Ref\.?\s*16:?\s*/i', '', $ref16Raw);
+                $referenciaBancaria = trim($referenciaBancaria) ?: null;
+            }
+
             // [OMIT-02] Fila con importe 0 en ambos lados: registrar y saltar
             if ($haber == 0 && $debe == 0) {
                 $filasVacias++;
@@ -516,14 +525,27 @@ class BankinterScraperService
 
                     // Crear ingreso
                     if ($haber > 0) {
-                        $ingreso = Ingresos::create([
+                        $ingresoData = [
                             'categoria_id' => $categoriaIngreso->id ?? 1,
                             'bank_id' => $bankId,
                             'title' => $descripcion,
                             'quantity' => $haber,
                             'date' => $fechaContable,
                             'estado_id' => 1,
-                        ]);
+                        ];
+
+                        // Guardar referencia bancaria si existe la columna
+                        if ($referenciaBancaria && \Illuminate\Support\Facades\Schema::hasColumn('ingresos', 'referencia_bancaria')) {
+                            $ingresoData['referencia_bancaria'] = $referenciaBancaria;
+                        }
+
+                        // Auto-match: intentar vincular con una reserva por importe y canal
+                        $reservaMatch = $this->intentarMatchReserva($descripcion, $haber, $fechaContable, $referenciaBancaria);
+                        if ($reservaMatch && \Illuminate\Support\Facades\Schema::hasColumn('ingresos', 'reserva_id')) {
+                            $ingresoData['reserva_id'] = $reservaMatch;
+                        }
+
+                        $ingreso = Ingresos::create($ingresoData);
 
                         $diario = DiarioCaja::create([
                             'asiento_contable' => $this->generarAsientoContableSafe(),
@@ -643,6 +665,7 @@ class BankinterScraperService
             'debe' => null,
             'haber' => null,
             'saldo' => null,
+            'ref16' => null,
         ];
 
         foreach ($headerRow as $index => $cell) {
@@ -665,6 +688,8 @@ class BankinterScraperService
                 $map['haber'] = $index;
             } elseif ($norm === 'saldo') {
                 $map['saldo'] = $index;
+            } elseif (str_contains($norm, 'ref') && str_contains($norm, '16')) {
+                $map['ref16'] = $index;
             }
         }
 
@@ -806,5 +831,106 @@ class BankinterScraperService
         ];
 
         return preg_replace(array_keys($patterns), array_values($patterns), $output);
+    }
+
+    /**
+     * Intentar vincular un ingreso bancario con una reserva.
+     * Estrategia:
+     *   1. Detectar canal (booking, airbnb, stripe, agoda) por la descripción
+     *   2. Buscar reservas del mismo canal con importe compatible (±20% por comisiones)
+     *   3. Priorizar por fecha más cercana a la fecha del movimiento
+     *   4. Si hay UN solo match razonable, vincularlo
+     *
+     * @return int|null ID de la reserva vinculada, o null si no se pudo matchear
+     */
+    private function intentarMatchReserva(string $descripcion, float $importe, $fecha, ?string $referencia): ?int
+    {
+        $descLower = strtolower($descripcion);
+
+        // Detectar canal del pago
+        $origen = null;
+        if (str_contains($descLower, 'booking.com') || str_contains($descLower, 'booking')) {
+            $origen = 'BookingCom';
+        } elseif (str_contains($descLower, 'airbnb')) {
+            $origen = 'Airbnb';
+        } elseif (str_contains($descLower, 'stripe')) {
+            $origen = 'Web';
+        } elseif (str_contains($descLower, 'agoda')) {
+            $origen = 'Agoda';
+        }
+
+        if (!$origen) return null;
+
+        $fechaCarbon = $fecha instanceof Carbon ? $fecha : Carbon::parse($fecha);
+
+        // Buscar reservas del mismo canal, no canceladas, sin cobro vinculado aún
+        $query = \App\Models\Reserva::where('origen', $origen)
+            ->where('estado_id', '!=', 4) // no canceladas
+            ->where('fecha_entrada', '>=', $fechaCarbon->copy()->subDays(30))
+            ->where('fecha_entrada', '<=', $fechaCarbon->copy()->addDays(15));
+
+        // Si ya tenemos columna reserva_id, excluir las ya vinculadas
+        if (\Illuminate\Support\Facades\Schema::hasColumn('ingresos', 'reserva_id')) {
+            $yaVinculadas = Ingresos::whereNotNull('reserva_id')->pluck('reserva_id')->toArray();
+            if (!empty($yaVinculadas)) {
+                $query->whereNotIn('id', $yaVinculadas);
+            }
+        }
+
+        $candidatas = $query->get(['id', 'codigo_reserva', 'precio', 'fecha_entrada', 'origen']);
+
+        if ($candidatas->isEmpty()) return null;
+
+        // Para Booking/Airbnb, el importe del banco es NET (después de comisión ~15-18%)
+        // Precio reserva * (1 - comision) ≈ importe banco
+        // Buscamos reservas donde precio * 0.78 <= importe <= precio * 0.92
+        $matches = [];
+        foreach ($candidatas as $reserva) {
+            $precio = (float) $reserva->precio;
+            if ($precio <= 0) continue;
+
+            if ($origen === 'Web') {
+                // Stripe: importe exacto (sin comisión de plataforma)
+                if (abs($precio - $importe) < 1.0) {
+                    $matches[] = $reserva;
+                }
+            } else {
+                // Booking/Airbnb/Agoda: importe neto después de comisión (12-22%)
+                $minEsperado = $precio * 0.78;
+                $maxEsperado = $precio * 0.92;
+                if ($importe >= $minEsperado && $importe <= $maxEsperado) {
+                    $matches[] = $reserva;
+                }
+            }
+        }
+
+        // Si hay exactamente 1 match, vincularlo automáticamente
+        if (count($matches) === 1) {
+            Log::info('[Bankinter] Auto-match reserva', [
+                'ingreso' => $importe,
+                'reserva_id' => $matches[0]->id,
+                'codigo' => $matches[0]->codigo_reserva,
+                'precio_reserva' => $matches[0]->precio,
+                'origen' => $origen,
+            ]);
+            return $matches[0]->id;
+        }
+
+        // Si hay múltiples, elegir la de fecha de entrada más cercana al movimiento
+        if (count($matches) > 1) {
+            usort($matches, function ($a, $b) use ($fechaCarbon) {
+                $diffA = abs(Carbon::parse($a->fecha_entrada)->diffInDays($fechaCarbon));
+                $diffB = abs(Carbon::parse($b->fecha_entrada)->diffInDays($fechaCarbon));
+                return $diffA <=> $diffB;
+            });
+            Log::info('[Bankinter] Auto-match reserva (mejor de ' . count($matches) . ')', [
+                'ingreso' => $importe,
+                'reserva_id' => $matches[0]->id,
+                'codigo' => $matches[0]->codigo_reserva,
+            ]);
+            return $matches[0]->id;
+        }
+
+        return null; // Sin match, se deja para conciliación manual
     }
 }

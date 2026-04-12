@@ -448,10 +448,16 @@
                                 </td>
                                 <td>
                                     @php
-                                        $pagoCompletado = \App\Models\Pago::where('reserva_id', $reserva->id)->where('estado', 'completado')->exists();
+                                        $pagoStripe = \App\Models\Pago::where('reserva_id', $reserva->id)->where('estado', 'completado')->exists();
+                                        $pagoBanco = \Illuminate\Support\Facades\Schema::hasColumn('ingresos', 'reserva_id')
+                                            ? \App\Models\Ingresos::where('reserva_id', $reserva->id)->exists()
+                                            : false;
+                                        $pagado = $pagoStripe || $pagoBanco;
                                     @endphp
-                                    @if($pagoCompletado || $reserva->origen !== 'Web')
-                                        <span class="badge bg-success-subtle text-success"><i class="fas fa-check me-1"></i>SI</span>
+                                    @if($pagado)
+                                        <span class="badge bg-success-subtle text-success" title="{{ $pagoStripe ? 'Stripe' : 'Banco' }}"><i class="fas fa-check me-1"></i>SI</span>
+                                    @elseif($reserva->origen !== 'Web')
+                                        <span class="badge bg-warning-subtle text-warning" title="Pendiente verificar en banco"><i class="fas fa-clock me-1"></i>?</span>
                                     @else
                                         <span class="badge bg-danger-subtle text-danger"><i class="fas fa-times me-1"></i>NO</span>
                                     @endif
