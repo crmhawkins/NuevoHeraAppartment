@@ -543,6 +543,26 @@ class BankinterScraperService
                         $reservaMatch = $this->intentarMatchReserva($descripcion, $haber, $fechaContable, $referenciaBancaria);
                         if ($reservaMatch && \Illuminate\Support\Facades\Schema::hasColumn('ingresos', 'reserva_id')) {
                             $ingresoData['reserva_id'] = $reservaMatch;
+
+                            // Auto-marcar factura como cobrada si la reserva tiene factura pendiente
+                            try {
+                                $factura = \App\Models\Invoices::where('reserva_id', $reservaMatch)
+                                    ->whereIn('invoice_status_id', [1, 3, 5])
+                                    ->first();
+                                if ($factura) {
+                                    $factura->update([
+                                        'invoice_status_id' => 6, // cobrada
+                                        'fecha_cobro' => $fechaContable,
+                                    ]);
+                                    Log::info('[Bankinter] Factura auto-marcada como cobrada', [
+                                        'factura_id' => $factura->id,
+                                        'reference' => $factura->reference,
+                                        'reserva_id' => $reservaMatch,
+                                    ]);
+                                }
+                            } catch (\Throwable $e) {
+                                Log::warning('[Bankinter] Error auto-marcando factura', ['error' => $e->getMessage()]);
+                            }
                         }
 
                         $ingreso = Ingresos::create($ingresoData);

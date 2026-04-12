@@ -95,9 +95,18 @@
 
             /* ...fin de los estilos scroll */
 
+            /* Override color principal del header - Turquesa moderno */
+            .bg-color-primero {
+                background-color: #0891b2 !important;
+                background: linear-gradient(135deg, #0891b2, #0e7490) !important;
+            }
+            .bg-color-primero-table th {
+                background-color: #0891b2 !important;
+            }
+
             /* Estilos para dropdown items activos en navbar */
             .navbar-dark .dropdown-menu .dropdown-item.active {
-                background-color: #3B3F64;
+                background-color: #0e7490;
                 color: #fff;
                 font-weight: 600;
             }
@@ -387,6 +396,10 @@
                                         <i class="fas fa-cash-register me-1"></i>Tesorería
                                     </a>
                                     <ul class="dropdown-menu">
+                                        <li><a class="dropdown-item" href="{{ route('admin.tesoreria.dashboard') }}">
+                                            <i class="fas fa-chart-line me-2" style="color: #0891b2;"></i><strong>Dashboard Financiero</strong>
+                                        </a></li>
+                                        <li><hr class="dropdown-divider"></li>
                                         <li><a class="dropdown-item" href="{{ route('admin.pagos.index') }}">
                                             <i class="fas fa-credit-card me-2"></i>Pagos Web
                                         </a></li>

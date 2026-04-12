@@ -525,6 +525,10 @@ Route::get('/admin/historial-descuentos/{historial}/datos-momento', [HistorialDe
     Route::post('/ingresos/{id}/destroy', [App\Http\Controllers\IngresosController::class, 'destroy'])->name('admin.ingresos.destroy');
     Route::get('/ingresos/download/{id}', [App\Http\Controllers\IngresosController::class, 'download'])->name('ingresos.download');
 
+    // Dashboard Financiero
+    Route::get('/tesoreria/dashboard', [App\Http\Controllers\DashboardFinancieroController::class, 'index'])->name('admin.tesoreria.dashboard');
+    Route::post('/admin/tesoreria/factura/{id}/estado', [App\Http\Controllers\DashboardFinancieroController::class, 'cambiarEstado'])->name('admin.tesoreria.cambiarEstado');
+
     // Diario de Caja
     Route::get('/diario-caja', [App\Http\Controllers\DiarioCajaController::class, 'index'])->name('admin.diarioCaja.index');
     Route::get('/diario-caja/ingreso', [App\Http\Controllers\DiarioCajaController::class, 'createIngreso'])->name('admin.diarioCaja.ingreso');
