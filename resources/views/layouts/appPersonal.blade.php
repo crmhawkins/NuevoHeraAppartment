@@ -28,7 +28,7 @@
     <!-- Fonts -->
     <link rel="dns-prefetch" href="//fonts.bunny.net">
     <link href="https://fonts.bunny.net/css?family=Nunito" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" integrity="sha512-z3gLpd7yknf1YoNbCzqRKc4qyor8gaKU1qmn+CShxbuBusANI9QpRohGBreCFkKxLhei6S9CQXFEbbKuqLg0DA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
@@ -58,8 +58,7 @@
         height: 60px;
         border-radius: 0 0 20px 20px !important;
         box-shadow: 0 4px 20px rgba(0, 122, 255, 0.3);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
+        /* backdrop-filter removed for performance */
         position: relative;
         overflow: hidden;
     }
@@ -116,8 +115,7 @@
         color: #FFFFFF;
         text-decoration: none;
         transition: all 0.3s ease;
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
+        /* backdrop-filter removed for performance */
     }
 
     .apple-back-button:hover {
@@ -166,8 +164,7 @@
         color: #FFFFFF;
         text-decoration: none;
         transition: all 0.3s ease;
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
+        /* backdrop-filter removed for performance */
     }
 
     .apple-logout-button:hover {
@@ -192,8 +189,7 @@
         color: #FFFFFF;
         text-decoration: none;
         transition: all 0.3s ease;
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
+        /* backdrop-filter removed for performance */
         margin-right: 12px;
     }
 
@@ -264,8 +260,7 @@
     /* Apple Tab Bar Styles */
     .apple-tab-bar {
         background: rgba(255, 255, 255, 0.98);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
+        /* backdrop-filter removed for performance */
         border-top: 1px solid rgba(0, 0, 0, 0.15);
         box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
         position: fixed;
@@ -452,8 +447,7 @@
         border-radius: 12px;
         margin-bottom: 24px;
         font-weight: 500;
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
+        /* backdrop-filter removed for performance */
     }
 
     .apple-alert-success {
@@ -515,8 +509,7 @@
         text-decoration: none;
         transition: all 0.3s ease;
         cursor: pointer;
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
+        /* backdrop-filter removed for performance */
     }
 
     .apple-btn-primary {
@@ -577,8 +570,7 @@
         background: rgba(255, 255, 255, 0.95);
         border-radius: 16px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
+        /* backdrop-filter removed for performance */
         border: 1px solid rgba(0, 0, 0, 0.05);
         overflow: hidden;
     }
@@ -843,8 +835,7 @@
         background: rgba(255, 255, 255, 0.95);
         border-radius: 16px;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
+        /* backdrop-filter removed for performance */
         border: 1px solid rgba(0, 0, 0, 0.05);
         margin-bottom: 20px;
         overflow: hidden;
@@ -1090,8 +1081,7 @@
         width: 100%;
         height: 100%;
         background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(10px);
-        -webkit-backdrop-filter: blur(10px);
+        /* backdrop-filter removed for performance */
         z-index: 9999;
         display: flex;
         align-items: center;
@@ -1202,7 +1192,7 @@
                 <div class="apple-header-left">
                     @if(!in_array(Route::currentRouteName(), ['dashboard.index', 'inicio', 'limpiadora.dashboard', 'mantenimiento.dashboard']))
                         <a href="{{ url()->previous() }}" class="apple-back-button">
-                            <i class="fa-solid fa-chevron-left"></i>
+                            <i class="bi bi-chevron-left"></i>
                         </a>
                     @endif
                 </div>
@@ -1214,10 +1204,10 @@
                 </div>
                 <div class="apple-header-right">
                     <a href="{{ route('user.profile') }}" class="apple-user-button" title="Mi Perfil">
-                        <i class="fa-solid fa-user"></i>
+                        <i class="bi bi-person-fill"></i>
                     </a>
                     <a href="{{ route('logout') }}" class="apple-logout-button" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">
-                        <i class="fa-solid fa-power-off"></i>
+                        <i class="bi bi-power"></i>
                     </a>
                 </div>
             </div>
@@ -1236,61 +1226,61 @@
                 @if(Auth::user()->role === 'MANTENIMIENTO')
                 <a href="{{ route('mantenimiento.dashboard') }}" class="apple-tab-item {{ request()->routeIs('mantenimiento.dashboard') ? 'active' : '' }}">
                     <div class="apple-tab-icon">
-                        <i class="fa-solid fa-house"></i>
+                        <i class="bi bi-house-fill"></i>
                     </div>
                     <span class="apple-tab-label">Inicio</span>
                 </a>
                 <a href="{{ route('mantenimiento.incidencias.index') }}" class="apple-tab-item {{ request()->routeIs('mantenimiento.incidencias.*') ? 'active' : '' }}">
                     <div class="apple-tab-icon">
-                        <i class="fa-solid fa-exclamation-triangle"></i>
+                        <i class="bi bi-exclamation-triangle-fill"></i>
                     </div>
                     <span class="apple-tab-label">Incidencias</span>
                 </a>
                 @else
                 <a href="{{ Auth::user()->role === 'LIMPIEZA' ? route('limpiadora.dashboard') : route('gestion.index') }}" class="apple-tab-item {{ request()->routeIs('limpiadora.dashboard') ? 'active' : '' }}">
                     <div class="apple-tab-icon">
-                        <i class="fa-solid fa-house"></i>
+                        <i class="bi bi-house-fill"></i>
                     </div>
                     <span class="apple-tab-label">Inicio</span>
                 </a>
                 <a href="{{route('gestion.index')}}" class="apple-tab-item {{ request()->routeIs('gestion.index') ? 'active' : '' }}">
                     <div class="apple-tab-icon">
-                        <i class="fa-solid fa-tasks"></i>
+                        <i class="bi bi-list-task"></i>
                     </div>
                     <span class="apple-tab-label">Gestión</span>
                 </a>
 
                 <a href="{{route('gestion.mis-turnos')}}" class="apple-tab-item {{ request()->routeIs('gestion.mis-turnos') ? 'active' : '' }}">
                     <div class="apple-tab-icon">
-                        <i class="fa-solid fa-calendar-week"></i>
+                        <i class="bi bi-calendar-week"></i>
                     </div>
                     <span class="apple-tab-label">Mis Turnos</span>
                 </a>
 
                 <a href="{{route('gestion.incidencias.index')}}" class="apple-tab-item {{ request()->routeIs('gestion.incidencias.*') ? 'active' : '' }}">
                     <div class="apple-tab-icon">
-                        <i class="fa-solid fa-exclamation-triangle"></i>
+                        <i class="bi bi-exclamation-triangle-fill"></i>
                     </div>
                     <span class="apple-tab-label">Incidencias</span>
                 </a>
                 
                 <a href="{{route('gestion.reservas.index')}}" class="apple-tab-item {{ request()->routeIs('gestion.reservas.*') ? 'active' : '' }}">
                     <div class="apple-tab-icon">
-                        <i class="fa-solid fa-calendar-check"></i>
+                        <i class="bi bi-calendar-check"></i>
                     </div>
                     <span class="apple-tab-label">Reservas</span>
                 </a>
                 
                 <a href="{{route('holiday.index')}}" class="apple-tab-item {{ request()->routeIs('holiday.*') ? 'active' : '' }}">
                     <div class="apple-tab-icon">
-                        <i class="fa-solid fa-umbrella-beach"></i>
+                        <i class="bi bi-sun"></i>
                     </div>
                     <span class="apple-tab-label">Mis Vacaciones</span>
                 </a>
                 
                 <a href="#" class="apple-tab-item">
                     <div class="apple-tab-icon">
-                        <i class="fa-solid fa-question"></i>
+                        <i class="bi bi-question-circle"></i>
                     </div>
                     <span class="apple-tab-label">Ayuda</span>
                 </a>
@@ -1299,14 +1289,14 @@
                    onclick="event.preventDefault(); document.getElementById('logout-form').submit();" 
                    class="apple-tab-item">
                     <div class="apple-tab-icon">
-                        <i class="fa-solid fa-power-off"></i>
+                        <i class="bi bi-power"></i>
                     </div>
                     <span class="apple-tab-label">Salir</span>
                 </a>
             </div>
         </footer>
     </div>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     {{-- Scripts --}}
     <script>
@@ -1338,10 +1328,8 @@
         document.addEventListener('click', resetSessionTimer);
     </script>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    
     <!-- Bootstrap JavaScript -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
     
     @include('sweetalert::alert')
 

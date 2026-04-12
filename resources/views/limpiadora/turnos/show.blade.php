@@ -9,11 +9,11 @@
             <div class="card">
                 <div class="card-header">
                     <h3 class="card-title">
-                        <i class="fas fa-calendar-alt me-2"></i>Detalles del Turno
+                        <i class="bi bi-calendar3 me-2"></i>Detalles del Turno
                     </h3>
                     <div class="card-tools">
                         <a href="{{ route('limpiadora.turnos.index') }}" class="btn btn-secondary btn-sm">
-                            <i class="fas fa-arrow-left me-1"></i>Volver
+                            <i class="bi bi-arrow-left me-1"></i>Volver
                         </a>
                     </div>
                 </div>
@@ -121,7 +121,7 @@
                     <div class="card">
                         <div class="card-header">
                             <h6 class="mb-0">
-                                <i class="fas fa-tasks me-2"></i>Tareas del Turno
+                                <i class="bi bi-list-check me-2"></i>Tareas del Turno
                             </h6>
                         </div>
                         <div class="card-body">
@@ -167,15 +167,15 @@
                                                         <div class="btn-group btn-group-sm">
                                                             @if($tarea->estado === 'pendiente')
                                                                 <button class="btn btn-outline-success" onclick="iniciarTarea({{ $tarea->id }})" title="Iniciar Tarea">
-                                                                    <i class="fas fa-play"></i>
+                                                                    <i class="bi bi-play-fill"></i>
                                                                 </button>
                                                             @elseif($tarea->estado === 'en_progreso')
                                                                 <button class="btn btn-outline-primary" onclick="completarTarea({{ $tarea->id }})" title="Completar Tarea">
-                                                                    <i class="fas fa-check"></i>
+                                                                    <i class="bi bi-check-lg"></i>
                                                                 </button>
                                                             @else
                                                                 <span class="text-success">
-                                                                    <i class="fas fa-check-circle"></i> Completada
+                                                                    <i class="bi bi-check-circle-fill"></i> Completada
                                                                 </span>
                                                             @endif
                                                         </div>
@@ -187,7 +187,7 @@
                                 </div>
                             @else
                                 <div class="text-center py-4">
-                                    <i class="fas fa-tasks fa-2x text-muted mb-3"></i>
+                                    <i class="bi bi-list-check text-muted mb-3" style="font-size:2em;"></i>
                                     <h6 class="text-muted">No hay tareas asignadas a este turno</h6>
                                 </div>
                             @endif
@@ -200,11 +200,11 @@
                             <div class="card-body text-center">
                                 @if($turno->estado === 'programado')
                                     <button class="btn btn-success btn-lg" onclick="iniciarTurno({{ $turno->id }})">
-                                        <i class="fas fa-play me-2"></i>Iniciar Turno
+                                        <i class="bi bi-play-fill me-2"></i>Iniciar Turno
                                     </button>
                                 @elseif($turno->estado === 'en_progreso')
                                     <button class="btn btn-warning btn-lg" onclick="finalizarTurno({{ $turno->id }})">
-                                        <i class="fas fa-stop me-2"></i>Finalizar Turno
+                                        <i class="bi bi-stop-fill me-2"></i>Finalizar Turno
                                     </button>
                                 @endif
                             </div>

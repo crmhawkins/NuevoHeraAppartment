@@ -66,128 +66,15 @@ class GestionApartamentoController extends Controller
         // Si no hay turno y no usa turnos, usar el sistema antiguo (listado global)
         $reservasPendientes = Reserva::apartamentosPendiente();
 
-        // Cargar la relación siguienteReserva con campos de niños para cada reserva pendiente
-        foreach ($reservasPendientes as $reserva) {
-            if (!$reserva->limpieza_fondo) {
-                // Solo para reservas reales, no para limpiezas de fondo
-                // Verificar que la relación existe antes de cargarla
-                if (method_exists($reserva, 'siguienteReserva')) {
-                    try {
-                        $reserva->load(['siguienteReserva' => function($query) {
-                            $query->select('id', 'apartamento_id', 'fecha_entrada', 'fecha_salida', 'numero_personas', 'numero_ninos', 'edades_ninos', 'notas_ninos', 'codigo_reserva');
-                        }]);
-                    } catch (Exception $e) {
-                        // Si hay error al cargar la relación, continuar sin ella
-                        $reserva->siguienteReserva = null;
-                    }
-                }
-
-                // Obtener manualmente la reserva que entra hoy si es la misma fecha
-                try {
-                    $reservaEntraHoy = \App\Models\Reserva::where('apartamento_id', $reserva->apartamento_id)
-                        ->where('fecha_entrada', $reserva->fecha_salida)
-                        ->where('id', '!=', $reserva->id)
-                        ->where(function($query) {
-                            $query->where('estado_id', '!=', 4)
-                                  ->orWhereNull('estado_id');
-                        })
-                        ->select('id', 'apartamento_id', 'fecha_entrada', 'fecha_salida', 'numero_personas', 'numero_ninos', 'edades_ninos', 'notas_ninos', 'codigo_reserva')
-                        ->first();
-
-                    if ($reservaEntraHoy) {
-                        $reserva->reserva_entra_hoy = $reservaEntraHoy;
-                    }
-                } catch (Exception $e) {
-                    // Si hay error en la consulta, continuar sin esta información
-                    $reserva->reserva_entra_hoy = null;
-                }
-            }
-        }
-
         $reservasOcupados = Reserva::apartamentosOcupados();
         $reservasSalida = Reserva::apartamentosSalida();
         // $reservasLimpieza = Reserva::apartamentosLimpiados();
         $reservasLimpieza = ApartamentoLimpieza::apartamentosLimpiados()->with(['apartamento', 'zonaComun', 'estado'])->get();
         $reservasEnLimpieza = ApartamentoLimpieza::apartamentosEnLimpiados()->with(['apartamento', 'zonaComun'])->get();
 
-        // Obtener información de la siguiente reserva para las limpiezas en proceso
-        foreach ($reservasEnLimpieza as $limpieza) {
-            try {
-                // Buscar la siguiente reserva para este apartamento
-                $siguienteReserva = \App\Models\Reserva::where('apartamento_id', $limpieza->apartamento_id)
-                    ->where('fecha_entrada', '>', now()->toDateString())
-                    ->where(function($query) {
-                        $query->where('estado_id', '!=', 4)
-                              ->orWhereNull('estado_id');
-                    })
-                    ->orderBy('fecha_entrada', 'asc')
-                    ->select('id', 'apartamento_id', 'fecha_entrada', 'fecha_salida', 'numero_personas', 'numero_ninos', 'edades_ninos', 'notas_ninos', 'codigo_reserva')
-                    ->first();
-
-                if ($siguienteReserva) {
-                    $limpieza->siguiente_reserva = $siguienteReserva;
-                }
-
-                // También buscar si hay una reserva que entra hoy
-                $reservaEntraHoy = \App\Models\Reserva::where('apartamento_id', $limpieza->apartamento_id)
-                    ->where('fecha_entrada', now()->toDateString())
-                    ->where(function($query) {
-                        $query->where('estado_id', '!=', 4)
-                              ->orWhereNull('estado_id');
-                    })
-                    ->select('id', 'apartamento_id', 'fecha_entrada', 'fecha_salida', 'numero_personas', 'numero_ninos', 'edades_ninos', 'notas_ninos', 'codigo_reserva')
-                    ->first();
-
-                if ($reservaEntraHoy) {
-                    $limpieza->reserva_entra_hoy = $reservaEntraHoy;
-                }
-            } catch (Exception $e) {
-                // Si hay error, continuar sin esta información
-                $limpieza->siguiente_reserva = null;
-                $limpieza->reserva_entra_hoy = null;
-            }
-        }
-
-        // Obtener información de la siguiente reserva para las limpiezas completadas
-        foreach ($reservasLimpieza as $limpieza) {
-            try {
-                // Buscar la siguiente reserva para este apartamento
-                $siguienteReserva = \App\Models\Reserva::where('apartamento_id', $limpieza->apartamento_id)
-                    ->where('fecha_entrada', '>', now()->toDateString())
-                    ->where(function($query) {
-                        $query->where('estado_id', '!=', 4)
-                              ->orWhereNull('estado_id');
-                    })
-                    ->orderBy('fecha_entrada', 'asc')
-                    ->select('id', 'apartamento_id', 'fecha_entrada', 'fecha_salida', 'numero_personas', 'numero_ninos', 'edades_ninos', 'notas_ninos', 'codigo_reserva')
-                    ->first();
-
-                if ($siguienteReserva) {
-                    $limpieza->siguiente_reserva = $siguienteReserva;
-                }
-
-                // También buscar si hay una reserva que entra hoy
-                $reservaEntraHoy = \App\Models\Reserva::where('apartamento_id', $limpieza->apartamento_id)
-                    ->where('fecha_entrada', now()->toDateString())
-                    ->where(function($query) {
-                        $query->where('estado_id', '!=', 4)
-                              ->orWhereNull('estado_id');
-                    })
-                    ->select('id', 'apartamento_id', 'fecha_entrada', 'fecha_salida', 'numero_personas', 'numero_ninos', 'edades_ninos', 'notas_ninos', 'codigo_reserva')
-                    ->first();
-
-                if ($reservaEntraHoy) {
-                    $limpieza->reserva_entra_hoy = $reservaEntraHoy;
-                }
-            } catch (Exception $e) {
-                // Si hay error, continuar sin esta información
-                $limpieza->siguiente_reserva = null;
-                $limpieza->reserva_entra_hoy = null;
-            }
-        }
-
         // Obtener apartamentos previstos para mañana (los que SALEN mañana para limpiar)
-        $reservasManana = Reserva::where('fecha_salida', now()->addDay()->toDateString())
+        $manana = now()->addDay()->toDateString();
+        $reservasManana = Reserva::where('fecha_salida', $manana)
             ->where(function($query) {
                 $query->where('estado_id', '!=', 4)
                       ->orWhereNull('estado_id');
@@ -196,42 +83,118 @@ class GestionApartamentoController extends Controller
             ->orderBy('apartamento_id')
             ->get();
 
-        // Para cada apartamento que sale mañana, obtener información de la siguiente reserva
-        foreach ($reservasManana as $reserva) {
-            try {
-                // Buscar la siguiente reserva para este apartamento
-                $siguienteReserva = \App\Models\Reserva::where('apartamento_id', $reserva->apartamento_id)
-                    ->where('fecha_entrada', '>', $reserva->fecha_salida)
-                    ->where(function($query) {
-                        $query->where('estado_id', '!=', 4)
-                              ->orWhereNull('estado_id');
-                    })
-                    ->orderBy('fecha_entrada', 'asc')
-                    ->select('id', 'apartamento_id', 'fecha_entrada', 'fecha_salida', 'numero_personas', 'numero_ninos', 'edades_ninos', 'notas_ninos', 'codigo_reserva')
-                    ->first();
+        // --- Pre-load siguiente reserva and entrada data to avoid N+1 queries ---
+        $hoyStr = now()->toDateString();
+        $selectFields = ['id', 'apartamento_id', 'fecha_entrada', 'fecha_salida', 'numero_personas', 'numero_ninos', 'edades_ninos', 'notas_ninos', 'codigo_reserva'];
+        $estadoFilter = function($query) {
+            $query->where('estado_id', '!=', 4)->orWhereNull('estado_id');
+        };
 
-                if ($siguienteReserva) {
-                    $reserva->siguiente_reserva = $siguienteReserva;
+        // Collect all apartment IDs across all collections
+        $allApartamentoIds = collect()
+            ->merge($reservasPendientes->where('limpieza_fondo', false)->pluck('apartamento_id'))
+            ->merge($reservasEnLimpieza->pluck('apartamento_id'))
+            ->merge($reservasLimpieza->pluck('apartamento_id'))
+            ->merge($reservasManana->pluck('apartamento_id'))
+            ->unique()
+            ->filter()
+            ->values();
+
+        // Batch query: all future reservations for these apartments (for siguiente_reserva lookups)
+        // Grouped by apartamento_id, ordered by fecha_entrada so ->first() gives the nearest
+        $futureReservasByApto = collect();
+        $entradasHoyByApto = collect();
+        $entradasMananaByApto = collect();
+
+        if ($allApartamentoIds->isNotEmpty()) {
+            $futureReservasByApto = Reserva::whereIn('apartamento_id', $allApartamentoIds)
+                ->where('fecha_entrada', '>', $hoyStr)
+                ->where($estadoFilter)
+                ->orderBy('fecha_entrada', 'asc')
+                ->select($selectFields)
+                ->get()
+                ->groupBy('apartamento_id');
+
+            $entradasHoyByApto = Reserva::whereIn('apartamento_id', $allApartamentoIds)
+                ->where('fecha_entrada', $hoyStr)
+                ->where($estadoFilter)
+                ->select($selectFields)
+                ->get()
+                ->groupBy('apartamento_id');
+
+            $entradasMananaByApto = Reserva::whereIn('apartamento_id', $allApartamentoIds)
+                ->where('fecha_entrada', $manana)
+                ->where($estadoFilter)
+                ->select($selectFields)
+                ->get()
+                ->groupBy('apartamento_id');
+        }
+
+        // Loop 1: reservasPendientes - assign siguienteReserva and reserva_entra_hoy from pre-loaded data
+        foreach ($reservasPendientes as $reserva) {
+            if (!$reserva->limpieza_fondo) {
+                try {
+                    // siguienteReserva: first reservation entering AFTER this reservation's checkout date
+                    $reserva->siguienteReserva = $futureReservasByApto
+                        ->get($reserva->apartamento_id, collect())
+                        ->where('fecha_entrada', '>', $reserva->fecha_salida)
+                        ->first();
+                } catch (Exception $e) {
+                    $reserva->siguienteReserva = null;
                 }
 
-                // También buscar si hay una reserva que entra mañana mismo
-                $reservaEntraManana = \App\Models\Reserva::where('apartamento_id', $reserva->apartamento_id)
-                    ->where('fecha_entrada', now()->addDay()->toDateString())
-                    ->where(function($query) {
-                        $query->where('estado_id', '!=', 4)
-                              ->orWhereNull('estado_id');
-                    })
-                    ->select('id', 'apartamento_id', 'fecha_entrada', 'fecha_salida', 'numero_personas', 'numero_ninos', 'edades_ninos', 'notas_ninos', 'codigo_reserva')
-                    ->first();
-
-                if ($reservaEntraManana) {
-                    $reserva->reserva_entra_manana = $reservaEntraManana;
+                try {
+                    // reserva_entra_hoy: reservation entering on the same day this one checks out
+                    $candidates = $entradasHoyByApto->get($reserva->apartamento_id, collect());
+                    // If fecha_salida is today, also check entradas for today; otherwise check future
+                    if ($reserva->fecha_salida === $hoyStr) {
+                        $reserva->reserva_entra_hoy = $candidates
+                            ->where('id', '!=', $reserva->id)
+                            ->first();
+                    } else {
+                        // Original query matched fecha_entrada == fecha_salida, which may not be today
+                        // Fall back to future reservations entering on fecha_salida
+                        $reserva->reserva_entra_hoy = $futureReservasByApto
+                            ->get($reserva->apartamento_id, collect())
+                            ->where('fecha_entrada', $reserva->fecha_salida)
+                            ->where('id', '!=', $reserva->id)
+                            ->first();
+                    }
+                } catch (Exception $e) {
+                    $reserva->reserva_entra_hoy = null;
                 }
-            } catch (Exception $e) {
-                // Si hay error, continuar sin esta información
-                $reserva->siguiente_reserva = null;
-                $reserva->reserva_entra_manana = null;
             }
+        }
+
+        // Loop 2: reservasEnLimpieza - assign siguiente_reserva and reserva_entra_hoy
+        foreach ($reservasEnLimpieza as $limpieza) {
+            $limpieza->siguiente_reserva = $futureReservasByApto
+                ->get($limpieza->apartamento_id, collect())
+                ->first();
+            $limpieza->reserva_entra_hoy = $entradasHoyByApto
+                ->get($limpieza->apartamento_id, collect())
+                ->first();
+        }
+
+        // Loop 3: reservasLimpieza (completed) - assign siguiente_reserva and reserva_entra_hoy
+        foreach ($reservasLimpieza as $limpieza) {
+            $limpieza->siguiente_reserva = $futureReservasByApto
+                ->get($limpieza->apartamento_id, collect())
+                ->first();
+            $limpieza->reserva_entra_hoy = $entradasHoyByApto
+                ->get($limpieza->apartamento_id, collect())
+                ->first();
+        }
+
+        // Loop 4: reservasManana - assign siguiente_reserva and reserva_entra_manana
+        foreach ($reservasManana as $reserva) {
+            $reserva->siguiente_reserva = $futureReservasByApto
+                ->get($reserva->apartamento_id, collect())
+                ->where('fecha_entrada', '>', $reserva->fecha_salida)
+                ->first();
+            $reserva->reserva_entra_manana = $entradasMananaByApto
+                ->get($reserva->apartamento_id, collect())
+                ->first();
         }
 
 

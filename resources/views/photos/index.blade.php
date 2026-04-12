@@ -7,14 +7,14 @@
 @endsection
 
 @section('volver')
-    <button class="back" type="button" onclick="history.back()"><i class="fa-solid fa-angle-left"></i></button>
+    <button class="back" type="button" onclick="history.back()"><i class="bi bi-chevron-left"></i></button>
 @endsection
 
 @section('content')
 
 <div class="photos-container">
     <div class="photos-header">
-        <h4><i class="fa-solid fa-camera"></i> Fotos de limpieza</h4>
+        <h4><i class="bi bi-camera"></i> Fotos de limpieza</h4>
         <p class="photos-subtitle">{{ $limpieza->apartamento->nombre ?? 'Apartamento' }}</p>
     </div>
 
@@ -69,23 +69,23 @@
                     <span class="photo-card-label">{{ $slot['label'] }}</span>
                     <span class="photo-card-status" id="status-{{ $slot['key'] }}">
                         @if($existingPhoto && $existingPhoto->photo_url)
-                            <i class="fas fa-check-circle text-success"></i>
+                            <i class="bi bi-check-circle-fill text-success"></i>
                         @else
-                            <i class="fas fa-circle text-muted"></i>
+                            <i class="bi bi-circle text-muted"></i>
                         @endif
                     </span>
                 </div>
 
                 <div class="photo-card-body" id="body-{{ $slot['key'] }}" onclick="triggerInput('{{ $slot['key'] }}')">
                     @if($existingPhoto && $existingPhoto->photo_url)
-                        <img id="preview-{{ $slot['key'] }}" class="photo-preview" src="{{ asset($existingPhoto->photo_url) }}" alt="{{ $slot['label'] }}">
+                        <img id="preview-{{ $slot['key'] }}" class="photo-preview" src="{{ asset($existingPhoto->photo_url) }}" alt="{{ $slot['label'] }}" loading="lazy">
                         <div class="photo-retake-overlay" id="overlay-{{ $slot['key'] }}">
-                            <i class="fas fa-redo"></i> Repetir
+                            <i class="bi bi-arrow-clockwise"></i> Repetir
                         </div>
                     @else
-                        <img id="preview-{{ $slot['key'] }}" class="photo-preview" style="display:none;" alt="{{ $slot['label'] }}">
+                        <img id="preview-{{ $slot['key'] }}" class="photo-preview" style="display:none;" alt="{{ $slot['label'] }}" loading="lazy">
                         <div class="photo-placeholder" id="placeholder-{{ $slot['key'] }}">
-                            <i class="fas fa-camera fa-2x"></i>
+                            <i class="bi bi-camera" style="font-size:2em;"></i>
                             <span>Tomar foto</span>
                         </div>
                     @endif
@@ -105,7 +105,7 @@
 
     <div class="photos-footer">
         <a href="{{ route('gestion.edit', $id) }}" class="btn-back-gestion">
-            <i class="fas fa-arrow-left"></i> Volver a gestion
+            <i class="bi bi-arrow-left"></i> Volver a gestion
         </a>
     </div>
 </div>
@@ -273,13 +273,14 @@
     }
 
     /* Spinner animation */
-    @keyframes fa-spin {
+    @keyframes bi-spin {
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
     }
 
-    .fa-spinner.fa-spin {
-        animation: fa-spin 1s infinite linear;
+    .spinning {
+        animation: bi-spin 1s infinite linear;
+        display: inline-block;
     }
 </style>
 @endsection
@@ -294,6 +295,36 @@
         document.getElementById('input-' + key).click();
     }
 
+    function compressImage(file, maxWidth, quality) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > maxWidth) {
+                        height = Math.round(height * maxWidth / width);
+                        width = maxWidth;
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    canvas.toBlob(function(blob) {
+                        resolve(blob);
+                    }, 'image/jpeg', quality);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
     function handlePhoto(input, key, catId) {
         if (!input.files || !input.files[0]) return;
 
@@ -304,8 +335,14 @@
         const placeholder = document.getElementById('placeholder-' + key);
         const body = document.getElementById('body-' + key);
 
-        preview.src = URL.createObjectURL(file);
+        const previewUrl = URL.createObjectURL(file);
+        preview.src = previewUrl;
         preview.style.display = 'block';
+
+        // Free memory once the preview image has loaded
+        preview.onload = function() {
+            URL.revokeObjectURL(previewUrl);
+        };
 
         if (placeholder) {
             placeholder.style.display = 'none';
@@ -317,20 +354,23 @@
             overlay = document.createElement('div');
             overlay.className = 'photo-retake-overlay';
             overlay.id = 'overlay-' + key;
-            overlay.innerHTML = '<i class="fas fa-redo"></i> Repetir';
+            overlay.innerHTML = '<i class="bi bi-arrow-clockwise"></i> Repetir';
             body.appendChild(overlay);
         }
 
         // Show spinner in status
-        document.getElementById('status-' + key).innerHTML = '<i class="fas fa-spinner fa-spin" style="color:#f0ad4e;"></i>';
+        document.getElementById('status-' + key).innerHTML = '<i class="bi bi-arrow-repeat spinning" style="color:#f0ad4e;"></i>';
 
         // Upload in background
         uploadPhoto(file, catId, key);
     }
 
-    function uploadPhoto(file, catId, key) {
+    async function uploadPhoto(file, catId, key) {
+        // Compress image before upload (max 1200px, quality 0.7)
+        const compressed = await compressImage(file, 1200, 0.7);
+
         const formData = new FormData();
-        formData.append('image', file);
+        formData.append('image', compressed, 'photo.jpg');
         formData.append('item_id', catId);
         formData.append('checklist_id', checklistId);
         formData.append('_token', csrfToken);
@@ -348,14 +388,14 @@
         })
         .then(function(data) {
             if (data.status === 'success') {
-                document.getElementById('status-' + key).innerHTML = '<i class="fas fa-check-circle text-success"></i>';
+                document.getElementById('status-' + key).innerHTML = '<i class="bi bi-check-circle-fill text-success"></i>';
             } else {
-                document.getElementById('status-' + key).innerHTML = '<i class="fas fa-exclamation-circle text-danger"></i>';
+                document.getElementById('status-' + key).innerHTML = '<i class="bi bi-exclamation-circle-fill text-danger"></i>';
                 console.error('Upload error:', data.message);
             }
         })
         .catch(function(err) {
-            document.getElementById('status-' + key).innerHTML = '<i class="fas fa-exclamation-circle text-danger"></i>';
+            document.getElementById('status-' + key).innerHTML = '<i class="bi bi-exclamation-circle-fill text-danger"></i>';
             console.error('Upload failed:', err);
         });
     }

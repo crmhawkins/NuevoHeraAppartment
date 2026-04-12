@@ -8,12 +8,12 @@
             <div class="apple-card">
                 <div class="apple-card-header">
                     <div class="apple-card-title">
-                        <i class="fa fa-check-circle me-3"></i>
+                        <i class="bi bi-check-circle me-3"></i>
                         <span>Limpieza Completada - Vista de Información</span>
                     </div>
                     <div class="apple-card-actions">
                         <a href="{{ route($back_route ?? 'gestion.index') }}" class="btn btn-light btn-sm">
-                            <i class="fa fa-arrow-left me-2"></i>
+                            <i class="bi bi-arrow-left me-2"></i>
                             {{ $back_label ?? 'Volver a Gestión' }}
                         </a>
                     </div>
@@ -23,7 +23,7 @@
                         <div class="col-md-6">
                             <div class="info-section">
                                 <h5 class="info-title">
-                                    <i class="fa fa-building me-3"></i>
+                                    <i class="bi bi-building me-3"></i>
                                     {{ $apartamentoLimpieza->apartamento ? $apartamentoLimpieza->apartamento->nombre : ($apartamentoLimpieza->zonaComun ? $apartamentoLimpieza->zonaComun->nombre : 'Elemento no encontrado') }}
                                 </h5>
                                 <div class="info-item">
@@ -61,7 +61,7 @@
             <div class="apple-card">
                 <div class="apple-card-header">
                     <div class="apple-card-title">
-                        <i class="fa fa-calendar-check me-3"></i>
+                        <i class="bi bi-calendar-check me-3"></i>
                         <span>Información de la Reserva</span>
                     </div>
                 </div>
@@ -121,7 +121,7 @@
             <div class="apple-card">
                 <div class="apple-card-header">
                     <div class="apple-card-title">
-                        <i class="fa fa-tasks me-3"></i>
+                        <i class="bi bi-list-check me-3"></i>
                         <span>Checklist de Limpieza</span>
                     </div>
                 </div>
@@ -138,7 +138,7 @@
                                         <div class="col-md-6">
                                             <div class="checklist-item">
                                                 <div class="item-icon">
-                                                    <i class="fa fa-check-circle"></i>
+                                                    <i class="bi bi-check-circle"></i>
                                                 </div>
                                                 <div class="item-content">
                                                     <span class="item-text">{{ $item->nombre }}</span>
@@ -162,7 +162,7 @@
             <div class="apple-card">
                 <div class="apple-card-header">
                     <div class="apple-card-title">
-                        <i class="fa fa-camera me-3"></i>
+                        <i class="bi bi-camera me-3"></i>
                         <span>Fotos de la Limpieza ({{ $todasLasFotos->count() }})</span>
                     </div>
                 </div>
@@ -177,7 +177,7 @@
                     @foreach($fotosPorCategoria as $categoria => $fotos)
                         <div class="photo-category mb-5">
                             <h6 class="category-title">
-                                <i class="fa fa-folder me-2"></i>
+                                <i class="bi bi-folder me-2"></i>
                                 {{ ucfirst($categoria ?: 'Sin categoría') }} ({{ $fotos->count() }} fotos)
                             </h6>
                             <div class="row g-4">
@@ -185,11 +185,12 @@
                                     <div class="col-md-4 col-sm-6">
                                         <div class="photo-card" onclick="abrirModalFoto('{{ asset($foto->url) }}', '{{ $foto->descripcion ?? 'Sin descripción' }}')">
                                             <div class="photo-image">
-                                                <img src="{{ asset($foto->url) }}" 
+                                                <img src="{{ asset($foto->url) }}"
                                                      alt="Foto de limpieza - {{ $categoria }}"
-                                                     class="img-fluid">
+                                                     class="img-fluid"
+                                                     loading="lazy">
                                                 <div class="photo-overlay">
-                                                    <i class="fa fa-search-plus"></i>
+                                                    <i class="bi bi-zoom-in"></i>
                                                 </div>
                                             </div>
                                             <div class="photo-info">
@@ -209,14 +210,14 @@
             <div class="apple-card">
                 <div class="apple-card-header">
                     <div class="apple-card-title">
-                        <i class="fa fa-camera me-3"></i>
+                        <i class="bi bi-camera me-3"></i>
                         <span>Fotos de la Limpieza</span>
                     </div>
                 </div>
                 <div class="apple-card-body">
                     <div class="no-photos">
                         <p class="text-muted text-center">
-                            <i class="fa fa-info-circle me-2"></i>
+                            <i class="bi bi-info-circle me-2"></i>
                             No hay fotos disponibles para esta limpieza
                         </p>
                     </div>
@@ -229,7 +230,7 @@
             <div class="apple-card">
                 <div class="apple-card-header">
                     <div class="apple-card-title">
-                        <i class="fa fa-sticky-note me-3"></i>
+                        <i class="bi bi-sticky me-3"></i>
                         <span>Notas de la Limpieza</span>
                     </div>
                 </div>
@@ -253,7 +254,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body text-center">
-                <img id="fotoModal" src="" class="img-fluid" alt="Foto en grande">
+                <img id="fotoModal" src="" class="img-fluid" alt="Foto en grande" loading="lazy">
                 <p id="descripcionModal" class="mt-3 text-muted"></p>
             </div>
             <div class="modal-footer">
