@@ -10,7 +10,7 @@
             <a href="{{ route('admin.diarioCaja.index') }}" class="btn btn-outline-secondary btn-sm me-2">
                 <i class="fas fa-book me-1"></i>Diario de Caja
             </a>
-            <a href="{{ route('admin.invoices.index') }}" class="btn btn-outline-secondary btn-sm">
+            <a href="{{ route('admin.facturas.index') }}" class="btn btn-outline-secondary btn-sm">
                 <i class="fas fa-file-invoice me-1"></i>Facturas
             </a>
         </div>
