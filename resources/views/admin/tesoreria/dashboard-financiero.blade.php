@@ -154,8 +154,11 @@
                         <td class="fw-bold">{{ number_format($f->total, 2, ',', '.') }} &euro;</td>
                         <td><span class="badge bg-warning text-dark">{{ $f->fecha ? now()->diffInDays(\Carbon\Carbon::parse($f->fecha)) : '?' }}d</span></td>
                         <td>
-                            <button class="btn btn-success btn-sm" onclick="cambiarEstado({{ $f->id }}, 'cobrada')">
-                                <i class="fas fa-check me-1"></i>Cobrada
+                            <a href="{{ route('metalicos.create', ['factura_id' => $f->id, 'concepto' => 'Cobro factura ' . $f->reference, 'cantidad' => $f->total]) }}" class="btn btn-success btn-sm" title="Registrar cobro en metalicos">
+                                <i class="fas fa-coins me-1"></i>Cobrar
+                            </a>
+                            <button class="btn btn-outline-success btn-sm" onclick="cambiarEstado({{ $f->id }}, 'cobrada')" title="Marcar como cobrada sin registrar ingreso">
+                                <i class="fas fa-check"></i>
                             </button>
                         </td>
                     </tr>
