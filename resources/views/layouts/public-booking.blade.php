@@ -605,15 +605,15 @@
     <!-- FONDOS NEXT GENERATION EU -->
     <div style="background: #ffffff; padding: 48px 0; border-top: 1px solid #e0e0e0;">
         <div style="max-width: 1200px; margin: 0 auto; padding: 0 16px; text-align: center;">
-            <div style="margin-bottom: 24px;">
-                <img src="{{ asset('images/logo-apartamentos.jpeg') }}"
-                     alt="Logo Apartamentos"
-                     style="max-width: 300px; height: auto; display: block; margin: 0 auto;"
-                     onerror="this.style.display='none';">
-            </div>
-            <p style="font-size: 16px; line-height: 1.6; color: #555; max-width: 900px; margin: 0 auto;">
+            <p style="font-size: 16px; line-height: 1.6; color: #555; max-width: 900px; margin: 0 auto 32px;">
                 Ipoint Comunicación Masiva SL ha recibido una ayuda de la Unión Europea con cargo al Fondo NextGenerationEU, en el marco del Plan de Recuperación, Trasformación y Resiliencia, para (denominación de la actuación/proyecto) dentro del programa de incentivos ligados al autoconsumo y almacenamiento, con fuentes de energía renovable, así como la implantación de sistemas térmicos renovables en el sector residencial del Ministerio para la Transición Ecológica y el Reto Demográfico, gestionado por la Junta de Andalucía, a través de la Agencia Andaluza de la Energía.
             </p>
+            <div style="margin-top: 24px;">
+                <img src="{{ asset('images/logo-apartamentos.jpeg') }}"
+                     alt="Logo Apartamentos"
+                     style="max-width: 600px; width: 100%; height: auto; display: block; margin: 0 auto;"
+                     onerror="this.style.display='none';">
+            </div>
         </div>
     </div>
 
