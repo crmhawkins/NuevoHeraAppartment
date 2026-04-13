@@ -434,7 +434,7 @@
                                         <li><a class="dropdown-item" href="{{ route('admin.facturas.index') }}">
                                             <i class="fas fa-file-invoice me-2"></i>Facturas Emitidas
                                         </a></li>
-                                        <li><a class="dropdown-item" href="{{ route('metalicos.index') }}">
+                                        <li><a class="dropdown-item" href="{{ route('admin.facturasRecibidas.index') }}">
                                             <i class="fas fa-file-invoice-dollar me-2"></i>Facturas Recibidas
                                         </a></li>
                                         <li><a class="dropdown-item" href="{{ route('metalicos.index') }}">
