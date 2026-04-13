@@ -841,10 +841,10 @@
     // ============================================================
     const _photoAreas = [
         { key: 'cocina', name: 'Cocina', emoji: '\uD83C\uDF73' },
-        { key: 'salon', name: 'Salon', emoji: '\uD83D\uDECB\uFE0F' },
-        { key: 'sofa', name: 'Sofa', emoji: '\uD83E\uDE91' },
-        { key: 'cama', name: 'Cama', emoji: '\uD83D\uDECF\uFE0F' },
-        { key: 'bano', name: 'Bano', emoji: '\uD83D\uDEBF' },
+        { key: 'salon', name: 'Sal\u00f3n', emoji: '\uD83D\uDECB\uFE0F' },
+        { key: 'comedor', name: 'Comedor', emoji: '\uD83E\uDE91' },
+        { key: 'dormitorio', name: 'Dormitorio', emoji: '\uD83D\uDECF\uFE0F' },
+        { key: 'bano', name: 'Ba\u00f1o', emoji: '\uD83D\uDEBF' },
     ];
     let _currentPhotoIndex = 0;
     let _limpiezaIdGlobal = {{ $apartamentoLimpieza->id }};
