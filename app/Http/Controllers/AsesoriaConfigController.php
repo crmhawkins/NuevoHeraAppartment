@@ -14,7 +14,7 @@ class AsesoriaConfigController extends Controller
     {
         $asesorias = Asesoria::all();
 
-        return view('admin.configuracion.asesorias.index', compact('asesorias'));
+        return view('admin.configuracion.configuracion.asesorias.index', compact('asesorias'));
     }
 
     public function create()
@@ -47,7 +47,7 @@ class AsesoriaConfigController extends Controller
 
         Asesoria::create($validated);
 
-        return redirect()->route('asesorias.index')
+        return redirect()->route('configuracion.asesorias.index')
             ->with('success', 'Asesoria creada correctamente.');
     }
 
@@ -85,7 +85,7 @@ class AsesoriaConfigController extends Controller
 
         $asesoria->update($validated);
 
-        return redirect()->route('asesorias.index')
+        return redirect()->route('configuracion.asesorias.index')
             ->with('success', 'Asesoria actualizada correctamente.');
     }
 
@@ -94,7 +94,7 @@ class AsesoriaConfigController extends Controller
         $asesoria = Asesoria::findOrFail($id);
         $asesoria->delete();
 
-        return redirect()->route('asesorias.index')
+        return redirect()->route('configuracion.asesorias.index')
             ->with('success', 'Asesoria eliminada correctamente.');
     }
 
