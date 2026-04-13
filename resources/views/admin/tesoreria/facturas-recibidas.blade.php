@@ -132,10 +132,10 @@
                             </td>
                             <td>
                                 @if($gasto->factura_foto)
-                                    <a href="{{ asset(str_replace('public/', 'storage/', $gasto->factura_foto)) }}" target="_blank" title="Ver factura" class="d-inline-flex align-items-center gap-1">
+                                    <a href="{{ route('admin.facturasRecibidas.descargar', $gasto->id) }}" title="Descargar factura" class="d-inline-flex align-items-center gap-1">
                                         <i class="fas fa-check-circle text-success" style="font-size:14px;"></i>
                                         @if(Str::endsWith(strtolower($gasto->factura_foto), ['.jpg','.jpeg','.png','.webp']))
-                                            <img src="{{ asset(str_replace('public/', 'storage/', $gasto->factura_foto)) }}" class="thumb-factura" alt="Factura">
+                                            <i class="fas fa-image text-primary" style="font-size:14px;"></i>
                                         @else
                                             <i class="fas fa-file-pdf text-danger" style="font-size:14px;"></i>
                                         @endif

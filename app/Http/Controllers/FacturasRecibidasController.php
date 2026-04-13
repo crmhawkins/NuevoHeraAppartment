@@ -69,11 +69,11 @@ class FacturasRecibidasController extends Controller
 
         $archivo = $request->file('factura');
         $extension = $archivo->getClientOriginalExtension();
-        $nombreArchivo = "{$id}.{$extension}";
-        $ruta = $archivo->storeAs('public/facturas_recibidas', $nombreArchivo);
+        $nombreArchivo = time() . "_{$id}.{$extension}";
+        $ruta = $archivo->storeAs('facturas_privadas', $nombreArchivo);
 
         $gasto->update([
-            'factura_foto' => str_replace('public/', 'storage/', $ruta),
+            'factura_foto' => $ruta,
         ]);
 
         return response()->json([
@@ -88,15 +88,13 @@ class FacturasRecibidasController extends Controller
         $gasto = Gastos::findOrFail($id);
 
         if (empty($gasto->factura_foto)) {
-            abort(404, 'Este gasto no tiene factura adjunta.');
+            return redirect()->back()->with('error', 'Este gasto no tiene factura adjunta.');
         }
 
-        $rutaStorage = str_replace('storage/', 'public/', $gasto->factura_foto);
-
-        if (!Storage::exists($rutaStorage)) {
-            abort(404, 'El archivo de factura no se encontro.');
+        if (!Storage::exists($gasto->factura_foto)) {
+            return redirect()->back()->with('error', 'El archivo se ha perdido del servidor. Vuelva a subirlo.');
         }
 
-        return Storage::download($rutaStorage, "factura_gasto_{$id}." . pathinfo($gasto->factura_foto, PATHINFO_EXTENSION));
+        return Storage::download($gasto->factura_foto, "factura_gasto_{$id}." . pathinfo($gasto->factura_foto, PATHINFO_EXTENSION));
     }
 }
