@@ -861,6 +861,50 @@ class ReservaPagoController extends Controller
             'reserva_id' => $reservaId,
         ]);
 
+        // Cancelar reserva y pago inmediatamente + enviar WhatsApp
+        if ($reservaId) {
+            try {
+                $reserva = \App\Models\Reserva::with(['cliente', 'apartamento'])->find($reservaId);
+                if ($reserva && $reserva->estado_id == 2) {
+                    $reserva->update(['estado_id' => 4]);
+
+                    \App\Models\Pago::where('reserva_id', $reservaId)
+                        ->where('estado', 'pendiente')
+                        ->update(['estado' => 'cancelado']);
+
+                    // Alerta al equipo
+                    \App\Services\AlertaEquipoService::pagoAbandonado($reserva);
+
+                    // WhatsApp al huésped
+                    $cliente = $reserva->cliente;
+                    $telefono = $cliente->telefono_movil ?? $cliente->telefono ?? null;
+                    if ($telefono) {
+                        $token = env('TOKEN_WHATSAPP');
+                        $phoneId = env('WHATSAPP_PHONE_ID');
+                        if ($token && $phoneId) {
+                            $nombre = $cliente->nombre ?? 'Huésped';
+                            $mensaje = "Hola {$nombre}, hemos visto que iniciaste una reserva en Apartamentos Hawkins pero no completaste el pago. "
+                                     . "Si tuviste algún problema, puedes volver a intentarlo en https://apartamentosalgeciras.com/web "
+                                     . "o contactarnos si necesitas ayuda. ¡Te esperamos!";
+
+                            \Illuminate\Support\Facades\Http::withToken($token)->post(
+                                "https://graph.facebook.com/v20.0/{$phoneId}/messages",
+                                [
+                                    'messaging_product' => 'whatsapp',
+                                    'to' => preg_replace('/[^0-9]/', '', $telefono),
+                                    'type' => 'text',
+                                    'text' => ['body' => $mensaje],
+                                ]
+                            );
+                            Log::info('[ReservaWeb] WhatsApp pago abandonado enviado desde cancelado()', ['reserva_id' => $reservaId]);
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::warning('[ReservaWeb] Error en cancelado(): ' . $e->getMessage());
+            }
+        }
+
         return view('public.reservas.reserva-cancelada', [
             'reserva_id' => $reservaId,
         ]);
