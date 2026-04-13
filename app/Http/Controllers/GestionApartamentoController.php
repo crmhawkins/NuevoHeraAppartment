@@ -2423,6 +2423,36 @@ public function updateZonaComun(Request $request, ApartamentoLimpieza $apartamen
 
 
     /**
+     * Quick photo upload for the fast finalization flow.
+     * Receives one photo at a time (compressed), stores it linked to the cleaning.
+     */
+    public function fotoRapida(Request $request, $id)
+    {
+        $limpieza = ApartamentoLimpieza::findOrFail($id);
+
+        if ($request->hasFile('image')) {
+            $file = $request->file('image');
+            $area = $request->get('area', 'general');
+            $path = $file->store("limpiezas/{$id}", 'public');
+
+            ApartamentoLimpiezaItem::create([
+                'id_limpieza' => $limpieza->id,
+                'photo_url' => $path,
+                'photo_cat' => $area,
+            ]);
+
+            Log::info('[Limpieza] Foto rapida subida', [
+                'limpieza_id' => $id,
+                'area' => $area,
+                'path' => $path,
+                'user' => Auth::id(),
+            ]);
+        }
+
+        return response()->json(['success' => true]);
+    }
+
+    /**
      * Remove the specified resource from storage.
      */
     public function finalizar(Request $request, ApartamentoLimpieza $apartamentoLimpieza)

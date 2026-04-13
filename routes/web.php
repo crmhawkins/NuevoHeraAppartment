@@ -909,6 +909,9 @@ Route::middleware('auth')->group(function () {
     Route::get('gestion/reservas/estadisticas', [App\Http\Controllers\GestionReservasController::class, 'estadisticas'])->name('gestion.reservas.estadisticas');
     Route::get('gestion/reservas/{id}', [App\Http\Controllers\GestionReservasController::class, 'show'])->name('gestion.reservas.show');
 
+    // Quick photo upload for fast finalization flow
+    Route::post('gestion/limpieza/{id}/foto-rapida', [App\Http\Controllers\GestionApartamentoController::class, 'fotoRapida'])->name('gestion.limpieza.fotoRapida');
+
     // Rutas de acciones de limpieza (reponer stock y reportar averías)
     Route::post('gestion/limpieza/reponer-stock', [App\Http\Controllers\LimpiezaAccionesController::class, 'reponerStock'])->name('gestion.limpieza.reponer-stock');
     Route::post('gestion/limpieza/reportar-averia', [App\Http\Controllers\LimpiezaAccionesController::class, 'reportarAveria'])->name('gestion.limpieza.reportar-averia');

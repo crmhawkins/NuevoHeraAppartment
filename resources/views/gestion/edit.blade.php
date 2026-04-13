@@ -621,118 +621,12 @@
                                     <i class="fas fa-info-circle text-success me-2" style="font-size: 1.2em;"></i>
                                     <div>
                                         <strong class="text-success">Información:</strong>
-                                        <span class="text-dark ms-2"><strong>"Guardar Limpieza"</strong> funciona siempre para guardar el progreso. <strong>"Terminar"</strong> requiere completar todos los checklists o dar consentimiento explicando el motivo.</span>
+                                        <span class="text-dark ms-2"><strong>"Guardar Limpieza"</strong> funciona siempre para guardar el progreso. <strong>"Terminar"</strong> finaliza la limpieza y te pide 5 fotos rapidas.</span>
                                     </div>
                                 </div>
                             </div>
                             
-                            <!-- Checkbox de consentimiento para finalizar sin completar todos los checklists -->
-                            <div class="consentimiento-section mt-3" style="
-                                background: linear-gradient(135deg, #FFF3CD 0%, #FFEAA7 100%);
-                                border: 2px solid #FFC107;
-                                border-radius: 15px;
-                                padding: 20px;
-                                text-align: left;
-                                box-shadow: 0 4px 12px rgba(255, 193, 7, 0.2);
-                            ">
-                                <div class="d-flex align-items-start">
-                                    <i class="fas fa-exclamation-triangle text-warning me-3" style="font-size: 1.5em; margin-top: 2px;"></i>
-                                    <div class="flex-grow-1">
-                                        <h6 class="text-warning mb-3">
-                                            <strong>Consentimiento para Finalizar sin Checklists Completos</strong>
-                                        </h6>
-                                        
-                                        <div class="form-check mb-3">
-                                            <input class="form-check-input" type="checkbox" id="consentimientoFinalizar" style="transform: scale(1.2);">
-                                            <label class="form-check-label" for="consentimientoFinalizar">
-                                                <strong>Confirmo que he revisado la calidad de la limpieza</strong> y puedo finalizar sin completar todos los checklists.
-                                            </label>
-                                        </div>
-                                        
-                                        <div class="form-group mb-3" id="motivoConsentimientoGroup" style="display: none;">
-                                            <label for="motivoConsentimiento" class="form-label">
-                                                <i class="fas fa-edit me-2"></i>
-                                                <strong>Motivo del consentimiento:</strong>
-                                            </label>
-                                            <textarea 
-                                                class="form-control" 
-                                                id="motivoConsentimiento" 
-                                                name="motivo_consentimiento" 
-                                                rows="1" 
-                                                placeholder="Explica brevemente por qué puedes finalizar sin completar todos los checklists..."
-                                                style="resize: none; overflow: hidden; min-height: 38px; transition: height 0.2s ease;"
-                                                required
-                                            ></textarea>
-                                            <div class="form-text">
-                                                <i class="fas fa-info-circle me-1"></i>
-                                                Es obligatorio explicar el motivo para poder finalizar sin completar todos los checklists.
-                                            </div>
-                                            
-                                            <!-- Motivos estándar predefinidos -->
-                                            <div class="motivos-estandar mt-3">
-                                                <label class="form-label">
-                                                    <i class="fas fa-clipboard-list me-2"></i>
-                                                    <strong>Motivos estándar (haz clic para copiar):</strong>
-                                                </label>
-                                                <div class="row g-2">
-                                                    <div class="col-12 col-md-6">
-                                                        <button type="button" class="btn btn-outline-primary btn-sm w-100 mb-2" 
-                                                                onclick="copiarMotivoEstandar('Limpieza general completada. Revisión de calidad satisfactoria. Todos los elementos principales han sido limpiados y verificados.')">
-                                                            <i class="fas fa-copy me-1"></i>
-                                                            Limpieza general completada
-                                                        </button>
-                                                    </div>
-                                                    <div class="col-12 col-md-6">
-                                                        <button type="button" class="btn btn-outline-primary btn-sm w-100 mb-2" 
-                                                                onclick="copiarMotivoEstandar('Calidad de limpieza verificada. Elementos críticos completados. Resto de items no aplicables para esta estancia.')">
-                                                            <i class="fas fa-copy me-1"></i>
-                                                            Calidad verificada
-                                                        </button>
-                                                    </div>
-                                                    <div class="col-12 col-md-6">
-                                                        <button type="button" class="btn btn-outline-primary btn-sm w-100 mb-2" 
-                                                                onclick="copiarMotivoEstandar('Limpieza esencial completada. Revisión exhaustiva realizada. Elementos pendientes no afectan la calidad general.')">
-                                                            <i class="fas fa-copy me-1"></i>
-                                                            Limpieza esencial
-                                                        </button>
-                                                    </div>
-                                                    <div class="col-12 col-md-6">
-                                                        <button type="button" class="btn btn-outline-primary btn-sm w-100 mb-2" 
-                                                                onclick="copiarMotivoEstandar('Proceso de limpieza finalizado. Calidad aceptable confirmada. Checklist incompleto por limitaciones técnicas.')">
-                                                            <i class="fas fa-copy me-1"></i>
-                                                            Limitaciones técnicas
-                                                        </button>
-                                                    </div>
-                                                    <div class="col-12 col-md-6">
-                                                        <button type="button" class="btn btn-outline-primary btn-sm w-100 mb-2" 
-                                                                onclick="copiarMotivoEstandar('Limpieza de áreas principales completada. Revisión de calidad satisfactoria. Elementos secundarios no críticos pendientes.')">
-                                                            <i class="fas fa-copy me-1"></i>
-                                                            Áreas principales
-                                                        </button>
-                                                    </div>
-                                                    <div class="col-12 col-md-6">
-                                                        <button type="button" class="btn btn-outline-primary btn-sm w-100 mb-2" 
-                                                                onclick="copiarMotivoEstandar('Proceso de limpieza estándar completado. Calidad verificada. Elementos adicionales no requeridos para esta estancia.')">
-                                                            <i class="fas fa-copy me-1"></i>
-                                                            Estándar completado
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                
-                                                <div class="alert alert-info mt-2" style="font-size: 0.85em;">
-                                                    <i class="fas fa-lightbulb me-2"></i>
-                                                    <strong>Consejo:</strong> Puedes usar estos motivos estándar o escribir uno personalizado. Los motivos estándar cubren la mayoría de situaciones comunes.
-                                                </div>
-                                            </div>
-                                        </div>
-                                        
-                                        <div class="alert alert-info" style="font-size: 0.9em;">
-                                            <i class="fas fa-info-circle me-2"></i>
-                                            <strong>Nota:</strong> Al marcar este checkbox, confirmas que has revisado la calidad general de la limpieza y puedes proceder con la finalización. Esta información quedará registrada en la base de datos.
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            <!-- Consent section removed - replaced by quick SweetAlert flow -->
                         </div>
                     </div>
                 </div>
@@ -805,10 +699,49 @@
 
 <form id="formFinalizar" action="{{ route('gestion.finalizar', $apartamentoLimpieza->id) }}" method="POST">
                         @csrf
-                        <input type="hidden" name="consentimiento_finalizacion" id="consentimientoFinalizarHidden" value="false">
-                        <input type="hidden" name="motivo_consentimiento" id="motivoConsentimientoHidden" value="">
+                        <input type="hidden" name="consentimiento_finalizacion" id="consentimientoFinalizarHidden" value="true">
+                        <input type="hidden" name="motivo_consentimiento" id="motivoConsentimientoHidden" value="Finalizado con flujo rapido">
                         <input type="hidden" name="fecha_consentimiento" id="fechaConsentimientoHidden" value="">
                     </form>
+
+<!-- Photo Capture Overlay - Fullscreen sequential capture -->
+<div id="photoCaptureOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:#000; z-index:9999; color:#fff;">
+    <div style="text-align:center; padding-top:20px; height:100%; display:flex; flex-direction:column; align-items:center;">
+        <h2 id="photoAreaName" style="font-size:24px; margin-bottom:10px; font-weight:600;"></h2>
+        <p id="photoCounter" style="font-size:14px; color:#aaa; margin:0;">Foto 1 de 5</p>
+
+        <!-- Progress dots -->
+        <div id="progressDots" style="margin:15px 0;">
+            <span class="photo-dot" style="font-size:18px; margin:0 4px; color:#444;">&#9679;</span>
+            <span class="photo-dot" style="font-size:18px; margin:0 4px; color:#444;">&#9679;</span>
+            <span class="photo-dot" style="font-size:18px; margin:0 4px; color:#444;">&#9679;</span>
+            <span class="photo-dot" style="font-size:18px; margin:0 4px; color:#444;">&#9679;</span>
+            <span class="photo-dot" style="font-size:18px; margin:0 4px; color:#444;">&#9679;</span>
+        </div>
+
+        <!-- Preview area -->
+        <div id="photoPreview" style="flex:1; width:100%; display:flex; align-items:center; justify-content:center; min-height:200px; max-height:60vh;">
+            <img id="previewImage" style="max-width:90%; max-height:55vh; border-radius:12px; display:none;">
+            <div id="cameraPrompt" style="font-size:80px;">&#128247;</div>
+        </div>
+
+        <!-- Camera input (hidden) -->
+        <input type="file" id="photoCaptureInput" accept="image/*" capture="environment" style="display:none;">
+
+        <!-- Big capture button -->
+        <button id="captureBtn" onclick="document.getElementById('photoCaptureInput').click()"
+                style="width:80px; height:80px; border-radius:50%; background:#0891b2; border:4px solid #fff; color:#fff; font-size:30px; margin-top:10px; cursor:pointer;">
+            &#128248;
+        </button>
+
+        <!-- Skip button (small) -->
+        <div style="margin-top:15px; margin-bottom:30px;">
+            <button onclick="skipPhoto()" style="background:none; border:none; color:#666; font-size:12px; text-decoration:underline; cursor:pointer;">
+                Omitir esta foto
+            </button>
+        </div>
+    </div>
+</div>
                 </div>
             </div>
         </div>
@@ -883,473 +816,191 @@
         }
     }
     
-    // FUNCIÓN PARA MANEJAR EL CHECKBOX DE CONSENTIMIENTO
+    // Consent system removed - replaced by quick flow
     function inicializarConsentimiento() {
-        const checkboxConsentimiento = document.getElementById('consentimientoFinalizar');
-        const motivoGroup = document.getElementById('motivoConsentimientoGroup');
-        const motivoTextarea = document.getElementById('motivoConsentimiento');
-        const btnTerminar = document.querySelector('.apple-btn-success');
-        
-        if (checkboxConsentimiento && motivoGroup && motivoTextarea && btnTerminar) {
-            // Mostrar/ocultar campo de motivo según el checkbox
-            checkboxConsentimiento.addEventListener('change', function() {
-                if (this.checked) {
-                    motivoGroup.style.display = 'block';
-                    motivoTextarea.required = true;
-                    // Habilitar botón Terminar si hay motivo
-                    validarBotonTerminar();
-                } else {
-                    motivoGroup.style.display = 'none';
-                    motivoTextarea.required = false;
-                    motivoTextarea.value = '';
-                    // Deshabilitar botón Terminar
-                    btnTerminar.disabled = true;
-                }
-            });
-            
-            // Validar botón cuando se escribe en el motivo
-            motivoTextarea.addEventListener('input', function() {
-                validarBotonTerminar();
-                // Auto-ajustar altura del textarea
-                autoAjustarTextarea(this);
-            });
-            
-            // Auto-ajustar textarea al cargar la página
-            if (motivoTextarea.value.trim()) {
-                autoAjustarTextarea(motivoTextarea);
-            }
-        }
+        // No-op: consent system has been replaced by quick SweetAlert + photo flow
     }
-    
-    // FUNCIÓN PARA AUTO-AJUSTAR LA ALTURA DEL TEXTAREA
-    function autoAjustarTextarea(textarea) {
-        // Resetear altura para calcular correctamente
-        textarea.style.height = 'auto';
-        
-        // Calcular altura necesaria (mínimo 38px, máximo 200px)
-        const alturaMinima = 38;
-        const alturaMaxima = 200;
-        const alturaCalculada = Math.max(alturaMinima, textarea.scrollHeight);
-        const alturaFinal = Math.min(alturaCalculada, alturaMaxima);
-        
-        // Aplicar altura
-        textarea.style.height = alturaFinal + 'px';
-        
-        // Si el contenido excede la altura máxima, mostrar scroll
-        if (textarea.scrollHeight > alturaMaxima) {
-            textarea.style.overflowY = 'auto';
-        } else {
-            textarea.style.overflowY = 'hidden';
-        }
-    }
-    
-    // FUNCIÓN PARA VALIDAR SI EL BOTÓN TERMINAR DEBE ESTAR HABILITADO
-    function validarBotonTerminar() {
-        const checkboxConsentimiento = document.getElementById('consentimientoFinalizar');
-        const motivoTextarea = document.getElementById('motivoConsentimiento');
-        const btnTerminar = document.querySelector('.apple-btn-success');
-        
-        if (checkboxConsentimiento && motivoTextarea && btnTerminar) {
-            const consentimientoMarcado = checkboxConsentimiento.checked;
-            const motivoCompletado = motivoTextarea.value.trim().length > 0;
-            
-            // El botón se habilita si hay consentimiento Y motivo, O si todos los checklists están completos
-            const todosChecklistsCompletos = verificarTodosChecklistsCompletos();
-            
-            if (todosChecklistsCompletos || (consentimientoMarcado && motivoCompletado)) {
-                btnTerminar.disabled = false;
-                btnTerminar.classList.remove('btn-disabled');
-            } else {
-                btnTerminar.disabled = true;
-                btnTerminar.classList.add('btn-disabled');
-            }
-        }
-    }
-    
+
     // FUNCIÓN PARA VERIFICAR SI TODOS LOS CHECKLISTS ESTÁN COMPLETOS
     function verificarTodosChecklistsCompletos() {
         const checklists = document.querySelectorAll('.category-switch');
         let todosCompletos = true;
-        
         checklists.forEach(function(checklist) {
             if (!checklist.checked) {
                 todosCompletos = false;
             }
         });
-        
         return todosCompletos;
     }
+
+    // validarBotonTerminar is no longer needed - button always enabled
+    function validarBotonTerminar() {}
     
-    // FUNCIÓN PARA COPIAR MOTIVOS ESTÁNDAR
-    function copiarMotivoEstandar(motivo) {
-        const textarea = document.getElementById('motivoConsentimiento');
-        if (textarea) {
-            textarea.value = motivo;
-            
-            // Auto-ajustar altura del textarea
-            autoAjustarTextarea(textarea);
-            
-            // Trigger del evento input para validar el botón
-            const event = new Event('input', { bubbles: true });
-            textarea.dispatchEvent(event);
-            
-            // Mostrar notificación de éxito
-            mostrarNotificacionCopia(motivo);
-            
-            // Hacer scroll al textarea
-            textarea.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            textarea.focus();
-        }
-    }
-    
-    // FUNCIÓN PARA MOSTRAR NOTIFICACIÓN DE COPIA
-    function mostrarNotificacionCopia(motivo) {
-        // Crear notificación temporal
-        const notificacion = document.createElement('div');
-        notificacion.className = 'notificacion-copia';
-        notificacion.innerHTML = `
-            <div class="alert alert-success alert-dismissible fade show" style="
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                z-index: 9999;
-                min-width: 300px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-            ">
-                <i class="fas fa-check-circle me-2"></i>
-                <strong>Motivo copiado:</strong> ${motivo.substring(0, 50)}...
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        `;
-        
-        document.body.appendChild(notificacion);
-        
-        // Auto-ocultar después de 3 segundos
-        setTimeout(() => {
-            if (notificacion.parentNode) {
-                notificacion.remove();
-            }
-        }, 3000);
-    }
-    
+    // ============================================================
+    // NEW QUICK FINALIZATION FLOW (replaces consent system)
+    // ============================================================
+    const _photoAreas = [
+        { key: 'cocina', name: 'Cocina', emoji: '\uD83C\uDF73' },
+        { key: 'salon', name: 'Salon', emoji: '\uD83D\uDECB\uFE0F' },
+        { key: 'sofa', name: 'Sofa', emoji: '\uD83E\uDE91' },
+        { key: 'cama', name: 'Cama', emoji: '\uD83D\uDECF\uFE0F' },
+        { key: 'bano', name: 'Bano', emoji: '\uD83D\uDEBF' },
+    ];
+    let _currentPhotoIndex = 0;
+    let _limpiezaIdGlobal = {{ $apartamentoLimpieza->id }};
+    const _csrfToken = document.querySelector('meta[name="csrf-token"]')
+        ? document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        : '{{ csrf_token() }}';
+
     function validarYFinalizar() {
-        // Mostrar overlay de carga
-        showLoadingOverlay('Validando finalización...');
-        
-        // Obtener todos los checklists del edificio
+        // Count checklists
         const checklists = document.querySelectorAll('.category-switch');
         const checklistsFaltantes = [];
-        
-        // Verificar cuáles no están marcados
-        checklists.forEach(function(checklist) {
-            if (!checklist.checked) {
-                const habitacionNombre = checklist.closest('.checklist-section').querySelector('.section-title').textContent;
-                checklistsFaltantes.push(habitacionNombre);
+        checklists.forEach(function(ch) {
+            if (!ch.checked) {
+                const secTitle = ch.closest('.checklist-section');
+                const nombre = secTitle ? secTitle.querySelector('.section-title').textContent.trim() : 'Checklist';
+                checklistsFaltantes.push(nombre);
             }
         });
-        
-        // Si hay checklists faltantes, verificar consentimiento
+
         if (checklistsFaltantes.length > 0) {
-            const checkboxConsentimiento = document.getElementById('consentimientoFinalizar');
-            const motivoTextarea = document.getElementById('motivoConsentimiento');
-            
-            if (!checkboxConsentimiento || !checkboxConsentimiento.checked) {
-                hideLoadingOverlay();
-                mostrarModalError('Debes marcar el consentimiento para finalizar sin completar todos los checklists.');
-                return false;
-            }
-            
-            if (!motivoTextarea || !motivoTextarea.value.trim()) {
-                hideLoadingOverlay();
-                mostrarModalError('Debes explicar el motivo del consentimiento para poder finalizar.');
-                return false;
-            }
-            
-            // Si hay consentimiento y motivo, mostrar confirmación con aviso
-            hideLoadingOverlay();
-            mostrarConfirmacionFinalizarConAviso(checklistsFaltantes);
-            return false;
-        }
-        
-        // Si todos están marcados, confirmar finalización normal
-        hideLoadingOverlay();
-        mostrarConfirmacionFinalizar();
-    }
-    
-    function mostrarAvisoChecklistsFaltantes(checklistsFaltantes) {
-        const modal = `
-            <div class="modal fade" id="checklistModal" tabindex="-1" aria-labelledby="checklistModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content">
-                        <div class="modal-header bg-warning text-dark">
-                            <h5 class="modal-title" id="checklistModalLabel">
-                                <i class="fas fa-exclamation-triangle"></i> Aviso: Checklists Incompletos
-                            </h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="alert alert-warning">
-                                <i class="fas fa-info-circle"></i>
-                                <strong>Atención:</strong> Tienes checklists sin completar. Puedes finalizar la limpieza, pero asegúrate de que la calidad sea aceptable.
-                            </div>
-                            
-                            <p class="mb-3"><strong>Checklists pendientes:</strong></p>
-                            <ul class="list-group list-group-flush mb-3">
-                                ${checklistsFaltantes.map(checklist => 
-                                    `<li class="list-group-item d-flex align-items-center">
-                                        <i class="fas fa-times-circle text-danger me-2"></i>
-                                        ${checklist}
-                                    </li>`
-                                ).join('')}
-                            </ul>
-                            
-                            <div class="form-group mb-3">
-                                <label for="motivoConsentimiento" class="form-label">
-                                    <i class="fas fa-edit me-2"></i>
-                                    <strong>Motivo del consentimiento:</strong>
-                                </label>
-                                <textarea 
-                                    class="form-control" 
-                                    id="motivoConsentimiento" 
-                                    name="motivo_consentimiento" 
-                                    rows="3" 
-                                    placeholder="Explica brevemente por qué puedes finalizar sin completar todos los checklists..."
-                                    required
-                                ></textarea>
-                                <div class="form-text">
-                                    <i class="fas fa-info-circle me-1"></i>
-                                    Es obligatorio explicar el motivo para poder finalizar sin completar todos los checklists.
-                                </div>
-                            </div>
-                            
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" id="consentimientoFinalizar" required>
-                                <label class="form-check-label" for="consentimientoFinalizar">
-                                    <strong>Confirmo que he revisado la calidad de la limpieza</strong> y puedo finalizar sin completar todos los checklists.
-                                </label>
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="button" class="btn btn-warning" id="btnContinuarFinalizar" onclick="continuarConFinalizacion()" disabled>
-                                <i class="fas fa-check"></i> Continuar y Finalizar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        // Remover modal anterior si existe
-        const modalAnterior = document.getElementById('checklistModal');
-        if (modalAnterior) {
-            modalAnterior.remove();
-        }
-        
-        // Añadir nuevo modal al body
-        document.body.insertAdjacentHTML('beforeend', modal);
-        
-        // Mostrar modal usando Bootstrap
-        const modalElement = document.getElementById('checklistModal');
-        const checklistModal = new bootstrap.Modal(modalElement);
-        checklistModal.show();
-        
-        // Habilitar/deshabilitar botón según el checkbox
-            document.getElementById('consentimientoFinalizar').addEventListener('change', function() {
-        const motivoConsentimiento = document.getElementById('motivoConsentimiento').value.trim();
-        const puedeContinuar = this.checked && motivoConsentimiento.length > 0;
-        document.getElementById('btnContinuarFinalizar').disabled = !puedeContinuar;
-    });
-    
-    // Validar también cuando se escribe en el campo de motivo
-    document.getElementById('motivoConsentimiento').addEventListener('input', function() {
-        const consentimientoMarcado = document.getElementById('consentimientoFinalizar').checked;
-        const motivoConsentimiento = this.value.trim();
-        const puedeContinuar = consentimientoMarcado && motivoConsentimiento.length > 0;
-        document.getElementById('btnContinuarFinalizar').disabled = !puedeContinuar;
-    });
-    }
-    
-    function continuarConFinalizar() {
-        // Ocultar modal de aviso
-        $('#checklistModal').modal('hide');
-        
-        // Guardar información del consentimiento en los campos hidden
-        document.getElementById('consentimientoFinalizarHidden').value = 'true';
-        document.getElementById('motivoConsentimientoHidden').value = 'Finalización con checklists incompletos - Usuario confirmó revisión de calidad';
-        document.getElementById('fechaConsentimientoHidden').value = new Date().toISOString();
-        
-        // Mostrar confirmación final
-        mostrarConfirmacionFinalizarConAviso();
-    }
-    
-    function continuarConFinalizacion() {
-        // Ocultar modal de aviso
-        const modalElement = document.getElementById('checklistModal');
-        const modal = bootstrap.Modal.getInstance(modalElement);
-        if (modal) {
-            modal.hide();
-        }
-        
-        // Marcar el consentimiento como true
-        document.getElementById('consentimientoFinalizarHidden').value = 'true';
-        
-        // Obtener y guardar el motivo del consentimiento
-        const motivoConsentimiento = document.getElementById('motivoConsentimiento').value.trim();
-        document.getElementById('motivoConsentimientoHidden').value = motivoConsentimiento;
-        
-        // Guardar la fecha del consentimiento
-        document.getElementById('fechaConsentimientoHidden').value = new Date().toISOString();
-        
-        // Mostrar confirmación final
-        mostrarConfirmacionFinalizarConAviso();
-    }
-    
-    function mostrarConfirmacionFinalizar() {
-        const modal = `
-            <div class="modal fade" id="confirmacionModal" tabindex="-1" aria-labelledby="confirmacionModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content">
-                        <div class="modal-header bg-success text-white">
-                            <h5 class="modal-title" id="confirmacionModalLabel">
-                                <i class="fas fa-check-circle"></i> Confirmar Finalización
-                            </h5>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <p class="mb-3">¿Estás seguro de que quieres finalizar la limpieza del apartamento?</p>
-                            <div class="alert alert-success">
-                                <i class="fas fa-check-double"></i>
-                                Todos los checklists han sido completados correctamente.
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="button" class="btn btn-success" onclick="confirmarFinalizar()">
-                                <i class="fas fa-check"></i> Finalizar Limpieza
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        // Remover modal anterior si existe
-        const modalAnterior = document.getElementById('confirmacionModal');
-        if (modalAnterior) {
-            modalAnterior.remove();
-        }
-        
-        // Añadir nuevo modal al body
-        document.body.insertAdjacentHTML('beforeend', modal);
-        
-        // Mostrar modal
-        const modalElement = document.getElementById('confirmacionModal');
-        const confirmacionModal = new bootstrap.Modal(modalElement);
-        confirmacionModal.show();
-    }
-    
-    function mostrarConfirmacionFinalizarConAviso(checklistsFaltantes) {
-        const modal = `
-            <div class="modal fade" id="confirmacionConAvisoModal" tabindex="-1" aria-labelledby="confirmacionConAvisoModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content">
-                        <div class="modal-header bg-warning text-dark">
-                            <h5 class="modal-title" id="confirmacionConAvisoModalLabel">
-                                <i class="fas fa-exclamation-triangle"></i> Confirmar Finalización con Aviso
-                            </h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <div class="alert alert-warning">
-                                <i class="fas fa-exclamation-triangle"></i>
-                                <strong>Finalización con Checklists Incompletos</strong>
-                            </div>
-                            
-                            <p class="mb-3">¿Estás seguro de que quieres finalizar la limpieza del apartamento?</p>
-                            
-                            <div class="alert alert-info">
-                                <i class="fas fa-info-circle"></i>
-                                <strong>Recuerda:</strong> Has confirmado que has revisado la calidad de la limpieza y puedes proceder sin completar todos los checklists.
-                            </div>
-                            
-                            <p class="mb-3"><strong>Checklists pendientes:</strong></p>
-                            <ul class="list-group list-group-flush mb-3">
-                                ${checklistsFaltantes.map(checklist => 
-                                    `<li class="list-group-item d-flex align-items-center">
-                                        <i class="fas fa-times-circle text-danger me-2"></i>
-                                        ${checklist}
-                                    </li>`
-                                ).join('')}
-                            </ul>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                            <button type="button" class="btn btn-warning" onclick="confirmarFinalizarConConsentimiento()">
-                                <i class="fas fa-check"></i> Finalizar Limpieza
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        // Remover modal anterior si existe
-        const modalAnterior = document.getElementById('confirmacionConAvisoModal');
-        if (modalAnterior) {
-            modalAnterior.remove();
-        }
-        
-        // Añadir nuevo modal al body
-        document.body.insertAdjacentHTML('beforeend', modal);
-        
-        // Mostrar modal
-        const modalElement = document.getElementById('confirmacionConAvisoModal');
-        const confirmacionAvisoModal = new bootstrap.Modal(modalElement);
-        confirmacionAvisoModal.show();
-    }
-    
-    function confirmarFinalizar() {
-        const modalElement = document.getElementById('confirmacionModal');
-        const modal = bootstrap.Modal.getInstance(modalElement);
-        if (modal) {
-            modal.hide();
-        }
-        showLoadingOverlay('Finalizando limpieza...');
-        
-        // Simular un pequeño delay para mostrar el overlay
-        setTimeout(() => {
-            document.getElementById('formFinalizar').submit();
-        }, 300);
-    }
-    
-    function confirmarFinalizarConConsentimiento() {
-        const modalElement = document.getElementById('confirmacionConAvisoModal');
-        const modal = bootstrap.Modal.getInstance(modalElement);
-        if (modal) {
-            modal.hide();
-        }
-        
-        // Obtener los datos del consentimiento
-        const checkboxConsentimiento = document.getElementById('consentimientoFinalizar');
-        const motivoTextarea = document.getElementById('motivoConsentimiento');
-        
-        if (checkboxConsentimiento && checkboxConsentimiento.checked && motivoTextarea && motivoTextarea.value.trim()) {
-            // Guardar los datos en el formulario
-            document.getElementById('consentimientoFinalizarHidden').value = 'true';
-            document.getElementById('motivoConsentimientoHidden').value = motivoTextarea.value.trim();
-            document.getElementById('fechaConsentimientoHidden').value = new Date().toISOString();
-            
-            showLoadingOverlay('Finalizando limpieza con consentimiento...');
-            
-            // Simular un pequeño delay para mostrar el overlay
-            setTimeout(() => {
-                document.getElementById('formFinalizar').submit();
-            }, 300);
+            // Some items unchecked - show SweetAlert warning
+            Swal.fire({
+                title: '!Cuidado!',
+                text: 'Hay ' + checklistsFaltantes.length + ' checks sin revisar',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#0891b2',
+                cancelButtonColor: '#6b7280',
+                confirmButtonText: 'Continuar sin revisar',
+                cancelButtonText: 'Revisar',
+            }).then(function(result) {
+                if (result.isConfirmed) {
+                    mostrarCaptureFotos();
+                }
+            });
         } else {
-            mostrarModalError('Error: No se pudo obtener la información del consentimiento.');
+            // All items checked - go directly to photos
+            mostrarCaptureFotos();
         }
     }
+
+    function mostrarCaptureFotos() {
+        _currentPhotoIndex = 0;
+        document.getElementById('photoCaptureOverlay').style.display = 'block';
+        actualizarPhotoUI();
+    }
+
+    function actualizarPhotoUI() {
+        var area = _photoAreas[_currentPhotoIndex];
+        document.getElementById('photoAreaName').textContent = area.emoji + ' ' + area.name;
+        document.getElementById('photoCounter').textContent = 'Foto ' + (_currentPhotoIndex + 1) + ' de 5';
+        document.getElementById('previewImage').style.display = 'none';
+        document.getElementById('cameraPrompt').style.display = 'block';
+        document.getElementById('captureBtn').style.display = 'inline-block';
+
+        // Update progress dots
+        var dots = document.querySelectorAll('#progressDots .photo-dot');
+        dots.forEach(function(dot, i) {
+            dot.style.color = i <= _currentPhotoIndex ? '#0891b2' : '#444';
+        });
+    }
+
+    // Listen for photo capture
+    document.addEventListener('DOMContentLoaded', function() {
+        var inputEl = document.getElementById('photoCaptureInput');
+        if (inputEl) {
+            inputEl.addEventListener('change', function(e) {
+                var file = e.target.files[0];
+                if (!file) return;
+
+                // Show preview briefly
+                var preview = URL.createObjectURL(file);
+                document.getElementById('previewImage').src = preview;
+                document.getElementById('previewImage').style.display = 'block';
+                document.getElementById('cameraPrompt').style.display = 'none';
+                document.getElementById('captureBtn').style.display = 'none';
+
+                // Upload in background (compress first)
+                uploadPhotoInBackground(file, _photoAreas[_currentPhotoIndex].key);
+
+                // Auto-advance after 1 second
+                setTimeout(function() {
+                    URL.revokeObjectURL(preview);
+                    _currentPhotoIndex++;
+                    if (_currentPhotoIndex >= 5) {
+                        finalizarYVolver();
+                    } else {
+                        actualizarPhotoUI();
+                        // Reset file input
+                        document.getElementById('photoCaptureInput').value = '';
+                    }
+                }, 1000);
+            });
+        }
+    });
+
+    function skipPhoto() {
+        _currentPhotoIndex++;
+        if (_currentPhotoIndex >= 5) {
+            finalizarYVolver();
+        } else {
+            actualizarPhotoUI();
+        }
+    }
+
+    function uploadPhotoInBackground(file, areaKey) {
+        compressImage(file, 1200, 0.7).then(function(compressed) {
+            var formData = new FormData();
+            formData.append('image', compressed, 'photo.jpg');
+            formData.append('area', areaKey);
+
+            fetch('/gestion/limpieza/' + _limpiezaIdGlobal + '/foto-rapida', {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': _csrfToken },
+                body: formData
+            }).catch(function(err) { console.error('Upload error:', err); });
+        });
+    }
+
+    function finalizarYVolver() {
+        // Hide overlay immediately
+        document.getElementById('photoCaptureOverlay').style.display = 'none';
+
+        // Set consent hidden fields for backend compatibility
+        document.getElementById('consentimientoFinalizarHidden').value = 'true';
+        document.getElementById('motivoConsentimientoHidden').value = 'Finalizacion rapida con fotos';
+        document.getElementById('fechaConsentimientoHidden').value = new Date().toISOString();
+
+        // Send finalization via the existing form (POST to gestion.finalizar)
+        showLoadingOverlay('Finalizando limpieza...');
+        document.getElementById('formFinalizar').submit();
+    }
+
+    // Image compression utility
+    function compressImage(file, maxWidth, quality) {
+        return new Promise(function(resolve) {
+            var reader = new FileReader();
+            reader.onload = function(e) {
+                var img = new Image();
+                img.onload = function() {
+                    var canvas = document.createElement('canvas');
+                    var w = img.width, h = img.height;
+                    if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+                    canvas.width = w;
+                    canvas.height = h;
+                    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+                    canvas.toBlob(function(blob) { resolve(blob); }, 'image/jpeg', quality);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+    // ============================================================
+    // END QUICK FINALIZATION FLOW
+    // ============================================================
     
     function mostrarNotificacion(mensaje, tipo) {
         // Intentar usar toastr si está disponible
@@ -1440,13 +1091,12 @@
         const btnTerminar = $('.apple-btn-success');
         const terminarMessage = $('#terminarMessage');
         
+        // Button always enabled - quick flow handles incomplete checklists via SweetAlert
+        btnTerminar.removeClass('apple-btn-secondary').addClass('apple-btn-success');
+        btnTerminar.prop('disabled', false);
         if (itemsMarcados === totalItems && totalItems > 0) {
-            btnTerminar.removeClass('apple-btn-secondary').addClass('apple-btn-success');
-            btnTerminar.prop('disabled', false);
             terminarMessage.hide();
         } else {
-            // Verificar si hay consentimiento para habilitar el botón
-            validarBotonTerminar();
             terminarMessage.show();
         }
     }
