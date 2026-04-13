@@ -149,7 +149,7 @@
         </div>
         
         <div class="apple-card-body">
-            <form action="{{ route('gestion.updateTarea', $tarea) }}" method="POST" id="formPrincipalLimpieza">
+            <form action="{{ route('gestion.updateTarea', $tarea) }}" method="POST" id="formPrincipalLimpieza" data-limpieza-id="{{ $tarea->apartamentoLimpieza ? $tarea->apartamentoLimpieza->id : 0 }}">
                 @csrf
                 <input type="hidden" name="id" value="{{ $tarea->id }}">
 

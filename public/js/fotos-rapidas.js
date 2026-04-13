@@ -4,6 +4,12 @@ var _fotoIdx2=0,_limpId2=0;
 
 function _initFotosRapidas(limpiezaId){_limpId2=limpiezaId||0;}
 
+// Auto-detect from form data attribute
+document.addEventListener('DOMContentLoaded',function(){
+    var f=document.getElementById('formPrincipalLimpieza');
+    if(f&&f.dataset.limpiezaId){_limpId2=parseInt(f.dataset.limpiezaId)||0;}
+});
+
 function _mostrarFotosYFinalizar(){
     if(!_limpId2){_enviarFinalizacionReal();return;}
     // Create overlay if not exists
