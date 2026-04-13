@@ -1326,6 +1326,18 @@ Route::middleware(['auth'])->prefix('limpiadora')->name('limpiadora.')->group(fu
     Route::get('/cambiar-idioma/{idioma}', [App\Http\Controllers\LimpiadoraDashboardController::class, 'cambiarIdioma'])->name('cambiar-idioma');
 });
 
+// Rutas accesibles para limpiadoras (auth sin role:ADMIN)
+Route::middleware(['auth'])->group(function () {
+    // Incidencias
+    Route::get('gestion/incidencias', [App\Http\Controllers\GestionIncidenciasController::class, 'index'])->name('gestion.incidencias.index');
+    Route::get('gestion/incidencias/create', [App\Http\Controllers\GestionIncidenciasController::class, 'create'])->name('gestion.incidencias.create');
+    Route::post('gestion/incidencias/store', [App\Http\Controllers\GestionIncidenciasController::class, 'store'])->name('gestion.incidencias.store');
+    Route::get('gestion/incidencias/{id}', [App\Http\Controllers\GestionIncidenciasController::class, 'show'])->name('gestion.incidencias.show');
+    Route::post('gestion/incidencias/{id}/add-photos', [App\Http\Controllers\GestionIncidenciasController::class, 'addPhotos'])->name('gestion.incidencias.add-photos');
+    // Foto rapida de limpieza
+    Route::post('gestion/limpieza/{id}/foto-rapida', [App\Http\Controllers\GestionApartamentoController::class, 'fotoRapida'])->name('gestion.limpieza.fotoRapida');
+});
+
 // Rutas para panel de mantenimiento
 Route::middleware(['auth', 'role:MANTENIMIENTO'])->prefix('mantenimiento')->name('mantenimiento.')->group(function () {
     Route::get('/dashboard', [App\Http\Controllers\MantenimientoDashboardController::class, 'index'])->name('dashboard');
