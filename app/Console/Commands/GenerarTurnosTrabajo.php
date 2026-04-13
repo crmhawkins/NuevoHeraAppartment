@@ -733,7 +733,7 @@ class GenerarTurnosTrabajo extends Command
     {
         // Todos los apartamentos activos, excluyendo oficina (18)
         $apartamentos = Apartamento::where('id', '!=', 18)
-            ->where('activo', true)
+            ->whereNotIn('id', [16, 17, 19, 20, 22, 23]) // Excluir escaleras, oficina, lavanderia, test
             ->get();
 
         $mejorApto = null;
