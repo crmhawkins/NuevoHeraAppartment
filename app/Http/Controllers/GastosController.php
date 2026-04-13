@@ -247,6 +247,9 @@ class GastosController extends Controller
         }
 
         $pathToFile = storage_path('app/' . $gasto->factura_foto);
+        if (!file_exists($pathToFile)) {
+            return abort(404, 'El archivo adjunto no se encuentra en el servidor.');
+        }
         return response()->download($pathToFile);
     }
 }
