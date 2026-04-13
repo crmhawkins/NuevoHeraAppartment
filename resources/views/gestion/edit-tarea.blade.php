@@ -503,32 +503,9 @@
                             </div>
                             
                             <!-- Mensaje informativo sobre los botones -->
-                            <div class="info-banner" style="
-                                background: linear-gradient(135deg, #E8F5E8 0%, #D4EDDA 100%);
-                                border: 2px solid #28A745;
-                                border-radius: 15px;
-                                padding: 15px;
-                                text-align: center;
-                                box-shadow: 0 4px 12px rgba(40, 167, 69, 0.2);
-                            ">
-                                <div class="d-flex align-items-center justify-content-center">
-                                    <i class="fas fa-info-circle text-success me-2" style="font-size: 1.2em;"></i>
-                                    <div>
-                                        <strong class="text-success">Información:</strong>
-                                        <span class="text-dark ms-2"><strong>"Guardar Limpieza"</strong> funciona siempre para guardar el progreso. <strong>"Terminar"</strong> requiere completar todos los checklists o dar consentimiento explicando el motivo.</span>
-                                    </div>
-                                </div>
-                            </div>
+                            <!-- Info y consentimiento eliminados -->
                             
-                            <!-- Checkbox de consentimiento para finalizar sin completar todos los checklists -->
-                            <div class="consentimiento-section mt-3" style="
-                                background: linear-gradient(135deg, #FFF3CD 0%, #FFEAA7 100%);
-                                border: 2px solid #FFC107;
-                                border-radius: 15px;
-                                padding: 20px;
-                                text-align: left;
-                                box-shadow: 0 4px 12px rgba(255, 193, 7, 0.2);
-                            ">
+                            <div style="display:none;">
                                 <div class="d-flex align-items-start">
                                     <i class="fas fa-exclamation-triangle text-warning me-3" style="font-size: 1.5em; margin-top: 2px;"></i>
                                     <div class="flex-grow-1">
@@ -652,7 +629,7 @@
         </div>
         <div id="photoPreview" style="flex:1; display:flex; align-items:center; justify-content:center; width:100%; padding:10px;">
             <img id="previewImage" style="max-width:90%; max-height:50vh; border-radius:12px; display:none;">
-            <div id="cameraPrompt" style="font-size:80px;">📷</div>
+            <div id="cameraPrompt" style="font-size:100px;"></div>
         </div>
         <input type="file" id="photoCaptureInput" accept="image/*" capture="environment" style="display:none;">
         <button id="captureBtn" onclick="document.getElementById('photoCaptureInput').click()"
@@ -934,12 +911,17 @@
         actualizarPhotoUI();
     }
 
+    var _areaIcons = {
+        cocina: '🍳', salon: '🛋️', comedor: '🍽️', dormitorio: '🛏️', bano: '🚿'
+    };
+
     function actualizarPhotoUI() {
         var area = _photoAreas[_currentPhotoIndex];
-        document.getElementById('photoAreaName').textContent = area.emoji + ' ' + area.name;
+        document.getElementById('photoAreaName').textContent = area.name;
         document.getElementById('photoCounter').textContent = 'Foto ' + (_currentPhotoIndex + 1) + ' de 5';
         document.getElementById('previewImage').style.display = 'none';
         document.getElementById('cameraPrompt').style.display = 'block';
+        document.getElementById('cameraPrompt').textContent = _areaIcons[area.key] || '📷';
         document.getElementById('captureBtn').style.display = 'inline-block';
         document.querySelectorAll('#progressDots .dot').forEach(function(dot, i) {
             dot.style.color = i <= _currentPhotoIndex ? '#0891b2' : '#444';

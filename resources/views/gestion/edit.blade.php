@@ -722,7 +722,7 @@
         <!-- Preview area -->
         <div id="photoPreview" style="flex:1; width:100%; display:flex; align-items:center; justify-content:center; min-height:200px; max-height:60vh;">
             <img id="previewImage" style="max-width:90%; max-height:55vh; border-radius:12px; display:none;">
-            <div id="cameraPrompt" style="font-size:80px;">&#128247;</div>
+            <div id="cameraPrompt" style="font-size:100px;"></div>
         </div>
 
         <!-- Camera input (hidden) -->
@@ -892,12 +892,17 @@
         actualizarPhotoUI();
     }
 
+    var _areaIcons = {
+        cocina: '\uD83C\uDF73', salon: '\uD83D\uDECB\uFE0F', comedor: '\uD83C\uDF7D\uFE0F', dormitorio: '\uD83D\uDECF\uFE0F', bano: '\uD83D\uDEBF'
+    };
+
     function actualizarPhotoUI() {
         var area = _photoAreas[_currentPhotoIndex];
-        document.getElementById('photoAreaName').textContent = area.emoji + ' ' + area.name;
+        document.getElementById('photoAreaName').textContent = area.name;
         document.getElementById('photoCounter').textContent = 'Foto ' + (_currentPhotoIndex + 1) + ' de 5';
         document.getElementById('previewImage').style.display = 'none';
         document.getElementById('cameraPrompt').style.display = 'block';
+        document.getElementById('cameraPrompt').textContent = _areaIcons[area.key] || '\uD83D\uDCF7';
         document.getElementById('captureBtn').style.display = 'inline-block';
 
         // Update progress dots
