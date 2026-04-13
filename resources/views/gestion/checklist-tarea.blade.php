@@ -1077,61 +1077,148 @@ function finalizarTarea() {
     const itemsCompletados = document.querySelectorAll('.item-checkbox:checked').length;
     const porcentajeCompletado = totalItems > 0 ? (itemsCompletados / totalItems) * 100 : 100;
     
-    // Si faltan checks, mostrar popup simple
+    // Si faltan checks, mostrar popup SweetAlert
     if (porcentajeCompletado < 100) {
-        if (!confirm('¡No has revisado todos los tics del apartamento! ¿Continuar de todas formas?')) {
-            return;
-        }
-        // Auto-rellenar consentimiento
-        const chk = document.getElementById('consentimientoFinalizar');
-        if (chk) chk.checked = true;
-        const motivo = document.getElementById('motivoConsentimiento');
-        if (motivo) motivo.value = 'Finalizado con checks incompletos';
+        Swal.fire({
+            title: '¡No has revisado todos los tics del apartamento!',
+            text: 'Faltan ' + (totalItems - itemsCompletados) + ' elementos por revisar',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#0891b2',
+            cancelButtonColor: '#dc2626',
+            confirmButtonText: 'Continuar',
+            cancelButtonText: 'Arreglar',
+            reverseButtons: true
+        }).then(function(result) {
+            if (result.isConfirmed) {
+                _mostrarFotosYFinalizar();
+            }
+        });
+        return;
     }
+    _mostrarFotosYFinalizar();
+}
 
-    if (true) {
-        mostrarOverlay();
-        
-        // Preparar datos del formulario
-        const formData = new FormData(document.getElementById('formPrincipalLimpieza'));
-        formData.append('accion', 'finalizar');
-        
-        // Añadir datos de consentimiento si es necesario
-        const consentimientoCheckbox = document.getElementById('consentimientoFinalizar');
-        const motivoTextarea = document.getElementById('motivoConsentimiento');
-        
-        if (consentimientoCheckbox.checked) {
-            formData.set('consentimiento_finalizacion', 'true');
-            formData.set('motivo_consentimiento', motivoTextarea.value);
-            formData.set('fecha_consentimiento', new Date().toISOString());
+// Fotos rápidas + finalización
+var _fotoAreas = [
+    { key: 'cocina', icon: '🍳', name: 'Cocina' },
+    { key: 'salon', icon: '🛋️', name: 'Salón' },
+    { key: 'comedor', icon: '🍽️', name: 'Comedor' },
+    { key: 'dormitorio', icon: '🛏️', name: 'Dormitorio' },
+    { key: 'bano', icon: '🚿', name: 'Baño' },
+];
+var _fotoIdx = 0;
+var _limpId = {{ $tarea->apartamentoLimpieza ? $tarea->apartamentoLimpieza->id : 0 }};
+
+function _mostrarFotosYFinalizar() {
+    if (!_limpId) { _enviarFinalizacionReal(); return; }
+    _fotoIdx = 0;
+    document.getElementById('fotoOverlay').style.display = 'block';
+    _actualizarFoto();
+}
+
+function _actualizarFoto() {
+    var a = _fotoAreas[_fotoIdx];
+    document.getElementById('fotoNombre').textContent = a.name;
+    document.getElementById('fotoIcono').textContent = a.icon;
+    document.getElementById('fotoContador').textContent = 'Foto ' + (_fotoIdx+1) + ' de 5';
+    document.getElementById('fotoPreviewImg').style.display = 'none';
+    document.getElementById('fotoIcono').style.display = 'block';
+    document.getElementById('fotoCaptureBtn').style.display = 'inline-block';
+    document.querySelectorAll('#fotoDots .dot').forEach(function(d,i){ d.style.color = i<=_fotoIdx?'#0891b2':'#444'; });
+}
+
+function _omitirFoto() {
+    _fotoIdx++;
+    if (_fotoIdx >= 5) { _cerrarFotosYFinalizar(); }
+    else { _actualizarFoto(); document.getElementById('fotoInput').value=''; }
+}
+
+function _cerrarFotosYFinalizar() {
+    document.getElementById('fotoOverlay').style.display = 'none';
+    _enviarFinalizacionReal();
+}
+
+function _enviarFinalizacionReal() {
+    mostrarOverlay();
+    var formData = new FormData(document.getElementById('formPrincipalLimpieza'));
+    formData.append('accion', 'finalizar');
+    formData.set('consentimiento_finalizacion', 'true');
+    formData.set('motivo_consentimiento', 'Finalizado con fotos rapidas');
+    formData.set('fecha_consentimiento', new Date().toISOString());
+
+    fetch('{{ route("gestion.updateTarea", $tarea) }}', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content') }
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        ocultarOverlay();
+        if (data.success) {
+            window.location.href = '/limpiadora/dashboard';
+        } else {
+            mostrarAlerta(data.message || 'Error al finalizar', 'error');
         }
-        
-        fetch('{{ route("gestion.updateTarea", $tarea) }}', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            ocultarOverlay();
-            if (data.success) {
-                mostrarAlerta('Tarea finalizada correctamente', 'success');
-                setTimeout(() => {
-                    window.location.href = '{{ route("gestion.index") }}';
-                }, 2000);
-            } else {
-                mostrarAlerta(data.message || 'Error al finalizar la tarea', 'error');
-            }
-        })
-        .catch(error => {
-            ocultarOverlay();
-            console.error('Error:', error);
-            mostrarAlerta('Error al finalizar la tarea', 'error');
+    })
+    .catch(function(err) {
+        ocultarOverlay();
+        console.error(err);
+        // Intentar redirect de todas formas
+        window.location.href = '/limpiadora/dashboard';
+    });
+}
+
+// Comprimir imagen
+function _comprimirImg(file, maxW, q) {
+    return new Promise(function(resolve) {
+        var r = new FileReader();
+        r.onload = function(e) {
+            var img = new Image();
+            img.onload = function() {
+                var c = document.createElement('canvas');
+                var w=img.width, h=img.height;
+                if(w>maxW){h=Math.round(h*maxW/w);w=maxW;}
+                c.width=w;c.height=h;
+                c.getContext('2d').drawImage(img,0,0,w,h);
+                c.toBlob(resolve,'image/jpeg',q);
+            };
+            img.src=e.target.result;
+        };
+        r.readAsDataURL(file);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    var inp = document.getElementById('fotoInput');
+    if (inp) {
+        inp.addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (!file) return;
+            var prev = URL.createObjectURL(file);
+            document.getElementById('fotoPreviewImg').src = prev;
+            document.getElementById('fotoPreviewImg').style.display = 'block';
+            document.getElementById('fotoIcono').style.display = 'none';
+            document.getElementById('fotoCaptureBtn').style.display = 'none';
+            // Upload background
+            _comprimirImg(file, 1200, 0.7).then(function(blob) {
+                var fd = new FormData();
+                fd.append('image', blob, 'photo.jpg');
+                fd.append('area', _fotoAreas[_fotoIdx].key);
+                fd.append('_token', '{{ csrf_token() }}');
+                fetch('/gestion/limpieza/'+_limpId+'/foto-rapida', {
+                    method:'POST', headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}'}, body:fd
+                }).catch(function(err){console.error(err);});
+            });
+            setTimeout(function() {
+                URL.revokeObjectURL(prev);
+                _fotoIdx++;
+                if (_fotoIdx>=5) { _cerrarFotosYFinalizar(); }
+                else { _actualizarFoto(); inp.value=''; }
+            }, 1000);
         });
     }
-}
+});
 
 function mostrarOverlay() {
     document.getElementById('loadingOverlay').style.display = 'flex';
@@ -1160,4 +1247,27 @@ function mostrarAlerta(mensaje, tipo = 'info') {
     }
 }
 </script>
+
+<!-- Overlay Fotos Rapidas -->
+<div id="fotoOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9999;color:#fff;">
+    <div style="text-align:center;padding-top:30px;height:100%;display:flex;flex-direction:column;align-items:center;">
+        <h2 id="fotoNombre" style="font-size:28px;margin-bottom:8px;font-weight:700;"></h2>
+        <p id="fotoContador" style="font-size:14px;color:#aaa;margin-bottom:10px;"></p>
+        <div id="fotoDots" style="margin:10px 0;font-size:20px;">
+            <span class="dot">●</span> <span class="dot">●</span> <span class="dot">●</span> <span class="dot">●</span> <span class="dot">●</span>
+        </div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;width:100%;padding:10px;">
+            <img id="fotoPreviewImg" style="max-width:90%;max-height:50vh;border-radius:12px;display:none;">
+            <div id="fotoIcono" style="font-size:100px;"></div>
+        </div>
+        <input type="file" id="fotoInput" accept="image/*" capture="environment" style="display:none;">
+        <button id="fotoCaptureBtn" onclick="document.getElementById('fotoInput').click()"
+                style="width:80px;height:80px;border-radius:50%;background:#0891b2;border:4px solid #fff;color:#fff;font-size:30px;margin:10px 0;">
+            📸
+        </button>
+        <button onclick="_omitirFoto()" style="background:none;border:none;color:#666;font-size:13px;text-decoration:underline;margin-bottom:30px;">
+            Omitir esta foto
+        </button>
+    </div>
+</div>
 @endsection
