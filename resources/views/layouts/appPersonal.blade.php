@@ -1349,8 +1349,11 @@
     
     @include('sweetalert::alert')
 
+    <!-- Fotos rapidas para finalizacion de limpieza -->
+    <script src="{{ asset('js/fotos-rapidas.js') }}"></script>
+
     @stack('scripts')
-    
+
     @yield('scripts')
 </body>
 </html>
