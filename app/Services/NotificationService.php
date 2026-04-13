@@ -403,7 +403,7 @@ class NotificationService
             'stock_minimo' => $stockMinimo
         ];
         
-        $actionUrl = route('admin.inventario.index');
+        $actionUrl = '/admin'; // Inventario no tiene ruta propia aún
         
         $notifications = Notification::createForAdmins(
             Notification::TYPE_INVENTARIO,

@@ -2541,6 +2541,10 @@ public function updateZonaComun(Request $request, ApartamentoLimpieza $apartamen
 
         Alert::success('Finalizado con Éxito', 'Apartamento Finalizado correctamente');
 
+        // Limpiadoras vuelven a su dashboard, admins a gestión
+        if (auth()->user()->role === 'LIMPIEZA') {
+            return redirect('/limpiadora/dashboard');
+        }
         return redirect()->route('gestion.index');
     }
 
@@ -2634,6 +2638,9 @@ public function updateZonaComun(Request $request, ApartamentoLimpieza $apartamen
 
         Alert::success('Finalizado con Éxito', 'Zona Común finalizada correctamente');
 
+        if (auth()->user()->role === 'LIMPIEZA') {
+            return redirect('/limpiadora/dashboard');
+        }
         return redirect()->route('gestion.index');
     }
 
