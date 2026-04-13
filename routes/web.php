@@ -1454,3 +1454,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:ADMIN'])->grou
 
 // Descargas temporales (publico, sin auth)
 Route::get("/descargas/asesoria/{token}", [App\Http\Controllers\DescargaTemporalController::class, "descargar"])->name("descarga.temporal");
+
+// Login limpiadoras (publico, sin certificado - solo nombre + contraseña)
+Route::get('/limpieza', [App\Http\Controllers\LimpiadoraLoginController::class, 'showLogin'])->name('limpiadora.login');
+Route::post('/limpieza', [App\Http\Controllers\LimpiadoraLoginController::class, 'login'])->name('limpiadora.login.post');
