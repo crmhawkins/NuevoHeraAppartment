@@ -1338,6 +1338,21 @@ function mostrarAlerta(mensaje, tipo = 'info') {
 }
 </script>
 
+@endsection
+
+@section('scripts')
+<script>
+var _fotoAreas2=[{key:'cocina',icon:'\uD83C\uDF73',name:'Cocina'},{key:'salon',icon:'\uD83D\uDECB\uFE0F',name:'Salon'},{key:'comedor',icon:'\uD83C\uDF7D\uFE0F',name:'Comedor'},{key:'dormitorio',icon:'\uD83D\uDECF\uFE0F',name:'Dormitorio'},{key:'bano',icon:'\uD83D\uDEBF',name:'Bano'}];
+var _fotoIdx2=0,_limpId2=0;
+try{_limpId2={{ $tarea->apartamentoLimpieza ? $tarea->apartamentoLimpieza->id : 0 }};}catch(e){_limpId2=0;}
+function _mostrarFotosYFinalizar(){if(!_limpId2){_enviarFinalizacionReal();return;}_fotoIdx2=0;document.getElementById('fotoOverlay').style.display='block';_actualizarFoto2();}
+function _actualizarFoto2(){var a=_fotoAreas2[_fotoIdx2];document.getElementById('fotoNombre').textContent=a.name;document.getElementById('fotoIcono').textContent=a.icon;document.getElementById('fotoContador').textContent='Foto '+(_fotoIdx2+1)+' de 5';document.getElementById('fotoPreviewImg').style.display='none';document.getElementById('fotoIcono').style.display='block';document.getElementById('fotoCaptureBtn').style.display='inline-block';var d=document.querySelectorAll('#fotoDots .dot');for(var i=0;i<d.length;i++)d[i].style.color=i<=_fotoIdx2?'#0891b2':'#444';}
+function _omitirFoto(){_fotoIdx2++;if(_fotoIdx2>=5)_cerrarFotosYFinalizar();else{_actualizarFoto2();document.getElementById('fotoInput').value='';}}
+function _cerrarFotosYFinalizar(){document.getElementById('fotoOverlay').style.display='none';_enviarFinalizacionReal();}
+function _enviarFinalizacionReal(){var ol=document.getElementById('loadingOverlay');if(ol)ol.style.display='flex';var f=document.getElementById('formPrincipalLimpieza');var fd=new FormData(f);fd.append('accion','finalizar');fd.set('consentimiento_finalizacion','true');fd.set('motivo_consentimiento','Finalizado con fotos');fetch(f.action,{method:'POST',body:fd,headers:{'X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]').getAttribute('content')}}).then(function(r){return r.json();}).then(function(d){if(d.success)window.location.href='/limpiadora/dashboard';else{if(ol)ol.style.display='none';alert(d.message||'Error');}}).catch(function(){window.location.href='/limpiadora/dashboard';});}
+function _comprimirImg2(file,mW,q){return new Promise(function(res){var r=new FileReader();r.onload=function(e){var img=new Image();img.onload=function(){var c=document.createElement('canvas'),w=img.width,h=img.height;if(w>mW){h=Math.round(h*mW/w);w=mW;}c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);c.toBlob(res,'image/jpeg',q);};img.src=e.target.result;};r.readAsDataURL(file);});}
+document.addEventListener('DOMContentLoaded',function(){var inp=document.getElementById('fotoInput');if(inp)inp.addEventListener('change',function(e){var file=e.target.files[0];if(!file)return;var prev=URL.createObjectURL(file);document.getElementById('fotoPreviewImg').src=prev;document.getElementById('fotoPreviewImg').style.display='block';document.getElementById('fotoIcono').style.display='none';document.getElementById('fotoCaptureBtn').style.display='none';var csrf=document.querySelector('meta[name="csrf-token"]').getAttribute('content');_comprimirImg2(file,1200,0.7).then(function(blob){var fd=new FormData();fd.append('image',blob,'photo.jpg');fd.append('area',_fotoAreas2[_fotoIdx2].key);fd.append('_token',csrf);fetch('/gestion/limpieza/'+_limpId2+'/foto-rapida',{method:'POST',headers:{'X-CSRF-TOKEN':csrf},body:fd}).catch(function(err){console.error(err);});});setTimeout(function(){URL.revokeObjectURL(prev);_fotoIdx2++;if(_fotoIdx2>=5)_cerrarFotosYFinalizar();else{_actualizarFoto2();inp.value='';}},1000);});});
+</script>
 <!-- Overlay Fotos Rapidas -->
 <div id="fotoOverlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:#000;z-index:9999;color:#fff;">
     <div style="text-align:center;padding-top:30px;height:100%;display:flex;flex-direction:column;align-items:center;">
