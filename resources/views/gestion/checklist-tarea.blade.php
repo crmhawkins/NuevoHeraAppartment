@@ -1077,23 +1077,19 @@ function finalizarTarea() {
     const itemsCompletados = document.querySelectorAll('.item-checkbox:checked').length;
     const porcentajeCompletado = totalItems > 0 ? (itemsCompletados / totalItems) * 100 : 100;
     
-    // Verificar si necesita consentimiento
+    // Si faltan checks, mostrar popup simple
     if (porcentajeCompletado < 100) {
-        const consentimientoCheckbox = document.getElementById('consentimientoFinalizar');
-        const motivoTextarea = document.getElementById('motivoConsentimiento');
-        
-        if (!consentimientoCheckbox.checked) {
-            mostrarAlerta('Para finalizar sin completar todos los checklists, debes marcar el consentimiento y explicar el motivo.', 'warning');
+        if (!confirm('¡No has revisado todos los tics del apartamento! ¿Continuar de todas formas?')) {
             return;
         }
-        
-        if (!motivoTextarea.value.trim()) {
-            mostrarAlerta('Debes explicar el motivo por el cual no se completaron todos los checklists.', 'warning');
-            return;
-        }
+        // Auto-rellenar consentimiento
+        const chk = document.getElementById('consentimientoFinalizar');
+        if (chk) chk.checked = true;
+        const motivo = document.getElementById('motivoConsentimiento');
+        if (motivo) motivo.value = 'Finalizado con checks incompletos';
     }
-    
-    if (confirm('¿Estás seguro de que quieres finalizar esta tarea?')) {
+
+    if (true) {
         mostrarOverlay();
         
         // Preparar datos del formulario

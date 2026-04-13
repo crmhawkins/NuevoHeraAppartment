@@ -856,47 +856,41 @@
     }
     
     function validarYFinalizar() {
-        // Mostrar overlay de carga
-        showLoadingOverlay('Validando finalización...');
-        
-        // Obtener todos los checklists del edificio
+        // Obtener todos los checklists
         const checklists = document.querySelectorAll('.category-switch');
-        const checklistsFaltantes = [];
-        
-        // Verificar cuáles no están marcados
-        checklists.forEach(function(checklist) {
-            if (!checklist.checked) {
-                const habitacionNombre = checklist.closest('.checklist-section').querySelector('.section-title').textContent;
-                checklistsFaltantes.push(habitacionNombre);
-            }
-        });
-        
-        // Si hay checklists faltantes, verificar consentimiento
-        if (checklistsFaltantes.length > 0) {
-            const checkboxConsentimiento = document.getElementById('consentimientoFinalizar');
-            const motivoTextarea = document.getElementById('motivoConsentimiento');
-            
-            if (!checkboxConsentimiento || !checkboxConsentimiento.checked) {
-                hideLoadingOverlay();
-                mostrarModalError('Debes marcar el consentimiento para finalizar sin completar todos los checklists.');
-                return false;
-            }
-            
-            if (!motivoTextarea || !motivoTextarea.value.trim()) {
-                hideLoadingOverlay();
-                mostrarModalError('Debes explicar el motivo del consentimiento para poder finalizar.');
-                return false;
-            }
-            
-            // Si hay consentimiento y motivo, mostrar confirmación con aviso
-            hideLoadingOverlay();
-            mostrarConfirmacionFinalizarConAviso(checklistsFaltantes);
-            return false;
+        let faltantes = 0;
+        checklists.forEach(function(ch) { if (!ch.checked) faltantes++; });
+
+        if (faltantes > 0) {
+            // Popup simple: faltan checks
+            Swal.fire({
+                title: '¡No has revisado todos los tics del apartamento!',
+                text: 'Faltan ' + faltantes + ' elementos por revisar',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#0891b2',
+                cancelButtonColor: '#dc2626',
+                confirmButtonText: 'Continuar',
+                cancelButtonText: 'Arreglar',
+                reverseButtons: true
+            }).then(function(result) {
+                if (result.isConfirmed) {
+                    // Poner consentimiento automatico y enviar
+                    var chk = document.getElementById('consentimientoFinalizar');
+                    if (chk) chk.checked = true;
+                    var motivo = document.getElementById('motivoConsentimiento');
+                    if (motivo) motivo.value = 'Finalizado con ' + faltantes + ' checks sin revisar';
+                    enviarFinalizacion();
+                }
+            });
+        } else {
+            enviarFinalizacion();
         }
-        
-        // Si todos están marcados, confirmar finalización normal
-        hideLoadingOverlay();
-        mostrarConfirmacionFinalizar();
+    }
+
+    function enviarFinalizacion() {
+        showLoadingOverlay('Finalizando...');
+        document.getElementById('formFinalizar').submit();
     }
     
     function mostrarAvisoChecklistsFaltantes(checklistsFaltantes) {

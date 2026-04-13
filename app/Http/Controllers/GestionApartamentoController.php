@@ -2480,28 +2480,19 @@ public function updateZonaComun(Request $request, ApartamentoLimpieza $apartamen
         // Verificar si faltan checklists por marcar
         $checklistsFaltantes = $checklists->whereNotIn('id', $checklistsMarcados);
 
-        // Si faltan checklists y no hay consentimiento, mostrar error
+        // Si faltan checklists, registrar pero NO bloquear
         if ($checklistsFaltantes->count() > 0) {
-            $consentimiento = $request->input('consentimiento_finalizacion');
-
-            if ($consentimiento !== 'true') {
-                $nombresFaltantes = $checklistsFaltantes->pluck('nombre')->implode(', ');
-                Alert::error('No se puede finalizar', 'Debes completar todos los checklists antes de finalizar: ' . $nombresFaltantes . ' O marcar el consentimiento de finalización.');
-
-                // Redirigir de vuelta al formulario de edición
-                return redirect()->route('gestion.edit', $apartamentoLimpieza);
-            }
-
-            // Si hay consentimiento, guardar la información del consentimiento
+            $nombresFaltantes = $checklistsFaltantes->pluck('nombre')->implode(', ');
             $apartamentoLimpieza->consentimiento_finalizacion = true;
-            $apartamentoLimpieza->motivo_consentimiento = $request->input('motivo_consentimiento', 'Usuario confirmó que puede finalizar sin completar todos los checklists');
+            $apartamentoLimpieza->motivo_consentimiento = $request->input('motivo_consentimiento', 'Finalizado con checks incompletos: ' . $nombresFaltantes);
             $apartamentoLimpieza->fecha_consentimiento = now();
             $apartamentoLimpieza->user_id_consentimiento = auth()->id();
             $apartamentoLimpieza->save();
 
-            // Mostrar advertencia pero permitir continuar
-            $nombresFaltantes = $checklistsFaltantes->pluck('nombre')->implode(', ');
-            Alert::warning('Finalización con Checklists Incompletos', 'Has confirmado que puedes finalizar sin completar todos los checklists. Checklists faltantes: ' . $nombresFaltantes);
+            Log::info('[Limpieza] Finalizada con checks incompletos', [
+                'limpieza_id' => $apartamentoLimpieza->id,
+                'faltantes' => $nombresFaltantes,
+            ]);
         }
 
         $hoy = Carbon::now();
