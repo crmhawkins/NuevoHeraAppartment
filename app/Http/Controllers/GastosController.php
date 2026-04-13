@@ -242,14 +242,16 @@ class GastosController extends Controller
     public function download($id)
     {
         $gasto = Gastos::findOrFail($id);
+
         if (!$gasto->factura_foto) {
-            return abort(404);
+            return redirect()->back()->with('error', 'Este gasto no tiene archivo adjunto. Puede subirlo desde Facturas Recibidas.');
         }
 
         $pathToFile = storage_path('app/' . $gasto->factura_foto);
         if (!file_exists($pathToFile)) {
-            return abort(404, 'El archivo adjunto no se encuentra en el servidor.');
+            return redirect()->back()->with('error', 'El archivo adjunto se ha perdido del servidor. Por favor, vuelva a subirlo desde Facturas Recibidas.');
         }
+
         return response()->download($pathToFile);
     }
 }

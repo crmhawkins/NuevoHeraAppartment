@@ -124,16 +124,17 @@ class DashboardFinancieroController extends Controller
      */
     public function asignarReferencias()
     {
-        // Obtener ultimo numero de referencia de 2026
+        // Obtener ultimo numero de referencia de 2026 (excluir R-prefixed rectificativas)
         $ultimaRef = DB::table('invoices')
             ->whereNotNull('reference')
-            ->where('reference', 'like', 'R2026%')
+            ->where('reference', 'like', '2026/%')
+            ->where('reference', 'not like', 'R%')
             ->orderByDesc('reference')
             ->value('reference');
 
         // Extraer el numero secuencial
         $ultimoNumero = 0;
-        if ($ultimaRef && preg_match('/R\d{4}\/\d{2}\/(\d+)/', $ultimaRef, $matches)) {
+        if ($ultimaRef && preg_match('/\d{4}\/\d{2}\/(\d+)/', $ultimaRef, $matches)) {
             $ultimoNumero = (int) $matches[1];
         }
 
@@ -151,7 +152,7 @@ class DashboardFinancieroController extends Controller
         foreach ($facturasSinRef as $f) {
             $ultimoNumero++;
             $mes = Carbon::parse($f->fecha)->format('m');
-            $referencia = sprintf('R2026/%s/%06d', $mes, $ultimoNumero);
+            $referencia = sprintf('2026/%s/%06d', $mes, $ultimoNumero);
 
             DB::table('invoices')->where('id', $f->id)->update([
                 'reference' => $referencia,
@@ -164,8 +165,8 @@ class DashboardFinancieroController extends Controller
             'success' => true,
             'message' => "Se han asignado {$asignadas} referencias consecutivas.",
             'desde' => $ultimaRef,
-            'primera_nueva' => $facturasSinRef->first() ? sprintf('R2026/%s/%06d', Carbon::parse($facturasSinRef->first()->fecha)->format('m'), ($ultimoNumero - $asignadas + 1)) : null,
-            'ultima_nueva' => $facturasSinRef->last() ? sprintf('R2026/%s/%06d', Carbon::parse($facturasSinRef->last()->fecha)->format('m'), $ultimoNumero) : null,
+            'primera_nueva' => $facturasSinRef->first() ? sprintf('2026/%s/%06d', Carbon::parse($facturasSinRef->first()->fecha)->format('m'), ($ultimoNumero - $asignadas + 1)) : null,
+            'ultima_nueva' => $facturasSinRef->last() ? sprintf('2026/%s/%06d', Carbon::parse($facturasSinRef->last()->fecha)->format('m'), $ultimoNumero) : null,
         ]);
     }
 }
