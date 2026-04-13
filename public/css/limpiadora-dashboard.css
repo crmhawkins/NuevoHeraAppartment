@@ -452,29 +452,29 @@
 /* Responsive para móviles */
 @media (max-width: 768px) {
     .stats-grid {
-        grid-template-columns: 1fr; /* 1 columna en móvil */
+        grid-template-columns: repeat(2, 1fr); /* 2 columnas en móvil */
         gap: 12px;
     }
-    
+
     .stat-card {
         padding: 15px;
     }
-    
+
     .stat-icon {
         width: 45px;
         height: 45px;
         font-size: 18px;
         margin-right: 12px;
     }
-    
+
     .stat-number {
         font-size: 20px;
     }
-    
+
     .stat-label {
         font-size: 13px;
     }
-    
+
     .stat-detail {
         font-size: 11px;
     }
@@ -906,13 +906,13 @@
 
 @media (max-width: 480px) {
     .stats-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr); /* 2 columnas incluso en pantallas pequeñas */
     }
-    
+
     .dashboard-header {
         padding: 15px;
     }
-    
+
     .welcome-title {
         font-size: 20px;
     }

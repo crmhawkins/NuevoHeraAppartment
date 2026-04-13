@@ -970,7 +970,7 @@ Route::middleware(['auth', 'role:ADMIN'])->group(function () {
     // Admin: Panel Drag & Drop de Turnos
     Route::get('admin/turnos-panel', [App\Http\Controllers\Admin\TurnosAdminController::class, 'index'])->name('admin.turnos-panel.index');
     Route::post('admin/turnos-panel/agregar-tarea', [App\Http\Controllers\Admin\TurnosAdminController::class, 'agregarTarea'])->name('admin.turnos-panel.agregarTarea');
-    Route::delete('admin/turnos-panel/quitar-tarea/{id}', [App\Http\Controllers\Admin\TurnosAdminController::class, 'quitarTarea'])->name('admin.turnos-panel.quitarTarea');
+    Route::post('admin/turnos-panel/quitar-tarea/{id}', [App\Http\Controllers\Admin\TurnosAdminController::class, 'quitarTarea'])->name('admin.turnos-panel.quitarTarea');
     Route::post('admin/turnos-panel/mover-tarea', [App\Http\Controllers\Admin\TurnosAdminController::class, 'moverTarea'])->name('admin.turnos-panel.moverTarea');
     Route::post('admin/turnos-panel/regenerar', [App\Http\Controllers\Admin\TurnosAdminController::class, 'regenerar'])->name('admin.turnos-panel.regenerar');
 

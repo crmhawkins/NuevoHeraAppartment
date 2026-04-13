@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="{{ Auth::check() && Auth::user()->idioma_preferido ? Auth::user()->idioma_preferido : str_replace('_', '-', app()->getLocale()) }}" dir="{{ Auth::check() && Auth::user()->idioma_preferido === 'ar' ? 'rtl' : 'ltr' }}">
+<html lang="{{ Auth::check() && Auth::user()->idioma_preferido ? Auth::user()->idioma_preferido : str_replace('_', '-', app()->getLocale()) }}" dir="ltr">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1223,7 +1223,7 @@
             @csrf
         </form>
 
-        <main class="py-4 contendor">
+        <main class="py-4 contendor" @if(Auth::check() && Auth::user()->idioma_preferido === 'ar') dir="rtl" @endif>
             @yield('content')
         </main>
         <footer class="apple-tab-bar">
@@ -1259,7 +1259,7 @@
                     <div class="apple-tab-icon">
                         <i class="bi bi-calendar-week"></i>
                     </div>
-                    <span class="apple-tab-label">{{ Auth::user()->idioma_preferido === 'ar' ? "\u0627\u0644\u0648\u0631\u062F\u064A\u0627\u062A" : 'Mis Turnos' }}</span>
+                    <span class="apple-tab-label">Mis Turnos</span>
                 </a>
 
                 @if(Auth::user()->role === 'LIMPIEZA')
@@ -1267,7 +1267,7 @@
                     <div class="apple-tab-icon">
                         <i class="bi bi-calendar-month"></i>
                     </div>
-                    <span class="apple-tab-label">{{ Auth::user()->idioma_preferido === 'ar' ? "\u062A\u062E\u0637\u064A\u0637" : 'Plan' }}</span>
+                    <span class="apple-tab-label">Plan</span>
                 </a>
                 @endif
 

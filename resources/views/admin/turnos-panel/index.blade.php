@@ -460,7 +460,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         fetch('{{ route("admin.turnos-panel.regenerar") }}', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
             body: JSON.stringify({ fecha: currentFecha })
         })
         .then(function(r) { return r.json(); })
@@ -606,7 +606,7 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         fetch('{{ route("admin.turnos-panel.agregarTarea") }}', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
             body: JSON.stringify(body)
         })
         .then(function(r) { return r.json(); })
@@ -627,7 +627,7 @@ document.addEventListener('DOMContentLoaded', function() {
         setStatus('Moviendo tarea...');
         fetch('{{ route("admin.turnos-panel.moverTarea") }}', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' },
             body: JSON.stringify({ tarea_id: tareaId, turno_destino_id: turnoDestinoId })
         })
         .then(function(r) { return r.json(); })
@@ -670,8 +670,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         setStatus('Quitando tarea...');
         fetch('{{ route("admin.turnos-panel.quitarTarea", ["id" => "__ID__"]) }}'.replace('__ID__', tareaId), {
-            method: 'DELETE',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken }
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken, 'X-Requested-With': 'XMLHttpRequest' }
         })
         .then(function(r) { return r.json(); })
         .then(function(data) {

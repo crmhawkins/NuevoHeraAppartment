@@ -25,7 +25,7 @@
     <div class="dashboard-header">
         <div class="welcome-section">
             <h1>¡Buenos días, {{ Auth::user()->name }}!</h1>
-            <p>{{ $datos['diaSemana'] }}, {{ $datos['hoy'] }}</p>
+            <p>{{ \Carbon\Carbon::now()->locale('es')->isoFormat('dddd, D/MM/YYYY') }}</p>
         </div>
         
         <!-- Estado de la Jornada -->

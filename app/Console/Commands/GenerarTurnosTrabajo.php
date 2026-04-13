@@ -636,6 +636,25 @@ class GenerarTurnosTrabajo extends Command
             $this->asignarTareaAlMenosCargado($turnos, $tarea, 'P3 ' . ($tarea['subtipo'] ?? 'otra'));
         }
 
+        // VALIDACION FINAL: verificar que ningun turno excede la jornada contratada
+        foreach ($turnos as $t) {
+            if ($t['tiempo_asignado'] > $t['tiempo_disponible']) {
+                $exceso = $t['tiempo_asignado'] - $t['tiempo_disponible'];
+                $msg = "EXCESO DETECTADO: {$t['empleada']->user->name} tiene {$t['tiempo_asignado']}min asignados pero solo {$t['tiempo_disponible']}min contratados (exceso: {$exceso}min)";
+                Log::error("[TURNOS] {$msg}");
+                $this->error($msg);
+                try {
+                    \App\Services\AlertaEquipoService::alertar(
+                        'Turno Excede Jornada',
+                        $msg . "\nFecha: {$fecha->format('Y-m-d')}",
+                        'urgente'
+                    );
+                } catch (\Exception $e) {
+                    Log::error("[TURNOS] Error enviando alerta de exceso: " . $e->getMessage());
+                }
+            }
+        }
+
         // Log resumen por limpiadora
         foreach ($turnos as $t) {
             $pct = $t['tiempo_disponible'] > 0
@@ -1566,24 +1585,25 @@ Responde SOLO con el JSON, sin texto adicional.";
     private function crearTurnosDesdeIA($asignacionIA, $empleadas, $fecha)
     {
         $turnosGenerados = 0;
-        
+        $tareasNoAsignadas = [];
+
         try {
             $this->info("🤖 Procesando asignación de IA...");
-            
+
             // Crear mapa de empleadas por ID
             $empleadasMap = $empleadas->keyBy('id');
-            
+
             foreach ($asignacionIA['asignaciones'] as $asignacion) {
                 $empleadaId = $asignacion['empleada_id'];
                 $empleada = $empleadasMap->get($empleadaId);
-                
+
                 if (!$empleada) {
                     $this->warn("⚠️  Empleada ID {$empleadaId} no encontrada");
                     continue;
                 }
-                
+
                 $this->info("👩‍💼 Creando turno para {$asignacion['empleada_nombre']}");
-                
+
                 // Crear turno de trabajo
                 $turno = TurnoTrabajo::create([
                     'fecha' => $fecha,
@@ -1593,15 +1613,25 @@ Responde SOLO con el JSON, sin texto adicional.";
                     'estado' => 'programado',
                     'fecha_creacion' => now()
                 ]);
-                
+
                 $ordenEjecucion = 1;
                 $tiempoTotalAsignado = 0;
-                
+                $tiempoDisponible = $empleada->horas_contratadas_dia * 60; // LIMITE ESTRICTO
+
                 // Asignar tareas de apartamentos
                 if (isset($asignacion['tareas_apartamentos'])) {
                     foreach ($asignacion['tareas_apartamentos'] as $tareaApto) {
+                        $tiempoTarea = $tareaApto['tiempo_estimado'] ?? 60;
+
+                        // LIMITE ESTRICTO: no exceder horas_contratadas_dia
+                        if ($tiempoTotalAsignado + $tiempoTarea > $tiempoDisponible) {
+                            $tareasNoAsignadas[] = "Apartamento ID {$tareaApto['apartamento_id']}";
+                            Log::warning("[TURNOS-IA] Apartamento {$tareaApto['apartamento_id']} NO asignado a {$asignacion['empleada_nombre']} - excederia jornada ({$tiempoTotalAsignado}+{$tiempoTarea} > {$tiempoDisponible}min)");
+                            continue;
+                        }
+
                         $tipoTarea = TipoTarea::limpiezaApartamentos()->first();
-                        
+
                         if ($tipoTarea) {
                             TareaAsignada::create([
                                 'turno_id' => $turno->id,
@@ -1613,18 +1643,27 @@ Responde SOLO con el JSON, sin texto adicional.";
                                 'estado' => 'pendiente',
                                 'dias_sin_limpiar' => 0
                             ]);
-                            
-                            $tiempoTotalAsignado += $tareaApto['tiempo_estimado'];
+
+                            $tiempoTotalAsignado += $tiempoTarea;
                             $ordenEjecucion++;
                         }
                     }
                 }
-                
+
                 // Asignar tareas de zonas comunes
                 if (isset($asignacion['tareas_zonas_comunes'])) {
                     foreach ($asignacion['tareas_zonas_comunes'] as $tareaZona) {
+                        $tiempoTarea = $tareaZona['tiempo_estimado'] ?? 60;
+
+                        // LIMITE ESTRICTO: no exceder horas_contratadas_dia
+                        if ($tiempoTotalAsignado + $tiempoTarea > $tiempoDisponible) {
+                            $tareasNoAsignadas[] = "Zona comun ID " . ($tareaZona['zona_comun_id'] ?? '?');
+                            Log::warning("[TURNOS-IA] Zona comun NO asignada a {$asignacion['empleada_nombre']} - excederia jornada ({$tiempoTotalAsignado}+{$tiempoTarea} > {$tiempoDisponible}min)");
+                            continue;
+                        }
+
                         $tipoTarea = TipoTarea::limpiezaZonasComunes()->first();
-                        
+
                         if ($tipoTarea) {
                             TareaAsignada::create([
                                 'turno_id' => $turno->id,
@@ -1636,18 +1675,27 @@ Responde SOLO con el JSON, sin texto adicional.";
                                 'estado' => 'pendiente',
                                 'dias_sin_limpiar' => 0
                             ]);
-                            
-                            $tiempoTotalAsignado += $tareaZona['tiempo_estimado'];
+
+                            $tiempoTotalAsignado += $tiempoTarea;
                             $ordenEjecucion++;
                         }
                     }
                 }
-                
-                // Asignar tareas de limpieza común de edificios (SIEMPRE OBLIGATORIAS)
-                if (isset($asignacion['tareas_zonas_comunes'])) {
-                    foreach ($asignacion['tareas_zonas_comunes'] as $tareaLimpiezaComun) {
+
+                // Asignar tareas de limpieza comun de edificios
+                if (isset($asignacion['tareas_limpieza_comun'])) {
+                    foreach ($asignacion['tareas_limpieza_comun'] as $tareaLimpiezaComun) {
+                        $tiempoTarea = $tareaLimpiezaComun['tiempo_estimado'] ?? 60;
+
+                        // LIMITE ESTRICTO: no exceder horas_contratadas_dia
+                        if ($tiempoTotalAsignado + $tiempoTarea > $tiempoDisponible) {
+                            $tareasNoAsignadas[] = "Limpieza comun tarea ID " . ($tareaLimpiezaComun['tarea_id'] ?? '?');
+                            Log::warning("[TURNOS-IA] Limpieza comun NO asignada a {$asignacion['empleada_nombre']} - excederia jornada ({$tiempoTotalAsignado}+{$tiempoTarea} > {$tiempoDisponible}min)");
+                            continue;
+                        }
+
                         $tipoTarea = TipoTarea::find($tareaLimpiezaComun['tarea_id']);
-                        
+
                         if ($tipoTarea) {
                             TareaAsignada::create([
                                 'turno_id' => $turno->id,
@@ -1659,18 +1707,27 @@ Responde SOLO con el JSON, sin texto adicional.";
                                 'estado' => 'pendiente',
                                 'dias_sin_limpiar' => 0
                             ]);
-                            
-                            $tiempoTotalAsignado += $tareaLimpiezaComun['tiempo_estimado'];
+
+                            $tiempoTotalAsignado += $tiempoTarea;
                             $ordenEjecucion++;
                         }
                     }
                 }
-                
+
                 // Asignar tareas generales
                 if (isset($asignacion['tareas_generales'])) {
                     foreach ($asignacion['tareas_generales'] as $tareaGeneral) {
+                        $tiempoTarea = $tareaGeneral['tiempo_estimado'] ?? 60;
+
+                        // LIMITE ESTRICTO: no exceder horas_contratadas_dia
+                        if ($tiempoTotalAsignado + $tiempoTarea > $tiempoDisponible) {
+                            $tareasNoAsignadas[] = "Tarea general ID " . ($tareaGeneral['tarea_id'] ?? '?');
+                            Log::warning("[TURNOS-IA] Tarea general NO asignada a {$asignacion['empleada_nombre']} - excederia jornada ({$tiempoTotalAsignado}+{$tiempoTarea} > {$tiempoDisponible}min)");
+                            continue;
+                        }
+
                         $tipoTarea = TipoTarea::find($tareaGeneral['tarea_id']);
-                        
+
                         if ($tipoTarea) {
                             TareaAsignada::create([
                                 'turno_id' => $turno->id,
@@ -1682,15 +1739,31 @@ Responde SOLO con el JSON, sin texto adicional.";
                                 'estado' => 'pendiente',
                                 'dias_sin_limpiar' => 0
                             ]);
-                            
-                            $tiempoTotalAsignado += $tareaGeneral['tiempo_estimado'];
+
+                            $tiempoTotalAsignado += $tiempoTarea;
                             $ordenEjecucion++;
                         }
                     }
                 }
-                
-                $this->info("✅ Turno creado: {$asignacion['empleada_nombre']} - {$tiempoTotalAsignado}min asignados");
+
+                $this->info("✅ Turno creado: {$asignacion['empleada_nombre']} - {$tiempoTotalAsignado}/{$tiempoDisponible}min asignados");
                 $turnosGenerados++;
+            }
+
+            // Alerta si hay tareas que la IA asigno pero excedian la jornada
+            if (!empty($tareasNoAsignadas)) {
+                $msg = "SOBRECARGA IA: " . count($tareasNoAsignadas) . " tareas rechazadas por exceder jornada: " . implode(', ', array_slice($tareasNoAsignadas, 0, 10));
+                Log::warning("[TURNOS-IA] {$msg}");
+                $this->error($msg);
+                try {
+                    \App\Services\AlertaEquipoService::alertar(
+                        'Turnos IA Sobrecargados',
+                        $msg . "\nFecha: {$fecha->format('Y-m-d')}\nLa IA sugirio mas tareas de las que caben en la jornada.",
+                        'urgente'
+                    );
+                } catch (\Exception $e) {
+                    Log::error("[TURNOS-IA] Error enviando alerta: " . $e->getMessage());
+                }
             }
             
             // Mostrar resumen de IA
