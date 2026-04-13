@@ -4,10 +4,17 @@ var _fotoIdx2=0,_limpId2=0;
 
 function _initFotosRapidas(limpiezaId){_limpId2=limpiezaId||0;}
 
-// Auto-detect from form data attribute
+// Auto-detect limpieza ID from forms
 document.addEventListener('DOMContentLoaded',function(){
+    // Try formPrincipalLimpieza (checklist-tarea view)
     var f=document.getElementById('formPrincipalLimpieza');
-    if(f&&f.dataset.limpiezaId){_limpId2=parseInt(f.dataset.limpiezaId)||0;}
+    if(f&&f.dataset.limpiezaId){_limpId2=parseInt(f.dataset.limpiezaId)||0;return;}
+    // Try formFinalizar (edit-tarea view) - extract ID from form action URL
+    var f2=document.getElementById('formFinalizar');
+    if(f2&&f2.action){
+        var m=f2.action.match(/gestion-finalizar\/(\d+)/);
+        if(m&&m[1]){_limpId2=parseInt(m[1])||0;return;}
+    }
 });
 
 function _mostrarFotosYFinalizar(){
@@ -85,19 +92,37 @@ function _cerrarFotosYFinalizar(){
 function _enviarFinalizacionReal(){
     var ol=document.getElementById('loadingOverlay');
     if(ol)ol.style.display='flex';
+
+    // Try checklist-tarea form (AJAX)
     var f=document.getElementById('formPrincipalLimpieza');
-    if(!f){window.location.href='/limpiadora/dashboard';return;}
-    var fd=new FormData(f);
-    fd.append('accion','finalizar');
-    fd.set('consentimiento_finalizacion','true');
-    fd.set('motivo_consentimiento','Finalizado con fotos');
-    fetch(f.action,{
-        method:'POST',body:fd,
-        headers:{'X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]').getAttribute('content')}
-    }).then(function(r){return r.json();}).then(function(d){
-        if(d.success)window.location.href='/limpiadora/dashboard';
-        else{if(ol)ol.style.display='none';alert(d.message||'Error');}
-    }).catch(function(){window.location.href='/limpiadora/dashboard';});
+    if(f){
+        var fd=new FormData(f);
+        fd.append('accion','finalizar');
+        fd.set('consentimiento_finalizacion','true');
+        fd.set('motivo_consentimiento','Finalizado con fotos');
+        fetch(f.action,{
+            method:'POST',body:fd,
+            headers:{'X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]').getAttribute('content')}
+        }).then(function(r){return r.json();}).then(function(d){
+            if(d.success)window.location.href='/limpiadora/dashboard';
+            else{if(ol)ol.style.display='none';alert(d.message||'Error');}
+        }).catch(function(){window.location.href='/limpiadora/dashboard';});
+        return;
+    }
+
+    // Try edit-tarea form (form submit)
+    var f2=document.getElementById('formFinalizar');
+    if(f2){
+        var chk=document.getElementById('consentimientoFinalizarHidden');
+        if(chk)chk.value='true';
+        var mot=document.getElementById('motivoConsentimientoHidden');
+        if(mot)mot.value='Finalizado con fotos';
+        f2.submit();
+        return;
+    }
+
+    // Fallback
+    window.location.href='/limpiadora/dashboard';
 }
 
 function _comprimirImg2(file,mW,q){

@@ -1208,6 +1208,10 @@ class GestionApartamentoController extends Controller
 
             // Buscar y actualizar el ApartamentoLimpieza asociado
             $apartamentoLimpieza = \App\Models\ApartamentoLimpieza::where('tarea_asignada_id', $tarea->id)->first();
+            if (!$apartamentoLimpieza) {
+                Log::warning('[Limpieza] ApartamentoLimpieza no encontrada al finalizar, creando...', ['tarea_id' => $tarea->id]);
+                $apartamentoLimpieza = $this->crearApartamentoLimpiezaParaTarea($tarea);
+            }
             if ($apartamentoLimpieza) {
                 $hoy = Carbon::now();
                 $apartamentoLimpieza->update([

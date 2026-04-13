@@ -889,8 +889,14 @@
     }
 
     function enviarFinalizacion() {
-        // Ir a las fotos primero
-        mostrarCaptureFotos();
+        // Usar fotos-rapidas.js (externo) que crea overlay dinamicamente
+        if (typeof _mostrarFotosYFinalizar === 'function') {
+            _mostrarFotosYFinalizar();
+        } else {
+            // Fallback: enviar form directamente sin fotos
+            showLoadingOverlay('Finalizando...');
+            document.getElementById('formFinalizar').submit();
+        }
     }
 
     // ========== CAPTURA RAPIDA DE FOTOS ==========
@@ -4304,7 +4310,8 @@ function mostrarAlerta(mensaje, tipo = 'info') {
     } else {
         agregarListenersModal();
     }
-    
+</script>
+
 @if(isset($articulosActivos) && count($articulosActivos) > 0 && isset($apartamentoLimpieza))
 <script>
 // CÓDIGO LIMPIO Y SIMPLE - Modal y Botón NUEVOS
