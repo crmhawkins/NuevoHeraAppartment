@@ -9,17 +9,26 @@ use Illuminate\Support\Facades\Storage;
 
 class FacturasRecibidasController extends Controller
 {
+    // Categorias que son gastos corrientes (sin factura de proveedor)
+    private const CATEGORIAS_EXCLUIDAS = [
+        1,  // NOMINA
+        6,  // SEGUROS SOCIALES
+        30, // COMISION BANCARIA
+        36, // DEVOLUCION CLIENTE
+        45, // DEVOLUCION SOCIO
+        57, // NOMINAS OBRA
+        60, // SEGUROS SOCIALES OBRA
+    ];
+
     public function index(Request $request)
     {
-        $query = Gastos::with(['categoria', 'estado']);
+        $fechaDesde = $request->get('fecha_desde', now()->startOfYear()->format('Y-m-d'));
+        $fechaHasta = $request->get('fecha_hasta', now()->format('Y-m-d'));
 
-        if ($request->filled('fecha_desde')) {
-            $query->where('date', '>=', $request->fecha_desde);
-        }
-
-        if ($request->filled('fecha_hasta')) {
-            $query->where('date', '<=', $request->fecha_hasta);
-        }
+        $query = Gastos::with(['categoria', 'estado'])
+            ->whereNotIn('categoria_id', self::CATEGORIAS_EXCLUIDAS)
+            ->where('date', '>=', $fechaDesde)
+            ->where('date', '<=', $fechaHasta);
 
         if ($request->filled('categoria_id')) {
             $query->where('categoria_id', $request->categoria_id);
@@ -36,11 +45,18 @@ class FacturasRecibidasController extends Controller
         }
 
         $gastos = $query->orderBy('date', 'desc')->paginate(25)->withQueryString();
-        $categorias = CategoriaGastos::all();
+        $categorias = CategoriaGastos::whereNotIn('id', self::CATEGORIAS_EXCLUIDAS)->orderBy('nombre')->get();
 
-        $filters = $request->only(['fecha_desde', 'fecha_hasta', 'categoria_id', 'tiene_factura']);
+        // Totales
+        $totalGastos = (clone $query)->sum(\DB::raw('ABS(quantity)'));
+        $numGastos = (clone $query)->count();
+        $conFactura = (clone $query)->whereNotNull('factura_foto')->where('factura_foto', '!=', '')->count();
+        $sinFactura = $numGastos - $conFactura;
 
-        return view('admin.tesoreria.facturas-recibidas', compact('gastos', 'categorias', 'filters'));
+        return view('admin.tesoreria.facturas-recibidas', compact(
+            'gastos', 'categorias', 'fechaDesde', 'fechaHasta',
+            'totalGastos', 'numGastos', 'conFactura', 'sinFactura'
+        ));
     }
 
     public function subirFactura(Request $request, $id)

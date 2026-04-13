@@ -36,10 +36,10 @@
         <div class="card-body py-2 px-3 df-filter">
             <form method="GET" class="row g-2 align-items-end">
                 <div class="col">
-                    <input type="date" name="fecha_desde" class="form-control" value="{{ request('fecha_desde', $fechaDesde ?? '') }}">
+                    <input type="date" name="fecha_desde" class="form-control" value="{{ request('fecha_desde', $fechaDesde) }}">
                 </div>
                 <div class="col">
-                    <input type="date" name="fecha_hasta" class="form-control" value="{{ request('fecha_hasta', $fechaHasta ?? '') }}">
+                    <input type="date" name="fecha_hasta" class="form-control" value="{{ request('fecha_hasta', $fechaHasta) }}">
                 </div>
                 <div class="col">
                     <select name="categoria_id" class="form-select">
@@ -106,8 +106,8 @@
                     <tbody>
                     @forelse($gastos ?? [] as $gasto)
                         <tr>
-                            <td>{{ $gasto->fecha ? \Carbon\Carbon::parse($gasto->fecha)->format('d/m/Y') : '-' }}</td>
-                            <td>{{ Str::limit($gasto->descripcion, 50) }}</td>
+                            <td>{{ $gasto->date ? \Carbon\Carbon::parse($gasto->date)->format('d/m/Y') : '-' }}</td>
+                            <td>{{ Str::limit($gasto->title, 60) }}</td>
                             <td>
                                 @if($gasto->categoria)
                                     <span class="badge bg-light text-dark df-badge">{{ $gasto->categoria->nombre }}</span>
@@ -115,7 +115,7 @@
                                     <span class="text-muted">-</span>
                                 @endif
                             </td>
-                            <td class="fw-bold">{{ number_format(abs($gasto->importe), 2, ',', '.') }} &euro;</td>
+                            <td class="fw-bold">{{ number_format(abs($gasto->quantity), 2, ',', '.') }} &euro;</td>
                             <td>
                                 @php
                                     $estadoConfig = [
@@ -249,7 +249,7 @@ document.getElementById('formUploadFactura').addEventListener('submit', function
     document.getElementById('uploadProgress').style.display = 'block';
 
     var xhr = new XMLHttpRequest();
-    xhr.open('POST', '/admin/tesoreria/gastos/' + gastoId + '/subir-factura', true);
+    xhr.open('POST', '/facturas-recibidas/' + gastoId + '/subir', true);
     xhr.setRequestHeader('X-CSRF-TOKEN', '{{ csrf_token() }}');
     xhr.setRequestHeader('Accept', 'application/json');
 
