@@ -1184,23 +1184,18 @@ class GestionApartamentoController extends Controller
             $itemsCompletados = count($itemsCompletadosIds);
             $porcentajeCompletado = $totalItems > 0 ? ($itemsCompletados / $totalItems) * 100 : 100;
 
-            // Si no está completo, verificar consentimiento
+            // Si no está completo, registrar que se finalizó sin completar (sin bloquear)
             if ($porcentajeCompletado < 100) {
-                $consentimiento = $request->input('consentimiento_finalizacion', false);
-                $motivo = $request->input('motivo_consentimiento', '');
-                $fechaConsentimiento = $request->input('fecha_consentimiento', now()->toISOString());
-
-                if (!$consentimiento || !$motivo) {
-                    return response()->json([
-                        'error' => 'Se requiere consentimiento para finalizar sin completar todos los checklists'
-                    ], 400);
-                }
-
-                // Guardar consentimiento
                 $tarea->update([
                     'consentimiento_finalizacion' => true,
-                    'motivo_consentimiento' => $motivo,
-                    'fecha_consentimiento' => $fechaConsentimiento
+                    'motivo_consentimiento' => 'Finalizado con checks incompletos (' . $itemsCompletados . '/' . $totalItems . ')',
+                    'fecha_consentimiento' => now()->toISOString(),
+                ]);
+                Log::info('[Limpieza] Finalizada con checks incompletos', [
+                    'tarea_id' => $tarea->id,
+                    'completados' => $itemsCompletados,
+                    'total' => $totalItems,
+                    'porcentaje' => round($porcentajeCompletado, 1),
                 ]);
             }
 
