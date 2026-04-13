@@ -1014,7 +1014,6 @@ class ReservaPagoController extends Controller
 
         // Enviar actualización a Channex (sin verificación SSL)
         $response = Http::timeout(30)
-            ->withoutVerifying()
             ->withHeaders([
                 'user-api-key' => $this->apiToken,
             ])->post("{$this->apiUrl}/availability", ['values' => $values]);

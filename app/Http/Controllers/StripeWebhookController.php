@@ -38,7 +38,9 @@ class StripeWebhookController extends Controller
                     $webhookSecret
                 );
             } else {
-                Log::warning('[ReservaWeb] Stripe webhook: SDK no disponible, procesando básico');
+                Log::warning('[ReservaWeb] Stripe webhook: SDK no disponible - procesando SIN verificacion de firma. Configure stripe/stripe-php para habilitar verificacion.', [
+                    'ip' => $request->ip(),
+                ]);
                 $event = json_decode($payload, true);
             }
         } catch (\Exception $e) {
@@ -174,8 +176,7 @@ class StripeWebhookController extends Controller
                                 if (!empty($values)) {
                                     $apiUrl = env('CHANNEX_URL', 'https://app.channex.io/api/v1');
                                     $apiToken = env('CHANNEX_TOKEN') ?: env('CHANNEX_API_TOKEN');
-                                    \Illuminate\Support\Facades\Http::withoutVerifying()
-                                        ->withHeaders(['user-api-key' => $apiToken])
+                                    \Illuminate\Support\Facades\Http::withHeaders(['user-api-key' => $apiToken])
                                         ->post("{$apiUrl}/availability", ['values' => $values]);
                                     Log::info('[ReservaWeb] Stripe webhook: disponibilidad cerrada en Channex', [
                                         'reserva_id' => $reserva->id,

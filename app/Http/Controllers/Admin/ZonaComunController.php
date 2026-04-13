@@ -46,7 +46,7 @@ class ZonaComunController extends Controller
         }
 
         try {
-            ZonaComun::create($request->all());
+            ZonaComun::create($request->only(['nombre', 'descripcion', 'ubicacion', 'tipo', 'orden']));
             Alert::success('Éxito', 'Zona común creada correctamente.');
             return redirect()->route('admin.zonas-comunes.index');
         } catch (\Exception $e) {
@@ -94,7 +94,7 @@ class ZonaComunController extends Controller
         }
 
         try {
-            $zonaComun->update($request->all());
+            $zonaComun->update($request->only(['nombre', 'descripcion', 'ubicacion', 'tipo', 'orden']));
             Alert::success('Éxito', 'Zona común actualizada correctamente.');
             return redirect()->route('admin.zonas-comunes.index');
         } catch (\Exception $e) {

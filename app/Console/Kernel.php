@@ -1102,8 +1102,8 @@ class Kernel extends ConsoleKernel
         }
 
         $postData = [
-            'username' => 'H11070GEV04',
-            'password' => 'HaKinsapartamento2024',
+            'username' => env('MIR_USERNAME'),
+            'password' => env('MIR_PASSWORD'),
             '_csrf'    => $csrfToken
         ];
 

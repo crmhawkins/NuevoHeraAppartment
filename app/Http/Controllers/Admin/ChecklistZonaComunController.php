@@ -46,7 +46,7 @@ class ChecklistZonaComunController extends Controller
         }
 
         try {
-            ChecklistZonaComun::create($request->all());
+            ChecklistZonaComun::create($request->only(['nombre', 'descripcion', 'categoria', 'orden']));
             Alert::success('Éxito', 'Checklist de zona común creado correctamente.');
             return redirect()->route('admin.checklists-zonas-comunes.index');
         } catch (\Exception $e) {
@@ -93,7 +93,7 @@ class ChecklistZonaComunController extends Controller
         }
 
         try {
-            $checklist->update($request->all());
+            $checklist->update($request->only(['nombre', 'descripcion', 'categoria', 'orden']));
             Alert::success('Éxito', 'Checklist actualizado correctamente.');
             return redirect()->route('admin.checklists-zonas-comunes.index');
         } catch (\Exception $e) {
@@ -165,7 +165,7 @@ class ChecklistZonaComunController extends Controller
         }
 
         try {
-            $checklist->items()->create($request->all());
+            $checklist->items()->create($request->only(['nombre', 'descripcion', 'categoria', 'orden']));
             Alert::success('Éxito', 'Item añadido correctamente.');
         } catch (\Exception $e) {
             Alert::error('Error', 'No se pudo añadir el item.');

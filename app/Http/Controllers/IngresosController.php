@@ -77,14 +77,15 @@ class IngresosController extends Controller
             'bank_id' => 'required|exists:bank_accounts,id',
             'title' => 'required|string|max:255',
             'date' => 'required',
-            'quantity' => 'required|numeric'
+            'quantity' => 'required|numeric',
+            'factura_foto' => 'nullable|file|mimes:jpeg,jpg,png,pdf|max:10240',
         ];
 
         // Validar los datos del formulario
         $validatedData = $request->validate($rules);
 
         // Crear el ingreso en la base de datos sin la foto
-        $ingreso = Ingresos::create($validatedData);
+        $ingreso = Ingresos::create(collect($validatedData)->except('factura_foto')->toArray());
 
         // Manejar la carga de la foto si existe
         if ($request->hasFile('factura_foto')) {
@@ -153,14 +154,15 @@ class IngresosController extends Controller
             'bank_id' => 'required|exists:bank_accounts,id',
             'title' => 'required|string|max:255',
             'date' => 'required|date',
-            'quantity' => 'required|numeric'
+            'quantity' => 'required|numeric',
+            'factura_foto' => 'nullable|file|mimes:jpeg,jpg,png,pdf|max:10240',
         ];
 
         // Validar los datos del formulario
         $validatedData = $request->validate($rules);
 
         // Actualizar el ingreso en la base de datos sin la foto
-        $ingreso->update($validatedData);
+        $ingreso->update(collect($validatedData)->except('factura_foto')->toArray());
 
         // Manejar la carga de la foto si existe
         if ($request->hasFile('factura_foto')) {

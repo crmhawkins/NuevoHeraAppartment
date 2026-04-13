@@ -310,97 +310,97 @@
                         <div class="col-md-6 mb-3">
                             <strong style="color: #666; display: block; margin-bottom: 4px;">{{ __('reservation.field_name') }}</strong>
                             <span style="color: {{ empty($cliente->nombre) ? '#dc3545' : '#333' }};">
-                                {!! $cliente->nombre ?? '<span style="color: #dc3545;">' . __('reservation.not_specified') . '</span>' !!}
+                                @if($cliente->nombre){{ $cliente->nombre }}@else<span style="color: #dc3545;">{{ __('reservation.not_specified') }}</span>@endif
                             </span>
                         </div>
                         <div class="col-md-6 mb-3">
                             <strong style="color: #666; display: block; margin-bottom: 4px;">{{ __('reservation.field_surname') }}</strong>
                             <span style="color: {{ empty($cliente->apellido1) ? '#dc3545' : '#333' }};">
-                                {!! trim(($cliente->apellido1 ?? '') . ' ' . ($cliente->apellido2 ?? '')) ?: '<span style="color: #dc3545;">' . __('reservation.not_specified') . '</span>' !!}
+                                @if(trim(($cliente->apellido1 ?? '') . ' ' . ($cliente->apellido2 ?? ''))){{ trim(($cliente->apellido1 ?? '') . ' ' . ($cliente->apellido2 ?? '')) }}@else<span style="color: #dc3545;">{{ __('reservation.not_specified') }}</span>@endif
                             </span>
                         </div>
                         <div class="col-md-6 mb-3">
                             <strong style="color: #666; display: block; margin-bottom: 4px;">{{ __('reservation.field_email') }}</strong>
                             <span style="color: {{ empty($cliente->email_principal) ? '#dc3545' : '#333' }};">
-                                {!! $cliente->email_principal ?? '<span style="color: #dc3545;">' . __('reservation.not_specified') . '</span>' !!}
+                                @if($cliente->email_principal){{ $cliente->email_principal }}@else<span style="color: #dc3545;">{{ __('reservation.not_specified') }}</span>@endif
                             </span>
                         </div>
                         <div class="col-md-6 mb-3">
                             <strong style="color: #666; display: block; margin-bottom: 4px;">{{ __('reservation.field_phone') }}</strong>
                             <span style="color: {{ empty($cliente->telefono) ? '#dc3545' : '#333' }};">
-                                {!! $cliente->telefono ?? '<span style="color: #dc3545;">' . __('reservation.not_specified') . '</span>' !!}
+                                @if($cliente->telefono){{ $cliente->telefono }}@else<span style="color: #dc3545;">{{ __('reservation.not_specified') }}</span>@endif
                             </span>
                         </div>
                         <div class="col-md-6 mb-3">
                             <strong style="color: #666; display: block; margin-bottom: 4px;">{{ __('reservation.field_mobile') }}</strong>
                             <span style="color: {{ empty($cliente->telefono_movil) ? '#dc3545' : '#333' }};">
-                                {!! $cliente->telefono_movil ?? '<span style="color: #dc3545;">' . __('reservation.not_specified') . '</span>' !!}
+                                @if($cliente->telefono_movil){{ $cliente->telefono_movil }}@else<span style="color: #dc3545;">{{ __('reservation.not_specified') }}</span>@endif
                             </span>
                         </div>
                         <div class="col-md-6 mb-3">
                             <strong style="color: #666; display: block; margin-bottom: 4px;">{{ __('reservation.field_birthdate') }}</strong>
                             <span style="color: {{ empty($cliente->fecha_nacimiento) ? '#dc3545' : '#333' }};">
-                                {!! $cliente->fecha_nacimiento ? $cliente->fecha_nacimiento->format('d/m/Y') : '<span style="color: #dc3545;">' . __('reservation.not_specified') . '</span>' !!}
+                                @if($cliente->fecha_nacimiento){{ $cliente->fecha_nacimiento->format('d/m/Y') }}@else<span style="color: #dc3545;">{{ __('reservation.not_specified') }}</span>@endif
                             </span>
                         </div>
                         <div class="col-md-6 mb-3">
                             <strong style="color: #666; display: block; margin-bottom: 4px;">{{ __('reservation.field_birthplace') }}</strong>
                             <span style="color: {{ empty($cliente->lugar_nacimiento) ? '#dc3545' : '#333' }};">
-                                {!! $cliente->lugar_nacimiento ?? '<span style="color: #dc3545;">' . __('reservation.not_specified') . '</span>' !!}
+                                @if($cliente->lugar_nacimiento){{ $cliente->lugar_nacimiento }}@else<span style="color: #dc3545;">{{ __('reservation.not_specified') }}</span>@endif
                             </span>
                         </div>
                         <div class="col-md-6 mb-3">
                             <strong style="color: #666; display: block; margin-bottom: 4px;">{{ __('reservation.field_nationality') }}</strong>
                             <span style="color: {{ empty($cliente->nacionalidad) ? '#dc3545' : '#333' }};">
-                                {!! $cliente->nacionalidad ?? '<span style="color: #dc3545;">' . __('reservation.not_specified') . '</span>' !!}
+                                @if($cliente->nacionalidad){{ $cliente->nacionalidad }}@else<span style="color: #dc3545;">{{ __('reservation.not_specified') }}</span>@endif
                             </span>
                         </div>
                         <div class="col-md-6 mb-3">
                             <strong style="color: #666; display: block; margin-bottom: 4px;">{{ __('reservation.field_gender') }}</strong>
                             <span style="color: {{ empty($cliente->sexo) ? '#dc3545' : '#333' }};">
-                                {!! $cliente->sexo ?? '<span style="color: #dc3545;">' . __('reservation.not_specified') . '</span>' !!}
+                                @if($cliente->sexo){{ $cliente->sexo }}@else<span style="color: #dc3545;">{{ __('reservation.not_specified') }}</span>@endif
                             </span>
                         </div>
                         <div class="col-md-6 mb-3">
                             <strong style="color: #666; display: block; margin-bottom: 4px;">{{ __('reservation.field_document_type') }}</strong>
                             <span style="color: {{ empty($cliente->tipo_documento) ? '#dc3545' : '#333' }};">
-                                {!! $cliente->tipo_documento ?? '<span style="color: #dc3545;">' . __('reservation.not_specified') . '</span>' !!}
+                                @if($cliente->tipo_documento){{ $cliente->tipo_documento }}@else<span style="color: #dc3545;">{{ __('reservation.not_specified') }}</span>@endif
                             </span>
                         </div>
                         <div class="col-md-6 mb-3">
                             <strong style="color: #666; display: block; margin-bottom: 4px;">Número de Documento:</strong>
                             <span style="color: {{ empty($cliente->num_identificacion) ? '#dc3545' : '#333' }};">
-                                {!! $cliente->num_identificacion ?? '<span style="color: #dc3545;">' . __('reservation.not_specified') . '</span>' !!}
+                                @if($cliente->num_identificacion){{ $cliente->num_identificacion }}@else<span style="color: #dc3545;">{{ __('reservation.not_specified') }}</span>@endif
                             </span>
                         </div>
                         <div class="col-md-6 mb-3">
                             <strong style="color: #666; display: block; margin-bottom: 4px;">{{ __('reservation.field_document_expiry') }}</strong>
                             <span style="color: {{ empty($cliente->fecha_expedicion_doc) ? '#dc3545' : '#333' }};">
-                                {!! $cliente->fecha_expedicion_doc ? ($cliente->fecha_expedicion_doc instanceof \Carbon\Carbon ? $cliente->fecha_expedicion_doc->format('d/m/Y') : \Carbon\Carbon::parse($cliente->fecha_expedicion_doc)->format('d/m/Y')) : '<span style="color: #dc3545;">' . __('reservation.not_specified') . '</span>' !!}
+                                @if($cliente->fecha_expedicion_doc){{ $cliente->fecha_expedicion_doc instanceof \Carbon\Carbon ? $cliente->fecha_expedicion_doc->format('d/m/Y') : \Carbon\Carbon::parse($cliente->fecha_expedicion_doc)->format('d/m/Y') }}@else<span style="color: #dc3545;">{{ __('reservation.not_specified') }}</span>@endif
                             </span>
                         </div>
                         <div class="col-md-6 mb-3">
                             <strong style="color: #666; display: block; margin-bottom: 4px;">{{ __('reservation.field_address') }}</strong>
                             <span style="color: #333;">
-                                {!! $cliente->direccion ?? __('reservation.not_specified') !!}
+                                {{ $cliente->direccion ?? __('reservation.not_specified') }}
                             </span>
                         </div>
                         <div class="col-md-6 mb-3">
                             <strong style="color: #666; display: block; margin-bottom: 4px;">{{ __('reservation.field_city') }}</strong>
                             <span style="color: {{ empty($cliente->localidad) ? '#dc3545' : '#333' }};">
-                                {!! $cliente->localidad ?? '<span style="color: #dc3545;">' . __('reservation.not_specified') . '</span>' !!}
+                                @if($cliente->localidad){{ $cliente->localidad }}@else<span style="color: #dc3545;">{{ __('reservation.not_specified') }}</span>@endif
                             </span>
                         </div>
                         <div class="col-md-6 mb-3">
                             <strong style="color: #666; display: block; margin-bottom: 4px;">{{ __('reservation.field_postal_code') }}</strong>
                             <span style="color: #333;">
-                                {!! $cliente->codigo_postal ?? __('reservation.not_specified') !!}
+                                {{ $cliente->codigo_postal ?? __('reservation.not_specified') }}
                             </span>
                         </div>
                         <div class="col-md-6 mb-3">
                             <strong style="color: #666; display: block; margin-bottom: 4px;">{{ __('reservation.field_province') }}</strong>
                             <span style="color: {{ empty($cliente->provincia) ? '#dc3545' : '#333' }};">
-                                {!! $cliente->provincia ?? '<span style="color: #dc3545;">' . __('reservation.not_specified') . '</span>' !!}
+                                @if($cliente->provincia){{ $cliente->provincia }}@else<span style="color: #dc3545;">{{ __('reservation.not_specified') }}</span>@endif
                             </span>
                         </div>
                     </div>

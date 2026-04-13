@@ -106,7 +106,7 @@ class ARIController extends Controller
         }
         //  dd($updates);
         // Petición a la API
-        $response = Http::withoutVerifying()->withHeaders([
+        $response = Http::withHeaders([
             'user-api-key' => $this->apiToken,
         ])->post("{$this->apiUrl}/" . $urlVariable, ['values' => $updates]);
 
@@ -231,7 +231,7 @@ class ARIController extends Controller
         }
 
         // Hacer petición por cada apartamento (sin verificación SSL)
-        $response = Http::withoutVerifying()->withHeaders([
+        $response = Http::withHeaders([
             'user-api-key' => $this->apiToken,
         ])->post("{$this->apiUrl}/availability", [
             'values' => $updates,
@@ -290,7 +290,7 @@ class ARIController extends Controller
 
         try {
             // Usar el endpoint de availability que funciona
-            $response = Http::withoutVerifying()->withHeaders([
+            $response = Http::withHeaders([
                 'user-api-key' => $this->apiToken,
             ])->get("{$this->apiUrl}/availability", [
                 'filter[property_id]' => $validatedData['property_id'],
@@ -467,7 +467,7 @@ class ARIController extends Controller
     {
         try {
             // Obtener rate plans de la propiedad
-            $response = Http::withoutVerifying()->withHeaders([
+            $response = Http::withHeaders([
                 'user-api-key' => $this->apiToken,
             ])->get("{$this->apiUrl}/rate_plans", [
                 'filter[property_id]' => $propertyId

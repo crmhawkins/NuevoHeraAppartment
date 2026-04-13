@@ -29,29 +29,24 @@ class WebhookController extends Controller
         $this->apiToken = env('CHANNEX_TOKEN');
     }
 
-    // TODO: Implement Channex webhook signature verification when API docs are available
     /**
-     * Log a warning if the incoming webhook request does not contain a signature header.
-     * This is a preparatory step for future signature verification.
+     * Verify the Channex webhook secret if configured.
+     * Returns a JSON error response if verification fails, or null if OK.
      */
-    private function logWebhookSignatureCheck(Request $request, string $eventType): void
+    private function verifyWebhookSecret(Request $request, string $eventType)
     {
-        $signatureHeaders = ['X-Signature', 'X-Channex-Signature', 'X-Webhook-Signature', 'Signature'];
-        $hasSignature = false;
+        $secret = $request->header('X-Webhook-Secret') ?? $request->header('X-Channex-Secret');
+        $expectedSecret = env('CHANNEX_WEBHOOK_SECRET');
 
-        foreach ($signatureHeaders as $header) {
-            if ($request->hasHeader($header)) {
-                $hasSignature = true;
-                break;
-            }
-        }
-
-        if (!$hasSignature) {
-            Log::warning("Channex webhook [{$eventType}] received without signature header", [
+        if ($expectedSecret && $secret !== $expectedSecret) {
+            Log::warning("[Webhook] Invalid signature for [{$eventType}]", [
                 'ip' => $request->ip(),
                 'user_agent' => $request->userAgent(),
             ]);
+            return response()->json(['error' => 'Invalid signature'], 403);
         }
+
+        return null;
     }
 
     private function saveToWebhooksFolder($filename, $data)
@@ -63,7 +58,7 @@ class WebhookController extends Controller
 
     public function ariChanges(Request $request, $id)
     {
-        $this->logWebhookSignatureCheck($request, 'ari-changes');
+        if ($error = $this->verifyWebhookSecret($request, 'ari-changes')) return $error;
         $apartamento = Apartamento::find($id);
 
         $fecha = Carbon::now()->format('Y-m-d_H-i-s'); // Formato para el nombre del archivo
@@ -94,7 +89,7 @@ class WebhookController extends Controller
      */
     public function bookingAny(Request $request, $id)
     {
-        $this->logWebhookSignatureCheck($request, 'booking-any');
+        if ($error = $this->verifyWebhookSecret($request, 'booking-any')) return $error;
         // Guardar la request entrante como archivo para depuración
         $fileName = 'booking_' . now()->format('Ymd_His') . '_' . Str::random(6) . '.json';
         Storage::disk('local')->put('logs/bookings/' . $fileName, json_encode($request->all(), JSON_PRETTY_PRINT));
@@ -255,7 +250,7 @@ class WebhookController extends Controller
         try {
 
         // Obtener la reserva desde Channex
-        $bookingResponse = Http::withoutVerifying()->withHeaders([
+        $bookingResponse = Http::withHeaders([
             'user-api-key' => $this->apiToken,
         ])->get("https://app.channex.io/api/v1/bookings/{$bookingId}");
 
@@ -338,7 +333,7 @@ class WebhookController extends Controller
                         ];
                     }
 
-                    Http::withoutVerifying()->withHeaders([
+                    Http::withHeaders([
                         'user-api-key' => $this->apiToken,
                     ])->post("{$this->apiUrl}/availability", [
                         'values' => $values
@@ -645,7 +640,7 @@ class WebhookController extends Controller
         }
 
         // Marcar la revisión como revisada en Channex
-        $ackResponse = Http::withoutVerifying()->withHeaders([
+        $ackResponse = Http::withHeaders([
             'user-api-key' => $this->apiToken,
         ])->post("https://app.channex.io/api/v1/booking_revisions/{$revisionId}/ack", ['values' => []]);
 

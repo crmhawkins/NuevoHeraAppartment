@@ -85,7 +85,7 @@ class GrupoContabilidadController extends Controller
         ];
 
         $validatedData = $request->validate($rules);
-        GrupoContable::create($request->all());
+        GrupoContable::create($request->only(['numero', 'nombre', 'descripcion']));
 
         return redirect()->route('admin.ingresos.index')->with('status', 'El Grupo fue creado con éxito!');
 

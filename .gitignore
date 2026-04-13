@@ -43,3 +43,10 @@ Thumbs.db
 *.key
 credentials.json
 secrets.json
+
+# Sensitive files (never commit)
+cookies.txt
+logs.log
+main.py
+*.log
+!storage/logs/.gitignore

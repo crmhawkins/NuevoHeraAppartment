@@ -14,7 +14,7 @@ class ImportarReservasWordpress extends Command
 
     public function handle()
     {
-        $token = 't4fVqA3ZhGr6xBNkL8p2qR5We7yCm0TDj1oUvzMi9skgXNHaEYbcJlPwGtSdOQuV';
+        $token = env('WORDPRESS_API_TOKEN');
         $baseUrl = 'https://apartamentosalgeciras.com/wp-json/crm/v1';
         $getEndpoint = "{$baseUrl}/reservas-pendientes?token={$token}";
 

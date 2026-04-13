@@ -409,7 +409,7 @@ class ReservasController extends Controller
     ];
 
     // Enviar actualización a Channex (sin verificación SSL)
-    $response = Http::withoutVerifying()->withHeaders([
+    $response = Http::withHeaders([
         'user-api-key' => $this->apiToken,
     ])->post("{$this->apiUrl}/availability", ['values' => [$update]]);
 
@@ -444,7 +444,7 @@ class ReservasController extends Controller
         ];
 
         // Enviar actualización a Channex (sin verificación SSL)
-        $response = Http::withoutVerifying()->withHeaders([
+        $response = Http::withHeaders([
             'user-api-key' => $this->apiToken,
         ])->post("{$this->apiUrl}/availability", ['values' => [$update]]);
 

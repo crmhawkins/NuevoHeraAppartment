@@ -73,6 +73,7 @@ class Kernel extends HttpKernel
         'log.activity' => \App\Http\Middleware\LogUserActivity::class,
         'log.auth' => \App\Http\Middleware\LogAuthentication::class,
         'validate.file.upload' => \App\Http\Middleware\ValidateFileUpload::class,
+        'check.api.key' => \App\Http\Middleware\CheckApiKey::class,
     ];
 
     /**

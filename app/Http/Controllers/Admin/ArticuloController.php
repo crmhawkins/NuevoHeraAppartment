@@ -109,7 +109,7 @@ class ArticuloController extends Controller
         try {
             DB::beginTransaction();
 
-            $articulo = Articulo::create($request->all());
+            $articulo = Articulo::create($request->only(['nombre', 'descripcion', 'categoria', 'unidad_medida', 'stock_actual', 'stock_minimo', 'stock_maximo', 'precio_compra', 'codigo_producto', 'observaciones', 'activo', 'proveedor_id']));
 
             // Si hay stock inicial, crear movimiento de entrada
             if ($articulo->stock_actual > 0) {

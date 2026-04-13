@@ -47,7 +47,7 @@ class ProveedorController extends Controller
         ]);
 
         try {
-            Proveedor::create($request->all());
+            Proveedor::create($request->only(['nombre', 'contacto', 'telefono', 'email', 'direccion', 'cif_nif', 'observaciones', 'activo']));
 
             return redirect()->route('admin.proveedores.index')
                 ->with('swal_success', 'Proveedor creado correctamente.');
@@ -105,7 +105,7 @@ class ProveedorController extends Controller
         ]);
 
         try {
-            $proveedor->update($request->all());
+            $proveedor->update($request->only(['nombre', 'contacto', 'telefono', 'email', 'direccion', 'cif_nif', 'observaciones', 'activo']));
 
             return redirect()->route('admin.proveedores.index')
                 ->with('swal_success', 'Proveedor actualizado correctamente.');

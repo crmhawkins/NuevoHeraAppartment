@@ -82,14 +82,15 @@ class GastosController extends Controller
             'bank_id' => 'required|exists:bank_accounts,id',
             'title' => 'required|string|max:255',
             'date' => 'required',
-            'quantity' => 'required|numeric'
+            'quantity' => 'required|numeric',
+            'factura_foto' => 'nullable|file|mimes:jpeg,jpg,png,pdf|max:10240',
         ];
 
         // Validar los datos del formulario
         $validatedData = $request->validate($rules);
 
         // Crear el gasto en la base de datos sin la foto
-        $gasto = Gastos::create($validatedData);
+        $gasto = Gastos::create(collect($validatedData)->except('factura_foto')->toArray());
 
         // Manejar la carga de la foto si existe
         if ($request->hasFile('factura_foto')) {
@@ -158,14 +159,15 @@ class GastosController extends Controller
             'bank_id' => 'required|exists:bank_accounts,id',
             'title' => 'required|string|max:255',
             'date' => 'required|date',
-            'quantity' => 'required|numeric'
+            'quantity' => 'required|numeric',
+            'factura_foto' => 'nullable|file|mimes:jpeg,jpg,png,pdf|max:10240',
         ];
 
         // Validar los datos del formulario
         $validatedData = $request->validate($rules);
 
         // Actualizar el gasto en la base de datos sin la foto
-        $gasto->update($validatedData);
+        $gasto->update(collect($validatedData)->except('factura_foto')->toArray());
 
         // Manejar la carga de la foto si existe
         if ($request->hasFile('factura_foto')) {

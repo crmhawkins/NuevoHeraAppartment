@@ -76,11 +76,10 @@ Route::middleware('auth:sanctum')->group(function () {
 | WhatsApp Tools API Routes (external service - no auth)
 |--------------------------------------------------------------------------
 |
-| Called by WhatsApp integration service. No auth required.
-| TODO: Consider adding API key verification for these routes.
+| Called by WhatsApp integration service. Protected by API key.
 |
 */
-Route::prefix('whatsapp-tools')->group(function () {
+Route::prefix('whatsapp-tools')->middleware('check.api.key')->group(function () {
     Route::post('/obtener-claves', [App\Http\Controllers\Api\WhatsappToolsController::class, 'obtenerClaves']);
     Route::post('/notificar-tecnico', [App\Http\Controllers\Api\WhatsappToolsController::class, 'notificarTecnico']);
     Route::post('/notificar-limpieza', [App\Http\Controllers\Api\WhatsappToolsController::class, 'notificarLimpieza']);

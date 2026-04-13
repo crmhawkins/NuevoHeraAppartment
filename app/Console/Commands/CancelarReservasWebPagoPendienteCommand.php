@@ -143,7 +143,7 @@ class CancelarReservasWebPagoPendienteCommand extends Command
 
                     if ($apiUrl && $apiToken) {
                         $url = rtrim($apiUrl, '/') . '/availability';
-                        $response = Http::withoutVerifying()->withHeaders([
+                        $response = Http::withHeaders([
                             'user-api-key' => $apiToken,
                         ])->post($url, ['values' => $values]);
 

@@ -71,7 +71,7 @@ class AlertController extends Controller
             'expires_at' => 'nullable|date'
         ]);
 
-        $alert = AlertService::create($request->all());
+        $alert = AlertService::create($request->only(['user_id', 'type', 'scenario', 'title', 'content', 'action_url', 'action_text', 'is_dismissible', 'expires_at']));
         
         return response()->json([
             'success' => true,
