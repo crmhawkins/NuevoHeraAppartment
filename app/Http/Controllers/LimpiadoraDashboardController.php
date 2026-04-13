@@ -51,6 +51,7 @@ class LimpiadoraDashboardController extends Controller
                     'datos' => [
                         'diaSemana' => Carbon::now()->locale('es')->isoFormat('dddd'), 'hoy' => Carbon::now()->format('d/m/Y'), 'turnoHoy' => null,
                         'tareasAsignadas' => collect(),
+                        'proximasLimpiezas' => collect(),
                         'limpiezasHoy' => 0,
                         'limpiezasAsignadas' => 0,
                         'limpiezasCompletadasHoy' => 0,
@@ -61,7 +62,8 @@ class LimpiadoraDashboardController extends Controller
                         'limpiezasCompletadasSemana' => 0,
                         'porcentajeSemana' => 0,
                         'fichajeActual' => null,
-                        'estadisticasCalidad' => []
+                        'estadisticasCalidad' => [],
+                        'analisisRecientes' => []
                     ]
                 ]);
             }
@@ -275,7 +277,7 @@ class LimpiadoraDashboardController extends Controller
                 $semanaFin = $semanaInicio->copy()->addDays(6);
 
                 if ($dia->between($semanaInicio, $semanaFin)) {
-                    $diasLibresArray = json_decode($dl->dias_libres, true) ?? [];
+                    $diasLibresArray = is_array($dl->dias_libres) ? $dl->dias_libres : (json_decode($dl->dias_libres, true) ?? []);
                     if (in_array((string)$diaSemana, $diasLibresArray)) {
                         $libreHoy = true;
                     }

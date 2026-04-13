@@ -134,6 +134,7 @@
             @if($datos['proximasLimpiezas']->count() > 0)
                 <div class="tareas-list">
                     @foreach($datos['proximasLimpiezas'] as $tarea)
+                        <a href="{{ route('gestion.tareas.checklist', $tarea['id']) }}" class="tarea-link" style="text-decoration: none; color: inherit; display: block;">
                         <div class="tarea-item {{ $tarea['estado'] === 'completada' ? 'completada' : ($tarea['estado'] === 'en_progreso' ? 'en-progreso' : 'pendiente') }}">
                             <div class="tarea-header">
                                 <div class="tarea-info">
@@ -178,6 +179,7 @@
                                 </div>
                             @endif
                         </div>
+                        </a>
                     @endforeach
                 </div>
             @else
