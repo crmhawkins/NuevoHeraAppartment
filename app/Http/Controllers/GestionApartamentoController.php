@@ -3186,7 +3186,7 @@ public function updateZonaComun(Request $request, ApartamentoLimpieza $apartamen
                             \Alert::warning('Stock Bajo', "El amenity '{$amenity->nombre}' tiene stock bajo (actual: {$amenity->stock_actual} {$amenity->unidad_medida})");
                             // CRM notification
                             try {
-                                \App\Services\NotificationService::notifyLowStock($amenity);
+                                \App\Services\NotificationService::notifyLowStock($amenity->id, $amenity->nombre, $amenity->stock_actual, $amenity->stock_minimo);
                             } catch (\Exception $e) {
                                 \Log::error('Error notificación stock bajo: ' . $e->getMessage());
                             }
