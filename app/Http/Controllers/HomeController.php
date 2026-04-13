@@ -233,7 +233,7 @@ public function pruebas()
 
         // Aquí podrías extraer las predicciones específicas de los datos de DNI
         // Dependiendo de cómo hayas entrenado el modelo, podrías extraer campos específicos
-        dd($resultData);
+        // dd($resultData); // Removed: dd() must never run in production
 
         return $this->parseDniData($resultData);
 
@@ -294,8 +294,8 @@ public function getReservas()
         }
 
         $postData = [
-            'username' => 'H11070GEV04',
-            'password' => 'H4Kins4p4rtamento2023',
+            'username' => env('MIR_USERNAME'),
+            'password' => env('MIR_PASSWORD'),
             '_csrf'    => $csrfToken
         ];
 

@@ -34,6 +34,7 @@ return [
         'webhook_url' => env('CHANNEX_WEBHOOK_URL', 'https://tu-dominio.com/webhook-handler'),
         'api_url' => env('CHANNEX_API_URL', 'https://staging.channex.io/api/v1'),
         'api_token' => env('CHANNEX_API_TOKEN'),
+        'webhook_secret' => env('CHANNEX_WEBHOOK_SECRET'),
     ],
 
     'openai' => [
@@ -145,6 +146,10 @@ return [
             //     'bank_id' => (int) env('BANKINTER_BANK_ID_OTRA', 3),
             // ],
         ],
+    ],
+
+    'whatsapp_tools' => [
+        'api_key' => env('WHATSAPP_TOOLS_API_KEY'),
     ],
 
     'anthropic' => [

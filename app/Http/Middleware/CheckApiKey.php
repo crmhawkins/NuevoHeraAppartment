@@ -15,7 +15,7 @@ class CheckApiKey
     {
         $key = $request->header('X-API-Key') ?? $request->query('api_key');
 
-        if (!$key || $key !== env('WHATSAPP_TOOLS_API_KEY')) {
+        if (!$key || $key !== config('services.whatsapp_tools.api_key')) {
             return response()->json(['error' => 'API key required'], 401);
         }
 

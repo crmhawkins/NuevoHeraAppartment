@@ -16,8 +16,11 @@ class ChannexController extends Controller
     private function verifyWebhookSecret(Request $request, string $eventType)
     {
         $secret = $request->header('X-Webhook-Secret') ?? $request->header('X-Channex-Secret');
-        $expectedSecret = env('CHANNEX_WEBHOOK_SECRET');
+        $expectedSecret = config('services.channex.webhook_secret');
 
+        // SECURITY WARNING: When $expectedSecret is null/empty (not configured),
+        // ALL webhook requests pass through without verification. Configure
+        // CHANNEX_WEBHOOK_SECRET in production .env to enable signature validation.
         if ($expectedSecret && $secret !== $expectedSecret) {
             Log::warning("[Channex Webhook] Invalid signature for [{$eventType}]", [
                 'ip' => $request->ip(),
