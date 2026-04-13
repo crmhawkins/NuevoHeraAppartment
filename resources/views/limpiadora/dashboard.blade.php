@@ -3,6 +3,7 @@
 @section('title', 'Dashboard - Limpiadora')
 
 @section('content')
+@php $ar = Auth::user()->idioma_preferido === 'ar'; @endphp
 <div class="limpiadora-dashboard">
     <!-- Mensajes de Confirmación -->
     @if(session('status'))
@@ -24,8 +25,8 @@
     <!-- Header del Dashboard -->
     <div class="dashboard-header">
         <div class="welcome-section">
-            <h1>¡Buenos días, {{ Auth::user()->name }}!</h1>
-            <p>{{ \Carbon\Carbon::now()->locale('es')->isoFormat('dddd, D/MM/YYYY') }}</p>
+            <h1>{{ $ar ? 'صباح الخير' : '¡Buenos días' }}, {{ Auth::user()->name }}{{ $ar ? '' : '!' }}</h1>
+            <p>{{ \Carbon\Carbon::now()->locale($ar ? 'ar' : 'es')->isoFormat('dddd, D/MM/YYYY') }}</p>
         </div>
         
         <!-- Estado de la Jornada -->
@@ -36,7 +37,7 @@
                         <i class="bi bi-play-circle-fill"></i>
                     </div>
                     <div class="status-info">
-                        <span class="status-label">Jornada activa</span>
+                        <span class="status-label">{{ $ar ? 'يوم العمل نشط' : 'Jornada activa' }}</span>
                         <span class="status-time">Iniciada: {{ \Carbon\Carbon::parse($datos['fichajeActual']->hora_entrada)->format('H:i') }}</span>
                     </div>
                 </div>
@@ -45,7 +46,7 @@
                     <div class="status-icon">
                         <i class="bi bi-stop-circle-fill"></i>
                     </div>
-                    <span>Jornada no iniciada</span>
+                    <span>{{ $ar ? 'لم يبدأ يوم العمل' : 'Jornada no iniciada' }}</span>
                 </div>
             @endif
             
@@ -54,14 +55,14 @@
                 <form action="{{ route('fichajes.iniciar') }}" method="POST" class="d-inline w-100">
                     @csrf
                     <button type="submit" class="btn btn-success btn-lg w-100 mb-4">
-                        <i class="bi bi-play-fill"></i> Iniciar Jornada
+                        <i class="bi bi-play-fill"></i> {{ $ar ? 'بدء يوم العمل' : 'Iniciar Jornada' }}
                     </button>
                 </form>
             @else
                 <form action="{{ route('fichajes.finalizar') }}" method="POST" class="d-inline w-100" id="finalizarForm">
                     @csrf
                     <button type="submit" class="btn btn-danger btn-lg w-100 mb-4" id="finalizarBtn">
-                        <i class="bi bi-stop-fill"></i> Finalizar Jornada
+                        <i class="bi bi-stop-fill"></i> {{ $ar ? 'إنهاء يوم العمل' : 'Finalizar Jornada' }}
                     </button>
                 </form>
             @endif
@@ -76,8 +77,8 @@
             </div>
             <div class="stat-content">
                 <div class="stat-number">{{ $datos['limpiezasHoy'] }}</div>
-                <div class="stat-label">Limpiezas Hoy</div>
-                <small class="stat-detail">{{ $datos['apartamentosPendientes'] }} pendientes</small>
+                <div class="stat-label">{{ $ar ? 'تنظيفات اليوم' : 'Limpiezas Hoy' }}</div>
+                <small class="stat-detail">{{ $datos['apartamentosPendientes'] }} {{ $ar ? 'معلقة' : 'pendientes' }}</small>
             </div>
         </div>
         
@@ -87,8 +88,8 @@
             </div>
             <div class="stat-content">
                 <div class="stat-number">{{ $datos['limpiezasCompletadasHoy'] }}</div>
-                <div class="stat-label">Completadas</div>
-                <small class="stat-detail">de {{ $datos['limpiezasAsignadas'] }} asignadas</small>
+                <div class="stat-label">{{ $ar ? 'مكتملة' : 'Completadas' }}</div>
+                <small class="stat-detail">{{ $ar ? 'من' : 'de' }} {{ $datos['limpiezasAsignadas'] }} {{ $ar ? 'مخصصة' : 'asignadas' }}</small>
             </div>
         </div>
         
@@ -98,8 +99,8 @@
             </div>
             <div class="stat-content">
                 <div class="stat-number">{{ $datos['limpiezasPendientesHoy'] }}</div>
-                <div class="stat-label">En Proceso</div>
-                <small class="stat-detail">trabajando</small>
+                <div class="stat-label">{{ $ar ? 'قيد التنفيذ' : 'En Proceso' }}</div>
+                <small class="stat-detail">{{ $ar ? 'يعمل' : 'trabajando' }}</small>
             </div>
         </div>
         
@@ -109,7 +110,7 @@
             </div>
             <div class="stat-content">
                 <div class="stat-number">{{ $datos['porcentajeSemana'] }}%</div>
-                <div class="stat-label">Semana</div>
+                <div class="stat-label">{{ $ar ? 'الأسبوع' : 'Semana' }}</div>
                 <small class="stat-detail">{{ $datos['limpiezasCompletadasSemana'] }}/{{ $datos['limpiezasSemana'] }}</small>
             </div>
         </div>
@@ -120,12 +121,12 @@
         <div class="apple-card-header">
             <div class="apple-card-title">
                 <i class="bi bi-list-task"></i>
-                <span>Mis Tareas de Hoy</span>
+                <span>{{ $ar ? 'مهامي اليوم' : 'Mis Tareas de Hoy' }}</span>
             </div>
             @if($datos['turnoHoy'])
                 <div class="apple-card-subtitle">
                     <span class="badge bg-primary">{{ $datos['turnoHoy']->estado }}</span>
-                    <small class="text-muted">Ordenadas por prioridad</small>
+                    <small class="text-muted">{{ $ar ? 'مرتبة حسب الأولوية' : 'Ordenadas por prioridad' }}</small>
                 </div>
             @endif
         </div>
@@ -145,27 +146,27 @@
                                     </div>
                                     <div class="tarea-prioridad">
                                         <span class="badge bg-{{ $tarea['prioridad'] >= 8 ? 'danger' : ($tarea['prioridad'] >= 6 ? 'warning' : 'info') }}">
-                                            Prioridad {{ $tarea['prioridad'] }}
+                                            {{ $ar ? 'أولوية' : 'Prioridad' }} {{ $tarea['prioridad'] }}
                                         </span>
-                                        <small class="orden-ejecucion">Orden: {{ $tarea['orden_ejecucion'] }}</small>
+                                        <small class="orden-ejecucion">{{ $ar ? 'ترتيب' : 'Orden' }}: {{ $tarea['orden_ejecucion'] }}</small>
                                     </div>
                                 </div>
                                 <div class="tarea-details">
                                     <div class="tarea-tiempo">
                                         <i class="bi bi-clock"></i>
-                                        <span>{{ $tarea['tiempo_estimado'] }} min</span>
+                                        <span>{{ $tarea['tiempo_estimado'] }} {{ $ar ? 'دقيقة' : 'min' }}</span>
                                     </div>
                                     <div class="tarea-estado">
                                         <span class="status-badge status-{{ $tarea['estado'] }}">
                                             @switch($tarea['estado'])
                                                 @case('completada')
-                                                    Completada
+                                                    {{ $ar ? 'مكتملة' : 'Completada' }}
                                                     @break
                                                 @case('en_progreso')
-                                                    En Progreso
+                                                    {{ $ar ? 'قيد التنفيذ' : 'En Progreso' }}
                                                     @break
                                                 @default
-                                                    Pendiente
+                                                    {{ $ar ? 'معلق' : 'Pendiente' }}
                                             @endswitch
                                         </span>
                                     </div>
@@ -182,8 +183,8 @@
             @else
                 <div class="empty-state">
                     <i class="bi bi-calendar-x"></i>
-                    <p>No hay tareas asignadas para hoy</p>
-                    <small class="text-muted">Contacta con tu supervisor si crees que debería haber tareas asignadas</small>
+                    <p>{{ $ar ? 'لا توجد مهام مخصصة لليوم' : 'No hay tareas asignadas para hoy' }}</p>
+                    <small class="text-muted">{{ $ar ? 'تواصل مع مشرفك إذا كنت تعتقد أنه يجب أن تكون هناك مهام مخصصة' : 'Contacta con tu supervisor si crees que debería haber tareas asignadas' }}</small>
                 </div>
             @endif
         </div>
@@ -195,7 +196,7 @@
             <div class="apple-card-header">
                 <div class="apple-card-title">
                     <i class="bi bi-exclamation-triangle-fill"></i>
-                    <span>Mis Incidencias Pendientes</span>
+                    <span>{{ $ar ? 'حوادثي المعلقة' : 'Mis Incidencias Pendientes' }}</span>
                 </div>
             </div>
             <div class="apple-card-body">
@@ -214,7 +215,7 @@
                                     {{ ucfirst($incidencia->prioridad) }}
                                 </span>
                                 <a href="{{ route('gestion.incidencias.show', $incidencia->id) }}" class="apple-btn apple-btn-info">
-                                    Ver Detalles
+                                    {{ $ar ? 'عرض التفاصيل' : 'Ver Detalles' }}
                                 </a>
                             </div>
                         </div>
@@ -230,7 +231,7 @@
             <div class="apple-card-header">
                 <div class="apple-card-title">
                     <i class="bi bi-graph-up"></i>
-                    <span>Calidad de Limpieza (Última Semana)</span>
+                    <span>{{ $ar ? 'جودة التنظيف (الأسبوع الماضي)' : 'Calidad de Limpieza (Última Semana)' }}</span>
                 </div>
             </div>
             <div class="apple-card-body">
@@ -254,8 +255,8 @@
             <div class="spinner"></div>
         </div>
         <div class="loading-text">
-            <h3>Actualizando...</h3>
-            <p>Por favor, espera mientras se procesa tu solicitud</p>
+            <h3>{{ $ar ? 'جاري التحديث...' : 'Actualizando...' }}</h3>
+            <p>{{ $ar ? 'يرجى الانتظار أثناء معالجة طلبك' : 'Por favor, espera mientras se procesa tu solicitud' }}</p>
             <div class="loading-progress">
                 <div class="progress-bar">
                     <div class="progress-fill" id="progressFill"></div>

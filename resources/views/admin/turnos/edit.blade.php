@@ -459,8 +459,8 @@ function deleteTask(taskId) {
         cancelButtonText: 'Cancelar'
     }).then((result) => {
         if (result.isConfirmed) {
-            fetch(`/admin/turnos/tareas/${taskId}`, {
-                method: 'DELETE',
+            fetch(`/admin/turnos/tareas/${taskId}/delete`, {
+                method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
                     'Content-Type': 'application/json'

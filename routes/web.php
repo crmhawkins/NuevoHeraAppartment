@@ -962,7 +962,7 @@ Route::middleware(['auth', 'role:ADMIN'])->group(function () {
     Route::get('admin/turnos/tareas/{tarea}', [App\Http\Controllers\Admin\TurnosTrabajoController::class, 'showTask'])->name('admin.turnos.tareas.show');
     Route::get('admin/turnos/tareas/{tarea}/edit', [App\Http\Controllers\Admin\TurnosTrabajoController::class, 'editTask'])->name('admin.turnos.tareas.edit');
     Route::put('admin/turnos/tareas/{tarea}', [App\Http\Controllers\Admin\TurnosTrabajoController::class, 'updateTask'])->name('admin.turnos.tareas.update');
-    Route::delete('admin/turnos/tareas/{tarea}', [App\Http\Controllers\Admin\TurnosTrabajoController::class, 'deleteTask'])->name('admin.turnos.tareas.destroy');
+    Route::post('admin/turnos/tareas/{tarea}/delete', [App\Http\Controllers\Admin\TurnosTrabajoController::class, 'deleteTask'])->name('admin.turnos.tareas.destroy');
     Route::post('admin/turnos/tareas/{tarea}/toggle', [App\Http\Controllers\Admin\TurnosTrabajoController::class, 'toggleTask'])->name('admin.turnos.tareas.toggle');
     Route::post('admin/turnos/{turno}/reordenar-tareas', [App\Http\Controllers\Admin\TurnosTrabajoController::class, 'reordenarTareas'])->name('admin.turnos.reordenar-tareas');
     Route::post('admin/empleada-horarios/crear-horario-rapido', [App\Http\Controllers\Admin\EmpleadaHorariosController::class, 'crearHorarioRapido'])->name('admin.empleada-horarios.crear-horario-rapido');
