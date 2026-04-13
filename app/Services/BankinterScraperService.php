@@ -487,7 +487,7 @@ class BankinterScraperService
             try {
                 $resultado = DB::transaction(function () use (
                     $hash, $fechaContable, $descripcion, $debe, $haber, $saldo,
-                    $bankId, &$duplicados, &$hashesHuerfanosEliminados,
+                    $bankId, $referenciaBancaria, &$duplicados, &$hashesHuerfanosEliminados,
                     &$ingresosCreados, &$gastosCreados
                 ) {
                     // Lock para evitar race condition
