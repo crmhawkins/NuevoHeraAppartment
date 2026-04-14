@@ -100,6 +100,22 @@ return [
         'model' => env('OLLAMA_MODEL', 'qwen2.5vl:latest'),
     ],
 
+    'facturas' => [
+        // Token para el endpoint publico POST /facturas/subir/{token}
+        // Se comparte el mismo enlace con todos los trabajadores para subir
+        // fotos de facturas desde el movil. Si no esta configurado, el
+        // endpoint rechazara cualquier peticion con 403.
+        'upload_token' => env('FACTURAS_UPLOAD_TOKEN'),
+
+        // Ventana de tolerancia en dias para emparejar la fecha de la factura
+        // con la fecha del gasto en el banco. Por defecto +-15 dias.
+        'match_date_window_days' => (int) env('FACTURAS_MATCH_DATE_WINDOW_DAYS', 15),
+
+        // Dias que una factura puede permanecer en "espera" antes de pasar
+        // a "error" por falta de gasto candidato.
+        'espera_max_dias' => (int) env('FACTURAS_ESPERA_MAX_DIAS', 30),
+    ],
+
     'bankinter' => [
         // Token para el endpoint POST /api/bankinter/scraper/import
         // Lo envia el PC externo (Windows) que ejecuta el scraper en la cabecera

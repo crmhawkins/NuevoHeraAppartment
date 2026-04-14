@@ -20,5 +20,9 @@ class VerifyCsrfToken extends Middleware
         'api/webhooks/*',
         'api/checkin-completado',
         'api/whatsapp-tools/*',
+        // Endpoint publico de subida de facturas desde movil. La seguridad
+        // depende del token en la URL (validado en el controller), no del
+        // CSRF cookie, que no tiene sentido en un flujo sin sesion.
+        'facturas/subir/*',
     ];
 }

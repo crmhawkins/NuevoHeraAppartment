@@ -437,6 +437,17 @@
                                         <li><a class="dropdown-item" href="{{ route('admin.facturasRecibidas.index') }}">
                                             <i class="fas fa-file-invoice-dollar me-2"></i>Facturas Recibidas
                                         </a></li>
+                                        <li><a class="dropdown-item" href="{{ route('admin.facturasPendientes.index') }}">
+                                            <i class="fas fa-file-import me-2"></i>Facturas Pendientes
+                                            @php
+                                                $fpCount = \Illuminate\Support\Facades\Schema::hasTable('facturas_pendientes')
+                                                    ? \App\Models\FacturaPendiente::whereIn('status', ['espera','error'])->count()
+                                                    : 0;
+                                            @endphp
+                                            @if($fpCount > 0)
+                                                <span class="badge bg-danger ms-1">{{ $fpCount }}</span>
+                                            @endif
+                                        </a></li>
                                         <li><a class="dropdown-item" href="{{ route('metalicos.index') }}">
                                             <i class="fas fa-coins me-2"></i>Metálicos
                                         </a></li>

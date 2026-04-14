@@ -78,6 +78,11 @@ class Kernel extends ConsoleKernel
         // Programa el comando para que se ejecute cada 5 minutos
         $schedule->command('emails:fetch')->everyFiveMinutes()->withoutOverlapping();
 
+        // Procesa facturas subidas a storage/app/facturas/pendientes/.
+        // Llama a la IA para extraer importe+fecha, busca el gasto que matchea
+        // y lo asocia automaticamente. Cada 5 minutos, sin solapamiento.
+        $schedule->command('facturas:procesar-pendientes')->everyFiveMinutes()->withoutOverlapping();
+
         // Tarea programada de Limpieza de numero de telefono del cliente.
         $schedule->command('clean:phonenumbers')->twiceDaily(1, 13);
 

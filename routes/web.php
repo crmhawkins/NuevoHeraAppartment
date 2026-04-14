@@ -232,6 +232,16 @@ Route::prefix('auth/hawcert')->name('hawcert.')->group(function () {
 });
 
 
+// Subida publica de facturas desde movil por los trabajadores.
+// El token forma parte de la URL (services.facturas.upload_token) y se valida
+// en el controller con hash_equals. Rate-limit 20 req/min/IP.
+Route::middleware(['throttle:20,1'])->group(function () {
+    Route::get('/facturas/subir/{token}', [App\Http\Controllers\FacturaUploadMovilController::class, 'show'])
+        ->name('facturas.subir.show');
+    Route::post('/facturas/subir/{token}', [App\Http\Controllers\FacturaUploadMovilController::class, 'store'])
+        ->name('facturas.subir.store');
+});
+
 // Rutas de admin
 Route::middleware(['auth', 'role:ADMIN'])->group(function () {
 
@@ -554,6 +564,13 @@ Route::get('/admin/historial-descuentos/{historial}/datos-momento', [HistorialDe
     Route::post('/diario-caja/{id}/destroy', [App\Http\Controllers\DiarioCajaController::class, 'destroy'])->name('admin.diarioCaja.destroy');
     Route::post('/diario-caja/{id}/destroy-linea', [App\Http\Controllers\DiarioCajaController::class, 'destroyDiarioCaja'])->name('admin.diarioCaja.destroyDiarioCaja');
     Route::post('/diario-caja/importar-excel-bankinter', [App\Http\Controllers\DiarioCajaController::class, 'importarExcelBankinter'])->name('admin.diarioCaja.importarExcelBankinter');
+
+    // Facturas pendientes (panel admin)
+    Route::get('/facturas-pendientes', [App\Http\Controllers\FacturasPendientesController::class, 'index'])->name('admin.facturasPendientes.index');
+    Route::get('/facturas-pendientes/{id}/imagen', [App\Http\Controllers\FacturasPendientesController::class, 'imagen'])->name('admin.facturasPendientes.imagen');
+    Route::post('/facturas-pendientes/{id}/asociar', [App\Http\Controllers\FacturasPendientesController::class, 'asociarManual'])->name('admin.facturasPendientes.asociar');
+    Route::post('/facturas-pendientes/{id}/reintentar', [App\Http\Controllers\FacturasPendientesController::class, 'reintentar'])->name('admin.facturasPendientes.reintentar');
+    Route::post('/facturas-pendientes/{id}/descartar', [App\Http\Controllers\FacturasPendientesController::class, 'descartar'])->name('admin.facturasPendientes.descartar');
 
     // Cuentas Contables
     Route::get('/cuentas-contables', [App\Http\Controllers\CuentasContableController::class, 'index'])->name('admin.cuentasContables.index');
