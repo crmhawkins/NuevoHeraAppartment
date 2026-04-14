@@ -467,12 +467,12 @@ class BankinterScraperService
                 continue;
             }
 
-            // [DUP-02] Hash determinista con formato fijo de decimales
+            // [DUP-02] Hash determinista SIN saldo (el saldo cambia entre descargas
+            // cuando se añaden nuevos movimientos al Excel)
             $baseHash = $fechaContable->format('Y-m-d')
                 . '|' . $descripcion
                 . '|' . number_format($debe, 2, '.', '')
-                . '|' . number_format($haber, 2, '.', '')
-                . '|' . number_format($saldo, 2, '.', '');
+                . '|' . number_format($haber, 2, '.', '');
 
             // [DUP-01] Contador de ocurrencia para transacciones identicas
             if (!isset($hashOccurrences[$baseHash])) {
@@ -482,6 +482,27 @@ class BankinterScraperService
             $occurrence = $hashOccurrences[$baseHash];
 
             $hash = md5($baseHash . '|#' . $occurrence);
+
+            // [DUP-SAFE] Verificar duplicado por datos ANTES del hash (proteccion contra cambios de hash)
+            $yaExisteEnBD = false;
+            if ($haber > 0) {
+                $yaExisteEnBD = Ingresos::where('date', $fechaContable->format('Y-m-d'))
+                    ->where('title', $descripcion)
+                    ->where('quantity', $haber)
+                    ->where('bank_id', $bankId)
+                    ->exists();
+            } elseif ($debe != 0) {
+                $yaExisteEnBD = Gastos::where('date', $fechaContable->format('Y-m-d'))
+                    ->where('title', $descripcion)
+                    ->where('quantity', $debe)
+                    ->where('bank_id', $bankId)
+                    ->exists();
+            }
+
+            if ($yaExisteEnBD) {
+                $duplicados++;
+                continue;
+            }
 
             // [RACE-01] Verificar duplicado dentro de transaccion con lock
             try {
@@ -497,26 +518,8 @@ class BankinterScraperService
                         ->first();
 
                     if ($existingHash) {
-                        // Verificar si el registro original existe
-                        $registroExiste = ($haber > 0 && Ingresos::where('date', $fechaContable->format('Y-m-d'))
-                                ->where('title', $descripcion)
-                                ->where('quantity', $haber)
-                                ->where('bank_id', $bankId)
-                                ->exists())
-                            || ($debe != 0 && Gastos::where('date', $fechaContable->format('Y-m-d'))
-                                ->where('title', $descripcion)
-                                ->where('quantity', $debe)
-                                ->where('bank_id', $bankId)
-                                ->exists());
-
-                        if ($registroExiste) {
-                            $duplicados++;
-                            return 'duplicado';
-                        }
-
-                        // Hash huerfano
-                        DB::table('hash_movimientos')->where('id', $existingHash->id)->delete();
-                        $hashesHuerfanosEliminados++;
+                        $duplicados++;
+                        return 'duplicado';
                     }
 
                     $categoriaIngreso = CategoriaIngresos::first();
