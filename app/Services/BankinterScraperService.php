@@ -445,8 +445,11 @@ class BankinterScraperService
             }
 
             $descripcion = trim((string)($row[$colMap['descripcion']] ?? ''));
-            $debe = (float)($row[$colMap['debe']] ?? 0);
-            $haber = (float)($row[$colMap['haber']] ?? 0);
+            // [SIGN-FIX] Bankinter envia DEBE como negativo. Normalizamos a positivo
+            // en origen para que el resto del sistema (controller, reportes, exports,
+            // hash de dedup) vea siempre valores positivos y consistentes.
+            $debe = abs((float)($row[$colMap['debe']] ?? 0));
+            $haber = abs((float)($row[$colMap['haber']] ?? 0));
             $saldo = (float)($row[$colMap['saldo']] ?? 0);
 
             // Extraer referencia bancaria (Ref.16) si existe en el mapeo de columnas
@@ -483,26 +486,10 @@ class BankinterScraperService
 
             $hash = md5($baseHash . '|#' . $occurrence);
 
-            // [DUP-SAFE] Verificar duplicado por datos ANTES del hash (proteccion contra cambios de hash)
-            $yaExisteEnBD = false;
-            if ($haber > 0) {
-                $yaExisteEnBD = Ingresos::where('date', $fechaContable->format('Y-m-d'))
-                    ->where('title', $descripcion)
-                    ->where('quantity', $haber)
-                    ->where('bank_id', $bankId)
-                    ->exists();
-            } elseif ($debe != 0) {
-                $yaExisteEnBD = Gastos::where('date', $fechaContable->format('Y-m-d'))
-                    ->where('title', $descripcion)
-                    ->where('quantity', $debe)
-                    ->where('bank_id', $bankId)
-                    ->exists();
-            }
-
-            if ($yaExisteEnBD) {
-                $duplicados++;
-                continue;
-            }
+            // [DUP-SAFE ELIMINADO] Se quito una verificacion por (date,title,quantity,bank_id)
+            // que mataba duplicados legitimos del mismo dia (p.ej. varias reservas de Booking
+            // del mismo importe). La dedup se hace ahora solo via hash_movimientos con
+            // contador de ocurrencia #1/#2/..., que SI distingue transacciones reales.
 
             // [RACE-01] Verificar duplicado dentro de transaccion con lock
             try {

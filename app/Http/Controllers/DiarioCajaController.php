@@ -201,12 +201,15 @@ class DiarioCajaController extends Controller
 
  public function index(Request $request)
 {
-    // 1) Saldo inicial
+    // 1) Saldo inicial y año activo (el que marca la tabla anio)
     $anio = Anio::first();
     $saldoInicial = $anio->saldo_inicial ?? 0;
+    $anioActual = $anio->anio ?? (int) date('Y');
 
-    // 2) Base de consulta con filtros (SIN orden todavía)
-    $baseQuery = DiarioCaja::query();
+    // 2) Base de consulta: solo movimientos del año activo.
+    //    Cerrar el diario por año evita que movs de ejercicios anteriores
+    //    contaminen el saldo acumulado (que parte del saldo_inicial del año).
+    $baseQuery = DiarioCaja::query()->whereYear('date', $anioActual);
 
     if ($request->filled('start_date')) {
         $baseQuery->where('date', '>=', $request->start_date);
