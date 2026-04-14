@@ -723,8 +723,8 @@
                     motivoGroup.style.display = 'none';
                     motivoTextarea.required = false;
                     motivoTextarea.value = '';
-                    // Deshabilitar botón Terminar
-                    btnTerminar.disabled = true;
+                    // Boton siempre habilitado
+                    btnTerminar.disabled = false;
                 }
             });
             
@@ -770,20 +770,10 @@
         const motivoTextarea = document.getElementById('motivoConsentimiento');
         const btnTerminar = document.querySelector('.apple-btn-success');
         
-        if (checkboxConsentimiento && motivoTextarea && btnTerminar) {
-            const consentimientoMarcado = checkboxConsentimiento.checked;
-            const motivoCompletado = motivoTextarea.value.trim().length > 0;
-            
-            // El botón se habilita si hay consentimiento Y motivo, O si todos los checklists están completos
-            const todosChecklistsCompletos = verificarTodosChecklistsCompletos();
-            
-            if (todosChecklistsCompletos || (consentimientoMarcado && motivoCompletado)) {
-                btnTerminar.disabled = false;
-                btnTerminar.classList.remove('btn-disabled');
-            } else {
-                btnTerminar.disabled = true;
-                btnTerminar.classList.add('btn-disabled');
-            }
+        // Boton siempre habilitado
+        if (btnTerminar) {
+            btnTerminar.disabled = false;
+            btnTerminar.classList.remove('btn-disabled');
         }
     }
     
@@ -1363,20 +1353,10 @@
 
     // Función para actualizar el estado del botón de finalizar (global)
     function actualizarEstadoBotonFinalizar() {
-        const totalItems = $('.item-switch').length;
-        const itemsMarcados = $('.item-switch:checked').length;
+        // Boton Terminar siempre habilitado - el popup de SweetAlert avisa si faltan checks
         const btnTerminar = $('.apple-btn-success');
-        const terminarMessage = $('#terminarMessage');
-        
-        if (itemsMarcados === totalItems && totalItems > 0) {
-            btnTerminar.removeClass('apple-btn-secondary').addClass('apple-btn-success');
-            btnTerminar.prop('disabled', false);
-            terminarMessage.hide();
-        } else {
-            // Verificar si hay consentimiento para habilitar el botón
-            validarBotonTerminar();
-            terminarMessage.show();
-        }
+        btnTerminar.prop('disabled', false);
+        btnTerminar.removeClass('btn-disabled apple-btn-secondary');
     }
     
     // Inicializar el consentimiento cuando se carga la página
