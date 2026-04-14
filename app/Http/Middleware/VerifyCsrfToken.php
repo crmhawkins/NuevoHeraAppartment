@@ -15,6 +15,8 @@ class VerifyCsrfToken extends Middleware
         '/channex/*',
         '/webhook-handler',
         '/webhooks/stripe',
+        '/whatsapp',
+        '/whatsapp-envio',
         'api/webhooks/*',
         'api/checkin-completado',
         'api/whatsapp-tools/*',
