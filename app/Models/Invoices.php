@@ -12,36 +12,8 @@ class Invoices extends Model
 
     protected $table = 'invoices';
 
-    protected static function boot()
-    {
-        parent::boot();
-
-        static::creating(function ($invoice) {
-            // Don't override if reference already set
-            if (!empty($invoice->reference)) return;
-
-            // Don't assign to rectificativas (those get R prefix)
-            if ($invoice->es_rectificativa) return;
-
-            // Get the date for this invoice
-            $fecha = $invoice->fecha ? \Carbon\Carbon::parse($invoice->fecha) : now();
-            $year = $fecha->format('Y');
-            $month = $fecha->format('m');
-
-            // Find the highest reference number for this year (exclude R-prefixed rectificativas)
-            $lastRef = static::where('reference', 'like', "{$year}/%")
-                ->where('reference', 'not like', 'R%')
-                ->orderByDesc('reference')
-                ->value('reference');
-
-            $lastNum = 0;
-            if ($lastRef && preg_match('/\d{4}\/\d{2}\/(\d+)/', $lastRef, $matches)) {
-                $lastNum = (int) $matches[1];
-            }
-
-            $invoice->reference = sprintf('%s/%s/%06d', $year, $month, $lastNum + 1);
-        });
-    }
+    // Referencia se asigna desde Kernel.php generateBudgetReference()
+    // NO auto-asignar en boot() para evitar conflictos con la numeracion existente
 
     protected $fillable = [
         'budget_id',
