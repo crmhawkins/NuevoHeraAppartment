@@ -383,9 +383,7 @@
                                                     ]);
                                                 }
                                             @endphp
-                                                <a id="camara{{ $checklist->id }}" href="{{ $fotoRuta }}" class="camera-button" style="display: none">
-                                                    <i class="fa-solid fa-camera"></i>
-                                                </a>
+                                                {{-- Camera button removed - photos handled by fotos-rapidas.js --}}
                                             @endif
                                         </div>
                                     </div>
@@ -1439,14 +1437,14 @@
 
         // Manejar cambios en checkboxes de checklist
         $('.category-switch').on('change', function() {
-            const habitacion = $(this).data('habitacion');
-            const selectorCamara = '#camara' + habitacion;
-
-            if ($(this).is(':checked')) {
-                $(selectorCamara).show();
-            } else {
-                $(selectorCamara).hide();
-            }
+            // Camera show/hide removed - photos handled by fotos-rapidas.js
+            // const habitacion = $(this).data('habitacion');
+            // const selectorCamara = '#camara' + habitacion;
+            // if ($(this).is(':checked')) {
+            //     $(selectorCamara).show();
+            // } else {
+            //     $(selectorCamara).hide();
+            // }
 
             handleCheckboxChange($(this));
         });
@@ -1458,12 +1456,12 @@
 
         // Mostrar cámaras inicialmente si los checklists están marcados
         $('.category-switch').each(function () {
-            const habitacion = $(this).data('habitacion');
-            const selectorCamara = '#camara' + habitacion;
-
-            if ($(this).is(':checked')) {
-                $(selectorCamara).show();
-            }
+            // Camera show removed - photos handled by fotos-rapidas.js
+            // const habitacion = $(this).data('habitacion');
+            // const selectorCamara = '#camara' + habitacion;
+            // if ($(this).is(':checked')) {
+            //     $(selectorCamara).show();
+            // }
         });
         
         // Actualizar contador inicial

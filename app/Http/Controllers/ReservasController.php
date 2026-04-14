@@ -2028,7 +2028,7 @@ class ReservasController extends Controller
                 'invoice_status_id' => 1,
                 'concepto' => "Apartamento: ". $reserva->apartamento->titulo,
                 'description' => null,
-                'fecha' => $reserva->fecha_entrada,
+                'fecha' => $reserva->fecha_salida,
                 'fecha_cobro' => Carbon::now(),
                 'base' => round($base, 2),
                 'iva' => round($iva, 2),

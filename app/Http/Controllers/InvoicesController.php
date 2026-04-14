@@ -197,7 +197,11 @@ class InvoicesController extends Controller
         if (!empty($searchTerm)) {
             $query->where(function($subQuery) use ($searchTerm) {
                 $subQuery->whereHas('cliente', function($q) use ($searchTerm) {
-                    $q->where('alias', 'LIKE', '%' . $searchTerm . '%');
+                    $q->where('alias', 'LIKE', '%' . $searchTerm . '%')
+                      ->orWhere('nombre', 'LIKE', '%' . $searchTerm . '%')
+                      ->orWhere('apellido1', 'LIKE', '%' . $searchTerm . '%')
+                      ->orWhere('facturacion_nombre_razon_social', 'LIKE', '%' . $searchTerm . '%')
+                      ->orWhere('facturacion_nif_cif', 'LIKE', '%' . $searchTerm . '%');
                 })
                 ->orWhere('reference', 'LIKE', '%' . $searchTerm . '%')
                 ->orWhere('concepto', 'LIKE', '%' . $searchTerm . '%')

@@ -1248,12 +1248,6 @@
                     </div>
                     <span class="apple-tab-label">Inicio</span>
                 </a>
-                <a href="{{route('gestion.index')}}" class="apple-tab-item {{ request()->routeIs('gestion.index') ? 'active' : '' }}">
-                    <div class="apple-tab-icon">
-                        <i class="bi bi-list-task"></i>
-                    </div>
-                    <span class="apple-tab-label">Gestión</span>
-                </a>
 
                 <a href="{{route('gestion.mis-turnos')}}" class="apple-tab-item {{ request()->routeIs('gestion.mis-turnos') ? 'active' : '' }}">
                     <div class="apple-tab-icon">

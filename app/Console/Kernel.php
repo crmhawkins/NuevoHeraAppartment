@@ -189,6 +189,10 @@ class Kernel extends ConsoleKernel
         // Verificar que las reservas de hoy tienen todo preparado para el check-in
         $schedule->command('checkin:verificar-hoy')->dailyAt('08:00')->withoutOverlapping();
 
+        // Verificar fichajes de limpiadoras (a las 10:00 tras inicio de turnos, y a las 17:30 tras fin)
+        $schedule->command('fichajes:verificar-limpiadoras')->dailyAt('10:00');
+        $schedule->command('fichajes:verificar-limpiadoras')->dailyAt('17:30');
+
         // Importar movimientos bancarios de Bankinter automaticamente
         // DESHABILITADO: el scraper ahora corre en un PC Windows externo con IP residencial.
         // Bankinter bloquea IPs de datacenter. La tarea programada esta en el PC via schtasks.
