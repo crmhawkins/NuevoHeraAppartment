@@ -3087,8 +3087,19 @@ public function updateZonaComun(Request $request, ApartamentoLimpieza $apartamen
             }
         ])->findOrFail($id);
 
-        // Las fotos ya están cargadas en la relación
-        $todasLasFotos = $apartamentoLimpieza->fotos;
+        // Combinar fotos del sistema antiguo (photos) + fotos rapidas (apartamento_limpieza_items)
+        $fotosAntiguas = $apartamentoLimpieza->fotos ?? collect();
+        $fotosRapidas = \App\Models\ApartamentoLimpiezaItem::where('id_limpieza', $apartamentoLimpieza->id)
+            ->whereNotNull('photo_url')
+            ->where('photo_url', '!=', '')
+            ->get()
+            ->map(function($item) {
+                $item->url = 'storage/' . $item->photo_url;
+                $item->descripcion = ucfirst($item->photo_cat ?? 'Foto');
+                $item->photo_cat = $item->photo_cat ?? 'general';
+                return $item;
+            });
+        $todasLasFotos = $fotosAntiguas->concat($fotosRapidas);
 
 
         // Obtener checklists con sus items si existen
