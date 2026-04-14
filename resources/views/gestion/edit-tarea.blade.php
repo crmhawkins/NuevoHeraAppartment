@@ -46,7 +46,7 @@
             if (isset($apartamentoLimpieza->apartamento)) {
                 $siguienteReserva = \App\Models\Reserva::with(['cliente', 'estado'])
                     ->where('apartamento_id', $apartamentoLimpieza->apartamento->id)
-                    ->where('fecha_entrada', '>', now()->toDateString())
+                    ->where('fecha_entrada', '>=', now()->toDateString())
                     ->where(function($query) {
                         $query->where('estado_id', '!=', 4)
                               ->orWhereNull('estado_id');
@@ -69,7 +69,7 @@
             <div class="d-flex align-items-center justify-content-center mb-3">
                 <i class="fas fa-calendar-alt text-primary me-2" style="font-size: 1.5em;"></i>
                 <div>
-                    <strong class="text-primary" style="font-size: 1.1em;">Próxima Reserva</strong>
+                    <strong class="text-primary" style="font-size: 1.1em;">{{ \Carbon\Carbon::parse($siguienteReserva->fecha_entrada)->isToday() ? 'Reserva de Hoy' : 'Próxima Reserva' }}</strong>
                     <span class="text-dark ms-2" style="font-size: 1.1em;">{{ \Carbon\Carbon::parse($siguienteReserva->fecha_entrada)->format('d/m/Y') }}</span>
                 </div>
             </div>
