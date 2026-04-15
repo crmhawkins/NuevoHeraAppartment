@@ -34,57 +34,95 @@ class PresupuestoController extends Controller
 
     /**
      * Almacenar un presupuesto en la base de datos.
+     * Soporta dos tipos de conceptos por linea:
+     *  - tipo='alojamiento': con fecha_entrada, fecha_salida, precio_por_dia, dias_totales
+     *  - tipo='servicio':    con unidades, precio_por_dia (usado como precio/unidad)
      */
     public function store(Request $request)
     {
         try {
-            $validated = $request->validate([
+            // Validacion base (sin los campos tipo-especificos que se validan por concepto)
+            $request->validate([
                 'cliente_id' => 'nullable|exists:clientes,id',
                 'fecha' => 'required|date',
-                'conceptos' => 'required|array',
+                'conceptos' => 'required|array|min:1',
                 'conceptos.*.descripcion' => 'required|string|max:255',
-                'conceptos.*.fecha_entrada' => 'required|date',
-                'conceptos.*.fecha_salida' => 'required|date|after:conceptos.*.fecha_entrada',
+                'conceptos.*.tipo' => 'required|in:alojamiento,servicio',
                 'conceptos.*.precio_por_dia' => 'required|numeric|min:0',
-                'conceptos.*.dias_totales' => 'required|integer|min:1',
                 'conceptos.*.precio_total' => 'required|numeric|min:0',
             ]);
 
-            $total = collect($validated['conceptos'])->sum('precio_total');
+            // Validacion adicional por tipo
+            foreach ($request->conceptos as $idx => $c) {
+                if (($c['tipo'] ?? 'alojamiento') === 'alojamiento') {
+                    $request->validate([
+                        "conceptos.{$idx}.fecha_entrada" => 'required|date',
+                        "conceptos.{$idx}.fecha_salida" => 'required|date|after:conceptos.' . $idx . '.fecha_entrada',
+                        "conceptos.{$idx}.dias_totales" => 'required|integer|min:1',
+                    ]);
+                } else {
+                    $request->validate([
+                        "conceptos.{$idx}.unidades" => 'required|integer|min:1',
+                    ]);
+                }
+            }
+
+            $total = collect($request->conceptos)->sum('precio_total');
 
             $presupuesto = Presupuesto::create([
-                'cliente_id' => $validated['cliente_id'] ?? null,
-                'fecha' => $validated['fecha'],
+                'cliente_id' => $request->cliente_id,
+                'fecha' => $request->fecha,
                 'total' => $total,
                 'estado' => 'pendiente',
             ]);
 
             Log::info('Presupuesto creado', ['presupuesto_id' => $presupuesto->id, 'total' => $total]);
 
-            foreach ($validated['conceptos'] as $conceptoData) {
-                // Concatenar concepto completo (se mantiene para visualización)
-                $conceptoTexto = $conceptoData['descripcion']
-                    . ' (Del ' . $conceptoData['fecha_entrada']
-                    . ' al ' . $conceptoData['fecha_salida']
-                    . ' - ' . $conceptoData['dias_totales'] . ' días)';
+            foreach ($request->conceptos as $c) {
+                $tipo = $c['tipo'] ?? 'alojamiento';
 
-                $presupuesto->conceptos()->create([
-                    'concepto' => $conceptoTexto,
-                    'precio' => $conceptoData['precio_por_dia'],
-                    'iva' => 0, // Puedes calcularlo si lo deseas
-                    'subtotal' => $conceptoData['precio_total'],
-                    // Guardar también los campos de detalle para posterior edición
-                    'fecha_entrada' => $conceptoData['fecha_entrada'],
-                    'fecha_salida' => $conceptoData['fecha_salida'],
-                    'precio_por_dia' => $conceptoData['precio_por_dia'],
-                    'dias_totales' => $conceptoData['dias_totales'],
-                    'precio_total' => $conceptoData['precio_total'],
-                ]);
+                if ($tipo === 'alojamiento') {
+                    // Concepto concatenado para visualizacion rapida
+                    $conceptoTexto = $c['descripcion']
+                        . ' (Del ' . $c['fecha_entrada']
+                        . ' al ' . $c['fecha_salida']
+                        . ' - ' . $c['dias_totales'] . ' noches)';
+
+                    $presupuesto->conceptos()->create([
+                        'concepto' => $conceptoTexto,
+                        'tipo' => 'alojamiento',
+                        'precio' => $c['precio_por_dia'],
+                        'iva' => 0,
+                        'subtotal' => $c['precio_total'],
+                        'fecha_entrada' => $c['fecha_entrada'],
+                        'fecha_salida' => $c['fecha_salida'],
+                        'precio_por_dia' => $c['precio_por_dia'],
+                        'dias_totales' => $c['dias_totales'],
+                        'precio_total' => $c['precio_total'],
+                    ]);
+                } else {
+                    $conceptoTexto = $c['descripcion']
+                        . ' (' . $c['unidades'] . ' x ' . number_format($c['precio_por_dia'], 2, ',', '.') . ' EUR)';
+
+                    $presupuesto->conceptos()->create([
+                        'concepto' => $conceptoTexto,
+                        'tipo' => 'servicio',
+                        'unidades' => $c['unidades'],
+                        'precio' => $c['precio_por_dia'],
+                        'iva' => 0,
+                        'subtotal' => $c['precio_total'],
+                        'precio_por_dia' => $c['precio_por_dia'],
+                        'dias_totales' => $c['unidades'], // duplicamos en dias_totales para compatibilidad con exports/listados viejos
+                        'precio_total' => $c['precio_total'],
+                    ]);
+                }
             }
 
-            Log::info('Conceptos del presupuesto creados', ['presupuesto_id' => $presupuesto->id, 'conceptos_count' => count($validated['conceptos'])]);
+            Log::info('Conceptos del presupuesto creados', ['presupuesto_id' => $presupuesto->id, 'conceptos_count' => count($request->conceptos)]);
 
             return redirect()->route('presupuestos.index')->with('success', 'Presupuesto creado correctamente.');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            throw $e; // Dejar que Laravel lo maneje normalmente (mostrar errores)
         } catch (\Exception $e) {
             Log::error('Error al crear presupuesto', [
                 'error' => $e->getMessage(),
@@ -95,6 +133,87 @@ class PresupuestoController extends Controller
             return redirect()->back()
                 ->withInput()
                 ->with('error', 'Error al crear el presupuesto: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Endpoint AJAX para crear un cliente "rapido" desde el modal del formulario
+     * de presupuestos. Acepta los campos minimos (nombre, apellidos, email, telefono)
+     * y rellena con defaults razonables los obligatorios del modelo Cliente.
+     *
+     * Devuelve JSON con el cliente creado para que el JS lo anada al select y lo
+     * seleccione.
+     */
+    public function storeClienteRapido(Request $request)
+    {
+        try {
+            $data = $request->validate([
+                'nombre'    => 'required|string|max:255',
+                'apellido1' => 'required|string|max:255',
+                'apellido2' => 'nullable|string|max:255',
+                'email'     => 'required|email|max:255',
+                'telefono'  => 'required|string|max:30',
+            ]);
+
+            // Si ya existe un cliente con ese email, reutilizarlo en vez de duplicar
+            $existente = Cliente::where('email', $data['email'])->first();
+            if ($existente) {
+                return response()->json([
+                    'success' => true,
+                    'reused'  => true,
+                    'cliente' => [
+                        'id'        => $existente->id,
+                        'nombre'    => $existente->nombre,
+                        'apellido1' => $existente->apellido1,
+                        'apellido2' => $existente->apellido2,
+                        'email'     => $existente->email,
+                    ],
+                ]);
+            }
+
+            $cliente = Cliente::create([
+                'nombre'       => $data['nombre'],
+                'apellido1'    => $data['apellido1'],
+                'apellido2'    => $data['apellido2'] ?? null,
+                'email'        => $data['email'],
+                'telefono'     => $data['telefono'],
+                'telefono_movil' => $data['telefono'],
+                // Defaults razonables para los campos obligatorios del modelo
+                'sexo'         => 'M',
+                'nacionalidad' => 'ES',
+                'tipo_cliente' => 'particular',
+                'idiomas'      => 'es',
+            ]);
+
+            Log::info('Cliente rapido creado desde presupuesto', [
+                'cliente_id' => $cliente->id,
+                'email' => $cliente->email,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'reused'  => false,
+                'cliente' => [
+                    'id'        => $cliente->id,
+                    'nombre'    => $cliente->nombre,
+                    'apellido1' => $cliente->apellido1,
+                    'apellido2' => $cliente->apellido2,
+                    'email'     => $cliente->email,
+                ],
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'errors'  => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Error creando cliente rapido desde presupuesto', [
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json([
+                'success' => false,
+                'message' => 'Error al crear el cliente: ' . $e->getMessage(),
+            ], 500);
         }
     }
 
@@ -220,53 +339,87 @@ class PresupuestoController extends Controller
 
     /**
      * Actualizar un presupuesto en la base de datos.
+     * Soporta conceptos mixtos (alojamiento + servicio) como store().
      */
     public function update(Request $request, $id)
     {
         $presupuesto = Presupuesto::findOrFail($id);
 
         $request->validate([
-            'conceptos.*.concepto' => 'required|string|max:255',
-            'conceptos.*.precio' => 'required|numeric|min:0',
-            'conceptos.*.iva' => 'nullable|numeric|min:0',
-            'conceptos.*.subtotal' => 'required|numeric|min:0',
             'cliente_id' => 'nullable|exists:clientes,id',
+            'fecha' => 'nullable|date',
+            'conceptos' => 'required|array|min:1',
+            'conceptos.*.descripcion' => 'required|string|max:255',
+            'conceptos.*.tipo' => 'required|in:alojamiento,servicio',
+            'conceptos.*.precio_por_dia' => 'required|numeric|min:0',
+            'conceptos.*.precio_total' => 'required|numeric|min:0',
         ]);
 
-        // Actualizar cliente si es necesario
-        if (!$request->cliente_id) {
-            $cliente = Cliente::create([
-                'nombre' => $request->nombre,
-                'apellido1' => $request->apellido1,
-                'apellido2' => $request->apellido2,
-                'email' => $request->email,
-            ]);
-
-            $clienteId = $cliente->id;
-        } else {
-            $clienteId = $request->cliente_id;
+        foreach ($request->conceptos as $idx => $c) {
+            if (($c['tipo'] ?? 'alojamiento') === 'alojamiento') {
+                $request->validate([
+                    "conceptos.{$idx}.fecha_entrada" => 'required|date',
+                    "conceptos.{$idx}.fecha_salida" => 'required|date|after:conceptos.' . $idx . '.fecha_entrada',
+                    "conceptos.{$idx}.dias_totales" => 'required|integer|min:1',
+                ]);
+            } else {
+                $request->validate([
+                    "conceptos.{$idx}.unidades" => 'required|integer|min:1',
+                ]);
+            }
         }
 
-        // Actualizar presupuesto
+        $clienteId = $request->cliente_id;
+
         $presupuesto->update([
             'cliente_id' => $clienteId,
             'descripcion' => $request->descripcion,
-            'total' => collect($request->conceptos)->sum('subtotal'),
+            'fecha' => $request->fecha ?? $presupuesto->fecha,
+            'total' => collect($request->conceptos)->sum('precio_total'),
         ]);
 
         // Eliminar conceptos existentes y volver a crearlos
         $presupuesto->conceptos()->delete();
 
-        foreach ($request->conceptos as $concepto) {
-            PresupuestoConcepto::create([
-                'presupuesto_id' => $presupuesto->id,
-                'concepto' => $concepto['concepto'],
-                'precio' => $concepto['precio'],
-                'iva' => $concepto['iva'] ?? 0, // Default a 0 si no se proporciona
-                'subtotal' => $concepto['subtotal'],
-                'fecha_entrada' => $concepto['fecha_entrada'] ?? null,
-                'fecha_salida' => $concepto['fecha_salida'] ?? null,
-            ]);
+        foreach ($request->conceptos as $c) {
+            $tipo = $c['tipo'] ?? 'alojamiento';
+
+            if ($tipo === 'alojamiento') {
+                $conceptoTexto = $c['descripcion']
+                    . ' (Del ' . $c['fecha_entrada']
+                    . ' al ' . $c['fecha_salida']
+                    . ' - ' . $c['dias_totales'] . ' noches)';
+
+                PresupuestoConcepto::create([
+                    'presupuesto_id' => $presupuesto->id,
+                    'concepto' => $conceptoTexto,
+                    'tipo' => 'alojamiento',
+                    'precio' => $c['precio_por_dia'],
+                    'iva' => 0,
+                    'subtotal' => $c['precio_total'],
+                    'fecha_entrada' => $c['fecha_entrada'],
+                    'fecha_salida' => $c['fecha_salida'],
+                    'precio_por_dia' => $c['precio_por_dia'],
+                    'dias_totales' => $c['dias_totales'],
+                    'precio_total' => $c['precio_total'],
+                ]);
+            } else {
+                $conceptoTexto = $c['descripcion']
+                    . ' (' . $c['unidades'] . ' x ' . number_format($c['precio_por_dia'], 2, ',', '.') . ' EUR)';
+
+                PresupuestoConcepto::create([
+                    'presupuesto_id' => $presupuesto->id,
+                    'concepto' => $conceptoTexto,
+                    'tipo' => 'servicio',
+                    'unidades' => $c['unidades'],
+                    'precio' => $c['precio_por_dia'],
+                    'iva' => 0,
+                    'subtotal' => $c['precio_total'],
+                    'precio_por_dia' => $c['precio_por_dia'],
+                    'dias_totales' => $c['unidades'],
+                    'precio_total' => $c['precio_total'],
+                ]);
+            }
         }
 
         return redirect()->route('presupuestos.index')->with('success', 'Presupuesto actualizado correctamente.');

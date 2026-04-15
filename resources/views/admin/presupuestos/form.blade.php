@@ -217,22 +217,31 @@
             <table class="table" id="conceptosTable">
                 <thead>
                     <tr>
+                        <th style="width:140px;">Tipo</th>
                         <th>Descripción</th>
-                        <th>Fecha Entrada</th>
-                        <th>Fecha Salida</th>
-                        <th>Precio por Día</th>
-                        <th>Días Totales</th>
+                        <th class="col-alojamiento">Fecha Entrada</th>
+                        <th class="col-alojamiento">Fecha Salida</th>
+                        <th class="col-servicio">Unidades</th>
+                        <th><span class="label-alojamiento">Precio por Noche</span><span class="label-servicio" style="display:none;">Precio por Unidad</span></th>
+                        <th class="col-alojamiento">Noches</th>
                         <th>Precio Total</th>
                         <th>Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
+                    <tr data-tipo="alojamiento">
+                        <td>
+                            <select name="conceptos[0][tipo]" class="form-select tipo-select">
+                                <option value="alojamiento" selected>Alojamiento</option>
+                                <option value="servicio">Servicio</option>
+                            </select>
+                        </td>
                         <td><input type="text" name="conceptos[0][descripcion]" class="form-control" /></td>
-                        <td><input type="date" name="conceptos[0][fecha_entrada]" class="form-control fecha-entrada" /></td>
-                        <td><input type="date" name="conceptos[0][fecha_salida]" class="form-control fecha-salida" /></td>
+                        <td class="col-alojamiento"><input type="date" name="conceptos[0][fecha_entrada]" class="form-control fecha-entrada" /></td>
+                        <td class="col-alojamiento"><input type="date" name="conceptos[0][fecha_salida]" class="form-control fecha-salida" /></td>
+                        <td class="col-servicio" style="display:none;"><input type="number" min="1" name="conceptos[0][unidades]" class="form-control unidades" value="1" /></td>
                         <td><input type="number" step="0.01" name="conceptos[0][precio_por_dia]" class="form-control precio-por-dia" /></td>
-                        <td><input type="number" name="conceptos[0][dias_totales]" class="form-control dias-totales" readonly /></td>
+                        <td class="col-alojamiento"><input type="number" name="conceptos[0][dias_totales]" class="form-control dias-totales" readonly /></td>
                         <td><input type="number" step="0.01" name="conceptos[0][precio_total]" class="form-control precio-total" readonly /></td>
                         <td><button type="button" class="btn btn-danger btn-sm removeConcepto">Eliminar</button></td>
                     </tr>
@@ -276,13 +285,28 @@
             <div class="modal-body">
                 <form id="crearClienteForm">
                     <div class="mb-3">
-                        <label for="nombre" class="form-label">Nombre</label>
-                        <input type="text" class="form-control" id="nombre" name="nombre" required />
+                        <label for="cliente_rapido_nombre" class="form-label">Nombre</label>
+                        <input type="text" class="form-control" id="cliente_rapido_nombre" name="nombre" required />
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="cliente_rapido_apellido1" class="form-label">Primer apellido</label>
+                            <input type="text" class="form-control" id="cliente_rapido_apellido1" name="apellido1" required />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="cliente_rapido_apellido2" class="form-label">Segundo apellido</label>
+                            <input type="text" class="form-control" id="cliente_rapido_apellido2" name="apellido2" />
+                        </div>
                     </div>
                     <div class="mb-3">
-                        <label for="email" class="form-label">Email</label>
-                        <input type="email" class="form-control" id="email" name="email" required />
+                        <label for="cliente_rapido_email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="cliente_rapido_email" name="email" required />
                     </div>
+                    <div class="mb-3">
+                        <label for="cliente_rapido_telefono" class="form-label">Teléfono</label>
+                        <input type="text" class="form-control" id="cliente_rapido_telefono" name="telefono" required />
+                    </div>
+                    <div id="crearClienteError" class="alert alert-danger d-none"></div>
                     <button type="button" id="guardarCliente" class="btn btn-primary">Guardar</button>
                 </form>
             </div>
@@ -295,29 +319,72 @@
         const steps = document.querySelectorAll('.step');
         let currentStep = 0;
 
+        function recalcularFila(row) {
+            const tipo = row.getAttribute('data-tipo') || 'alojamiento';
+            const precio = parseFloat(row.querySelector('.precio-por-dia').value) || 0;
+
+            if (tipo === 'alojamiento') {
+                const entrada = row.querySelector('.fecha-entrada').value;
+                const salida = row.querySelector('.fecha-salida').value;
+                if (entrada && salida) {
+                    const dias = Math.ceil((new Date(salida) - new Date(entrada)) / (1000 * 60 * 60 * 24));
+                    const diasTotales = dias > 0 ? dias : 0;
+                    row.querySelector('.dias-totales').value = diasTotales;
+                    row.querySelector('.precio-total').value = (diasTotales * precio).toFixed(2);
+                }
+            } else {
+                const unidades = parseInt(row.querySelector('.unidades').value, 10) || 0;
+                row.querySelector('.precio-total').value = (unidades * precio).toFixed(2);
+            }
+
+            actualizarTotalGeneral();
+        }
+
+        function aplicarVisibilidadTipo(row) {
+            const tipo = row.querySelector('.tipo-select').value;
+            row.setAttribute('data-tipo', tipo);
+            row.querySelectorAll('.col-alojamiento').forEach(td => {
+                td.style.display = (tipo === 'alojamiento') ? '' : 'none';
+            });
+            row.querySelectorAll('.col-servicio').forEach(td => {
+                td.style.display = (tipo === 'servicio') ? '' : 'none';
+            });
+            // Cuando cambio a servicio, limpiar fechas/dias; cuando cambio a alojamiento, recalcular con fechas
+            if (tipo === 'servicio') {
+                const d = row.querySelector('.dias-totales');
+                if (d) d.value = '';
+            }
+            recalcularFila(row);
+        }
+
         function bindConceptoListeners(row) {
-            const entrada = row.querySelector('.fecha-entrada');
-            const salida = row.querySelector('.fecha-salida');
-            const precio = row.querySelector('.precio-por-dia');
+            const tipoSel = row.querySelector('.tipo-select');
+            tipoSel.addEventListener('change', () => aplicarVisibilidadTipo(row));
 
-            [entrada, salida, precio].forEach(input => {
-                input.addEventListener('change', () => {
-                    const entradaVal = entrada.value;
-                    const salidaVal = salida.value;
-                    const precioVal = parseFloat(precio.value) || 0;
+            ['.fecha-entrada', '.fecha-salida', '.precio-por-dia', '.unidades'].forEach(sel => {
+                const el = row.querySelector(sel);
+                if (el) el.addEventListener('input', () => recalcularFila(row));
+                if (el) el.addEventListener('change', () => recalcularFila(row));
+            });
 
-                    if (entradaVal && salidaVal) {
-                        const start = new Date(entradaVal);
-                        const end = new Date(salidaVal);
-                        const dias = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
-                        const diasTotales = dias > 0 ? dias : 0;
-                        row.querySelector('.dias-totales').value = diasTotales;
-                        row.querySelector('.precio-total').value = (diasTotales * precioVal).toFixed(2);
-                    }
-
+            const rm = row.querySelector('.removeConcepto');
+            if (rm) {
+                rm.addEventListener('click', function () {
+                    row.remove();
                     actualizarTotalGeneral();
                 });
+            }
+
+            aplicarVisibilidadTipo(row);
+        }
+
+        function actualizarTotalGeneral() {
+            let total = 0;
+            document.querySelectorAll('.precio-total').forEach(input => {
+                total += parseFloat(input.value) || 0;
             });
+            const resumenTotal = document.getElementById('resumenTotal');
+            if (resumenTotal) resumenTotal.textContent = `Total: ${total.toFixed(2)} €`;
         }
 
         function showStep(stepIndex) {
@@ -342,103 +409,139 @@
 
         showStep(currentStep);
 
-        // Inicializa listeners en inputs iniciales
+        // Inicializa listeners en la fila inicial
         document.querySelectorAll('#conceptosTable tbody tr').forEach(tr => bindConceptoListeners(tr));
-
 
         document.getElementById('addConcepto').addEventListener('click', function () {
             const tbody = document.querySelector('#conceptosTable tbody');
             const index = tbody.children.length;
             const tr = document.createElement('tr');
+            tr.setAttribute('data-tipo', 'alojamiento');
             tr.innerHTML = `
+                <td>
+                    <select name="conceptos[${index}][tipo]" class="form-select tipo-select">
+                        <option value="alojamiento" selected>Alojamiento</option>
+                        <option value="servicio">Servicio</option>
+                    </select>
+                </td>
                 <td><input type="text" name="conceptos[${index}][descripcion]" class="form-control" /></td>
-                <td><input type="date" name="conceptos[${index}][fecha_entrada]" class="form-control fecha-entrada" /></td>
-                <td><input type="date" name="conceptos[${index}][fecha_salida]" class="form-control fecha-salida" /></td>
+                <td class="col-alojamiento"><input type="date" name="conceptos[${index}][fecha_entrada]" class="form-control fecha-entrada" /></td>
+                <td class="col-alojamiento"><input type="date" name="conceptos[${index}][fecha_salida]" class="form-control fecha-salida" /></td>
+                <td class="col-servicio" style="display:none;"><input type="number" min="1" name="conceptos[${index}][unidades]" class="form-control unidades" value="1" /></td>
                 <td><input type="number" step="0.01" name="conceptos[${index}][precio_por_dia]" class="form-control precio-por-dia" /></td>
-                <td><input type="number" name="conceptos[${index}][dias_totales]" class="form-control dias-totales" readonly /></td>
+                <td class="col-alojamiento"><input type="number" name="conceptos[${index}][dias_totales]" class="form-control dias-totales" readonly /></td>
                 <td><input type="number" step="0.01" name="conceptos[${index}][precio_total]" class="form-control precio-total" readonly /></td>
                 <td><button type="button" class="btn btn-danger btn-sm removeConcepto">Eliminar</button></td>
             `;
             tbody.appendChild(tr);
-            // Agregar eventos dinámicos
             bindConceptoListeners(tr);
+        });
 
-            tr.querySelector('.removeConcepto').addEventListener('click', function () {
-                tr.remove();
+        // Crear cliente rapido desde el modal (endpoint especifico de presupuestos)
+        document.getElementById('guardarCliente').addEventListener('click', function () {
+            const errorBox = document.getElementById('crearClienteError');
+            errorBox.classList.add('d-none');
+            errorBox.textContent = '';
+
+            const payload = {
+                _token: '{{ csrf_token() }}',
+                nombre: document.getElementById('cliente_rapido_nombre').value.trim(),
+                apellido1: document.getElementById('cliente_rapido_apellido1').value.trim(),
+                apellido2: document.getElementById('cliente_rapido_apellido2').value.trim(),
+                email: document.getElementById('cliente_rapido_email').value.trim(),
+                telefono: document.getElementById('cliente_rapido_telefono').value.trim(),
+            };
+
+            if (!payload.nombre || !payload.apellido1 || !payload.email || !payload.telefono) {
+                errorBox.textContent = 'Nombre, primer apellido, email y teléfono son obligatorios.';
+                errorBox.classList.remove('d-none');
+                return;
+            }
+
+            fetch('{{ route("presupuestos.clienteRapido") }}', {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams(payload).toString(),
+            })
+            .then(async r => {
+                const data = await r.json().catch(() => ({}));
+                if (!r.ok || !data.success) {
+                    const msg = data.message || (data.errors ? Object.values(data.errors).flat().join(' ') : 'Error al crear el cliente.');
+                    throw new Error(msg);
+                }
+                return data;
+            })
+            .then(data => {
+                const c = data.cliente;
+                const label = `${c.nombre}${c.apellido1 ? ' ' + c.apellido1 : ''} - ${c.email}`;
+                const select = document.getElementById('cliente_id');
+                let opt = Array.from(select.options).find(o => parseInt(o.value, 10) === parseInt(c.id, 10));
+                if (!opt) {
+                    opt = new Option(label, c.id, true, true);
+                    select.appendChild(opt);
+                }
+                if (window.jQuery) {
+                    window.jQuery(select).val(c.id).trigger('change');
+                } else {
+                    select.value = c.id;
+                }
+                const modalEl = document.getElementById('crearClienteModal');
+                const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+                modal.hide();
+                document.getElementById('crearClienteForm').reset();
+            })
+            .catch(err => {
+                errorBox.textContent = err.message || 'Error al crear el cliente.';
+                errorBox.classList.remove('d-none');
             });
         });
 
-        // Actualiza la información en el paso 3
-        document.querySelector('.next-step:last-of-type').addEventListener('click', function () {
-            const cliente = document.querySelector('#cliente_id option:checked').textContent;
-            document.getElementById('clienteSeleccionado').textContent = `Cliente: ${cliente}`;
-
-            const conceptos = [];
-            document.querySelectorAll('#conceptosTable tbody tr').forEach(tr => {
-                const descripcion = tr.querySelector('[name*="[descripcion]"]').value;
-                const entrada = tr.querySelector('[name*="[fecha_entrada]"]').value;
-                const salida = tr.querySelector('[name*="[fecha_salida]"]').value;
-                const dias = tr.querySelector('.dias-totales').value;
-                const total = tr.querySelector('.precio-total').value;
-                conceptos.push({ descripcion, entrada, salida, dias, total });
-            });
-
-            let html = '<table class="table"><thead><tr><th>Descripción</th><th>Entrada</th><th>Salida</th><th>Días</th><th>Total</th></tr></thead><tbody>';
-            conceptos.forEach(c => {
-                html += `<tr>
-                    <td>${c.descripcion}</td>
-                    <td>${c.entrada}</td>
-                    <td>${c.salida}</td>
-                    <td>${c.dias}</td>
-                    <td>${c.total} €</td>
-                </tr>`;
-            });
-            html += '</tbody></table>';
-
-            document.getElementById('conceptosResumen').innerHTML = html;
-        });
-
-        function actualizarTotalGeneral() {
-            let total = 0;
-            document.querySelectorAll('.precio-total').forEach(input => {
-                total += parseFloat(input.value) || 0;
-            });
-            const resumenTotal = document.getElementById('resumenTotal');
-            if (resumenTotal) resumenTotal.textContent = `Total: ${total.toFixed(2)} €`;
-        }
+        // Actualiza la información en el paso 3 (solo al entrar al ultimo paso)
         document.querySelectorAll('.next-step').forEach((btn, i, all) => {
             if (i === all.length - 1) {
                 btn.addEventListener('click', function () {
-                    const cliente = document.querySelector('#cliente_id option:checked').textContent;
+                    const clienteSel = document.querySelector('#cliente_id option:checked');
+                    const cliente = clienteSel ? clienteSel.textContent : '(sin cliente)';
                     document.getElementById('clienteSeleccionado').textContent = `Cliente: ${cliente}`;
 
-                    const conceptos = [];
+                    let html = '<table class="table"><thead><tr><th>Tipo</th><th>Descripción</th><th>Detalle</th><th>Precio</th><th>Total</th></tr></thead><tbody>';
                     document.querySelectorAll('#conceptosTable tbody tr').forEach(tr => {
+                        const tipo = tr.getAttribute('data-tipo') || 'alojamiento';
                         const descripcion = tr.querySelector('[name*="[descripcion]"]').value;
-                        const entrada = tr.querySelector('[name*="[fecha_entrada]"]').value;
-                        const salida = tr.querySelector('[name*="[fecha_salida]"]').value;
-                        const dias = tr.querySelector('.dias-totales').value;
+                        const precio = tr.querySelector('.precio-por-dia').value;
                         const total = tr.querySelector('.precio-total').value;
-                        conceptos.push({ descripcion, entrada, salida, dias, total });
-                    });
 
-                    let html = '<table class="table"><thead><tr><th>Descripción</th><th>Entrada</th><th>Salida</th><th>Días</th><th>Total</th></tr></thead><tbody>';
-                    conceptos.forEach(c => {
+                        let detalle = '';
+                        if (tipo === 'alojamiento') {
+                            const entrada = tr.querySelector('.fecha-entrada').value;
+                            const salida = tr.querySelector('.fecha-salida').value;
+                            const dias = tr.querySelector('.dias-totales').value;
+                            detalle = `Del ${entrada} al ${salida} (${dias} noches)`;
+                        } else {
+                            const unidades = tr.querySelector('.unidades').value;
+                            detalle = `${unidades} unidades`;
+                        }
+
                         html += `<tr>
-                            <td>${c.descripcion}</td>
-                            <td>${c.entrada}</td>
-                            <td>${c.salida}</td>
-                            <td>${c.dias}</td>
-                            <td>${c.total} €</td>
+                            <td>${tipo === 'alojamiento' ? 'Alojamiento' : 'Servicio'}</td>
+                            <td>${descripcion}</td>
+                            <td>${detalle}</td>
+                            <td>${parseFloat(precio || 0).toFixed(2)} €</td>
+                            <td>${parseFloat(total || 0).toFixed(2)} €</td>
                         </tr>`;
                     });
                     html += '</tbody></table>';
-
                     document.getElementById('conceptosResumen').innerHTML = html;
+
+                    actualizarTotalGeneral();
                 });
             }
         });
-
     });
 </script>
 

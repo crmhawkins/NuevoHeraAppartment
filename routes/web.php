@@ -853,7 +853,12 @@ Route::get('/admin/historial-descuentos/{historial}/datos-momento', [HistorialDe
 
     Route::get('/emails-recive',[EmailController::class, 'email'])->name('admin.facturas.email');
 
-    Route::prefix('presupuestos')->group(function () {
+    // Endpoint AJAX para crear cliente rapido desde el modal del formulario
+// de presupuestos (antes del prefijo del grupo para que no herede el path)
+Route::post('/presupuestos/cliente-rapido', [App\Http\Controllers\PresupuestoController::class, 'storeClienteRapido'])
+    ->name('presupuestos.clienteRapido');
+
+Route::prefix('presupuestos')->group(function () {
         Route::get('/', [PresupuestoController::class, 'index'])->name('presupuestos.index');
         Route::get('/create', [PresupuestoController::class, 'create'])->name('presupuestos.create');
         Route::post('/', [PresupuestoController::class, 'store'])->name('presupuestos.store');

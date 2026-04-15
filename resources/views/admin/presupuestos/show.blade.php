@@ -28,21 +28,42 @@
     <table class="table">
         <thead>
             <tr>
+                <th>Tipo</th>
                 <th>Concepto</th>
-                <th>Fecha Entrada</th>
-                <th>Fecha Salida</th>
-                <th>Días Totales</th>
-                <th>Precio por Día</th>
+                <th>Detalle</th>
+                <th>Unidades / Noches</th>
+                <th>Precio Unitario</th>
                 <th>Precio Total</th>
             </tr>
         </thead>
         <tbody>
             @foreach($presupuesto->conceptos as $concepto)
+                @php
+                    $tipoConcepto = $concepto->tipo ?: 'alojamiento';
+                @endphp
             <tr>
+                <td>
+                    @if($tipoConcepto === 'alojamiento')
+                        <span class="badge bg-primary">Alojamiento</span>
+                    @else
+                        <span class="badge bg-info">Servicio</span>
+                    @endif
+                </td>
                 <td>{{ $concepto->concepto }}</td>
-                <td>{{ $concepto->fecha_entrada }}</td>
-                <td>{{ $concepto->fecha_salida }}</td>
-                <td>{{ $concepto->dias_totales }}</td>
+                <td>
+                    @if($tipoConcepto === 'alojamiento')
+                        Del {{ $concepto->fecha_entrada }} al {{ $concepto->fecha_salida }}
+                    @else
+                        —
+                    @endif
+                </td>
+                <td>
+                    @if($tipoConcepto === 'alojamiento')
+                        {{ $concepto->dias_totales }} noches
+                    @else
+                        {{ $concepto->unidades ?: $concepto->dias_totales }} uds
+                    @endif
+                </td>
                 <td>{{ number_format($concepto->precio_por_dia, 2) }} €</td>
                 <td>{{ number_format($concepto->precio_total, 2) }} €</td>
             </tr>

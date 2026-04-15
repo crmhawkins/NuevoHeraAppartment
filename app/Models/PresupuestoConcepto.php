@@ -24,14 +24,16 @@ class PresupuestoConcepto extends Model
     protected $fillable = [
         'presupuesto_id',
         'concepto',
+        'tipo',        // 'alojamiento' o 'servicio'
+        'unidades',    // solo para tipo servicio
         'precio',
         'iva',
         'subtotal',
-        // campos de fechas opcionales para edición
+        // campos de fechas opcionales para alojamiento
         'fecha_entrada',
         'fecha_salida',
         // campos de detalle opcionales
-        'precio_por_dia',
+        'precio_por_dia',  // para servicio se usa como precio/unidad
         'dias_totales',
         'precio_total',
     ];
