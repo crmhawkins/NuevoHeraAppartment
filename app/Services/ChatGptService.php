@@ -3,19 +3,18 @@ namespace App\Services;
 
 use App\Models\Reserva;
 use Illuminate\Support\Facades\Storage;
-use OpenAI;
-use OpenAI\Client;
 
 class ChatGptService
 {
-    protected $client;
+    protected $gateway;
     protected $filePath;
     protected $phoneNumber;
 
     public function __construct()
     {
-        // Inicializa el cliente con la clave API
-        $this->client = OpenAI::client(env('TOKEN_OPENAI'));
+        // Usar AIGatewayService para tener fallback automatico a Hawkins AI
+        // cuando OpenAI falla (quota, red, etc.).
+        $this->gateway = app(\App\Services\AIGatewayService::class);
     }
 
     protected function getFilePath()
@@ -52,8 +51,8 @@ class ChatGptService
             $mensajeFormateado = is_array($mensaje) ? json_encode($mensaje) : (string) $mensaje;
            //dd($mensajeFormateado);
 
-            // Enviar el mensaje al asistente con el contexto
-            $response = $this->client->chat()->create([
+            // Enviar el mensaje al asistente con el contexto (via gateway con fallback)
+            $response = $this->gateway->chatCompletion([
                 'model' => 'gpt-4',
                 'messages' => array_merge($context, [
                     [
@@ -62,7 +61,7 @@ class ChatGptService
                     ],
                     [
                         'role' => $user != null ? $user : 'user',
-                        'content' => $mensajeFormateado,  // Asegurarte de que sea una cadena
+                        'content' => $mensajeFormateado,
                     ],
                 ]),
             ]);

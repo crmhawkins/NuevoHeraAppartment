@@ -91,15 +91,16 @@ class CategorizeEmails extends Command
     // Función para hacer la petición a OpenAI
 private function getCategorizationFromOpenAI($input)
 {
-    // Crear el cliente OpenAI con la clave API
-    $openai = OpenAI::client(env('OPENAI_API_KEY'));
+    // Usar AIGatewayService: intenta OpenAI primero, si falla usa Hawkins AI
+    // automaticamente con circuit breaker para no quemar peticiones cuando
+    // OpenAI esta sin cuota.
+    $gateway = app(\App\Services\AIGatewayService::class);
 
     try {
         $prompt = $this->generatePrompt($input);
         $this->info('Generated prompt: ' . $prompt);
 
-        // Hacer la petición a OpenAI para categorizar el correo utilizando el endpoint correcto para el modelo de chat
-        $response = $openai->chat()->create([
+        $response = $gateway->chatCompletion([
             'model' => 'gpt-4',
             'messages' => [
                 [
@@ -107,9 +108,9 @@ private function getCategorizationFromOpenAI($input)
                     'content' => $prompt,
                 ],
             ],
-            'max_tokens' => 10,  // Limitar tokens para que la respuesta sea breve
-            'temperature' => 0.0, // Reducir la creatividad para respuestas más consistentes
-            'n' => 1, // Obtener una sola respuesta
+            'max_tokens' => 10,
+            'temperature' => 0.0,
+            'n' => 1,
         ]);
 
         // Guardar la respuesta completa en un archivo de log

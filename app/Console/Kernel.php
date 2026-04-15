@@ -74,7 +74,9 @@ class Kernel extends ConsoleKernel
         // Generar turnos de trabajo todos los días a las 7:00 AM
         $schedule->command('turnos:generar')->dailyAt('07:00');
 
-        // Ejecuta el comando cada hora
+        // Ejecuta el comando cada minuto. Usa AIGatewayService con fallback
+        // automatico a Hawkins AI cuando OpenAI falla (quota, red, 5xx), asi
+        // que no se pierde la clasificacion aunque OpenAI este caido.
         $schedule->command('emails:categorize')->everyMinute()->withoutOverlapping();
 
         // Programa el comando para que se ejecute cada 5 minutos

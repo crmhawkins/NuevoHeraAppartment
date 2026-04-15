@@ -77,22 +77,20 @@ class ReplyToCategorizedEmails extends Command
         }
     }
 
-    // Función para generar la respuesta desde OpenAI
+    // Función para generar la respuesta desde OpenAI (via AIGatewayService con fallback a Hawkins)
     private function generateReplyFromOpenAI($email)
     {
-      $openai = OpenAI::client(env('OPENAI_API_KEY'));
+        $gateway = app(\App\Services\AIGatewayService::class);
 
         try {
             $instructionsFilePath = public_path('instructions.txt');
             $instructionsContent = file_exists($instructionsFilePath) ? file_get_contents($instructionsFilePath) : 'You are an intelligent email assistant. Write a polite and helpful response based on the email provided.';
 
-            // Instrucciones de comportamiento para el modelo
             $systemMessage = [
                 'role' => 'system',
                 'content' => $instructionsContent,
             ];
 
-            // Crear el mensaje del usuario con el contenido del email a responder
             $userMessage = [
                 'role' => 'user',
                 'content' => "You need to reply to the following email:\n\n"
@@ -101,13 +99,9 @@ class ReplyToCategorizedEmails extends Command
                     . "Write a response to this email:",
             ];
 
-            // Hacer la solicitud al modelo chat de OpenAI
-            $response = $openai->chat()->create([
+            $response = $gateway->chatCompletion([
                 'model' => 'gpt-4',
-                'messages' => [
-                    $systemMessage,
-                    $userMessage
-                ],
+                'messages' => [$systemMessage, $userMessage],
                 'max_tokens' => 200,
                 'temperature' => 0.5,
             ]);

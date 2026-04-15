@@ -1785,15 +1785,10 @@ Responde SOLO con el JSON, sin texto adicional.";
      */
     private function llamarOpenAI($prompt)
     {
-        $apiKey = config('openai.api_key');
-        
-        if (!$apiKey) {
-            throw new \Exception("API key de OpenAI no configurada. Configura OPENAI_API_KEY en tu archivo .env");
-        }
-        
-        $client = \OpenAI::client($apiKey);
-        
-        $response = $client->chat()->create([
+        // Usar AIGatewayService con fallback a Hawkins AI si OpenAI falla
+        $gateway = app(\App\Services\AIGatewayService::class);
+
+        $response = $gateway->chatCompletion([
             'model' => 'gpt-4',
             'messages' => [
                 [
@@ -1804,8 +1799,9 @@ Responde SOLO con el JSON, sin texto adicional.";
             'temperature' => 0.1,
             'max_tokens' => 2000
         ]);
-        
-        return $response->choices[0]->message->content;
+
+        return $response['choices'][0]['message']['content']
+            ?? (is_object($response) ? $response->choices[0]->message->content : '');
     }
     
     /**
