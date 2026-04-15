@@ -229,20 +229,47 @@ class MIRService
         $xml .= '        <nacionalidad>' . $nacionalidad3 . '</nacionalidad>' . "\n";
         $xml .= '        <sexo>' . $this->normalizarSexo($sexo) . '</sexo>' . "\n";
 
-        // Dirección (obligatoria)
+        // Dirección (obligatoria).
+        // IMPORTANTE: el XSD de MIR tiene dos variantes segun el pais:
+        //   - pais=ESP: permite cualquier combinacion de
+        //     {direccionComplementaria, codigoMunicipio, nombreMunicipio, codigoPostal}
+        //   - pais!=ESP (extranjero): EXIGE obligatoriamente <codigoPostal> antes del <pais>
+        //     ("One of '{codigoPostal}' is expected").
+        //
+        // Si el cliente no tiene direccion completa, usamos fallback diferente
+        // segun el caso para evitar el error 10118.
         $xml .= '        <direccion>' . "\n";
         $xml .= '          <direccion>' . $this->esc($direccion ?: 'NO FACILITADA') . '</direccion>' . "\n";
-        // Código de municipio INE (obligatorio si país es España)
+
         $codMun = $codigoMunicipio ?: $this->obtenerCodigoMunicipioINE($nombreMunicipio, $codigoPostal, $pais);
+        $tieneAlMenosUno = false;
+        $tieneCodigoPostal = !empty($codigoPostal);
+
         if (!empty($codMun)) {
             $xml .= '          <codigoMunicipio>' . $this->esc($codMun) . '</codigoMunicipio>' . "\n";
+            $tieneAlMenosUno = true;
         }
         if (!empty($nombreMunicipio)) {
             $xml .= '          <nombreMunicipio>' . $this->esc(mb_strtoupper($nombreMunicipio)) . '</nombreMunicipio>' . "\n";
+            $tieneAlMenosUno = true;
         }
-        if (!empty($codigoPostal)) {
+        if ($tieneCodigoPostal) {
             $xml .= '          <codigoPostal>' . $this->esc($codigoPostal) . '</codigoPostal>' . "\n";
+            $tieneAlMenosUno = true;
         }
+
+        // Fallbacks obligatorios para cumplir el XSD de MIR.
+        // Para direcciones extranjeras, MIR exige SIEMPRE <codigoPostal>
+        // (aunque haya municipio o nombreMunicipio). Lo forzamos si falta.
+        if ($pais !== 'ESP' && !$tieneCodigoPostal) {
+            // CP generico valido de 5 digitos cuando no lo conocemos.
+            $xml .= '          <codigoPostal>00000</codigoPostal>' . "\n";
+            $tieneAlMenosUno = true;
+        } elseif (!$tieneAlMenosUno) {
+            // Cliente espanol sin ningun dato de direccion: fallback neutro
+            $xml .= '          <nombreMunicipio>NO FACILITADO</nombreMunicipio>' . "\n";
+        }
+
         $xml .= '          <pais>' . $pais . '</pais>' . "\n";
         $xml .= '        </direccion>' . "\n";
 
@@ -784,12 +811,15 @@ class MIRService
             $xml = simplexml_load_string($cleanBody);
 
             if ($xml === false) {
-                // Si no se puede parsear, pero HTTP 200, asumir éxito
+                // [FIX] NO asumir exito cuando MIR devuelve algo no parseable.
+                // En muchos errores del XSD, MIR devuelve HTTP 200 con un body
+                // de texto plano tipo "10118 Error en el formato de fichero xml..."
+                // que no es XML. Antes lo marcabamos como enviado, ahora no.
                 return [
-                    'success' => true,
-                    'estado' => 'enviado',
+                    'success' => false,
+                    'estado' => 'error_xml',
                     'codigo_referencia' => null,
-                    'mensaje' => 'Respuesta recibida (no parseable como XML)',
+                    'mensaje' => 'Respuesta de MIR no parseable como XML (posible rechazo de schema). Revisar respuesta_completa.',
                     'respuesta_completa' => $body,
                 ];
             }
@@ -805,13 +835,35 @@ class MIRService
                 $respuesta = $xml->Body->comunicacionResponse;
             }
 
+            // Buscar respuesta SOAP fault (error serializado por MIR)
+            if (isset($xml->Body->Fault)) {
+                $faultString = (string) ($xml->Body->Fault->faultstring ?? 'SOAP Fault');
+                $faultCode   = (string) ($xml->Body->Fault->faultcode   ?? '');
+                return [
+                    'success' => false,
+                    'estado'  => 'error_soap_fault',
+                    'codigo_referencia' => null,
+                    'mensaje' => "SOAP Fault ({$faultCode}): {$faultString}",
+                    'respuesta_completa' => $body,
+                ];
+            }
+
             // Extraer datos
             $codigo = null;
             $descripcion = '';
             $lote = '';
+            $codigoEncontrado = false;
 
             if ($respuesta) {
-                $codigo = (int) ($respuesta->codigo ?? $respuesta->respuesta->codigo ?? 0);
+                // Detectar si el elemento <codigo> existe REALMENTE (distinto de no encontrado)
+                if (isset($respuesta->codigo)) {
+                    $codigo = (int) $respuesta->codigo;
+                    $codigoEncontrado = true;
+                } elseif (isset($respuesta->respuesta->codigo)) {
+                    $codigo = (int) $respuesta->respuesta->codigo;
+                    $codigoEncontrado = true;
+                }
+
                 $descripcion = (string) ($respuesta->descripcion ?? $respuesta->respuesta->descripcion ?? '');
                 $lote = (string) ($respuesta->lote ?? $respuesta->respuesta->lote ?? '');
             }
@@ -821,14 +873,50 @@ class MIRService
                 $resultado = $xml->Body->comunicacionResponse->resultado;
             }
 
-            // Código 0 = éxito en MIR
-            $success = ($codigo === 0 || $codigo === null);
+            // [FIX] Criterio estricto de exito: tres condiciones OBLIGATORIAS
+            //   1) Se encontro el elemento <codigo> en la respuesta
+            //   2) El valor de <codigo> es exactamente 0
+            //   3) Hay un <lote> no vacio (MIR siempre lo devuelve al aceptar)
+            // Si falta alguna -> es error. Esto evita marcar como "enviado" una
+            // respuesta rara de MIR que en realidad rechaza la comunicacion.
+            $success = $codigoEncontrado && $codigo === 0 && !empty($lote);
+
+            // [FIX 10121] Caso especial: si la reserva ya fue enviada antes,
+            // MIR devuelve codigo=10121 con el mensaje "Lote duplicado: XXX".
+            // Extraemos el lote original y lo consideramos exito (enviado previamente).
+            if ($codigoEncontrado && $codigo === 10121 && preg_match('/Lote duplicado:\s*([a-f0-9\-]+)/i', $descripcion, $m)) {
+                return [
+                    'success' => true,
+                    'estado' => 'enviado',
+                    'codigo_referencia' => $m[1],
+                    'mensaje' => "Ya estaba enviada a MIR. Lote original: {$m[1]}",
+                    'respuesta_completa' => $body,
+                ];
+            }
+
+            if (!$success) {
+                $mensaje = $descripcion ?: 'MIR no devolvio un lote de confirmacion (posible rechazo).';
+                if ($codigoEncontrado && $codigo !== 0) {
+                    $mensaje = "MIR rechazo la comunicacion (codigo {$codigo}): {$descripcion}";
+                } elseif (!$codigoEncontrado) {
+                    $mensaje = 'Respuesta MIR sin elemento <codigo>. ' . ($descripcion ?: 'Ver respuesta_completa.');
+                } elseif (empty($lote)) {
+                    $mensaje = 'MIR respondio codigo=0 pero sin <lote>. Se considera fallo para evitar falsos positivos.';
+                }
+                return [
+                    'success' => false,
+                    'estado' => 'error',
+                    'codigo_referencia' => null,
+                    'mensaje' => $mensaje,
+                    'respuesta_completa' => $body,
+                ];
+            }
 
             return [
-                'success' => $success,
-                'estado' => $success ? 'enviado' : 'error',
-                'codigo_referencia' => $lote ?: null,
-                'mensaje' => $descripcion ?: ($success ? 'Enviado correctamente' : 'Error en el envío'),
+                'success' => true,
+                'estado' => 'enviado',
+                'codigo_referencia' => $lote,
+                'mensaje' => $descripcion ?: "Enviado correctamente. Lote MIR: {$lote}",
                 'respuesta_completa' => $body,
             ];
 
@@ -851,8 +939,11 @@ class MIRService
     {
         $reserva->loadMissing(['cliente', 'apartamento.edificio']);
 
-        // Ya enviada
-        if ($reserva->mir_enviado) {
+        // [FIX] Solo se considera "enviada" si MIR devolvio un lote de confirmacion.
+        // Si mir_enviado=true pero mir_codigo_referencia esta vacio, en su momento
+        // hubo un falso positivo (ver parsearRespuestaSOAP antes del fix): permitimos
+        // el reintento para que vuelva a pasar por la logica correcta del parser nuevo.
+        if ($reserva->mir_enviado && !empty($reserva->mir_codigo_referencia)) {
             return false;
         }
 

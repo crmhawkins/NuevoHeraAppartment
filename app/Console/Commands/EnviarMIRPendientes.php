@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\Log;
 class EnviarMIRPendientes extends Command
 {
     protected $signature = 'mir:enviar-pendientes
-                            {--dias=7 : Buscar reservas con entrada en los últimos N días}
+                            {--dias=7 : Ventana en dias alrededor de hoy (pasado y futuro)}
+                            {--todas : Ignorar filtro de fecha, procesar TODAS las pendientes}
                             {--dry-run : Simular sin enviar realmente}';
 
     protected $description = 'Envía automáticamente a MIR las reservas pendientes que tienen todos los datos completos';
@@ -20,22 +21,37 @@ class EnviarMIRPendientes extends Command
     {
         $dias = (int) $this->option('dias');
         $dryRun = $this->option('dry-run');
+        $todas = (bool) $this->option('todas');
         $mirService = new MIRService();
 
         $this->info('Buscando reservas pendientes de envío a MIR...');
 
-        // Buscar reservas no enviadas, con entrada en los últimos N días hasta hoy
-        $reservas = Reserva::with(['cliente', 'apartamento.edificio'])
-            ->where(function ($query) {
-                $query->where('mir_enviado', false)
-                      ->orWhereNull('mir_enviado');
-            })
-            ->whereBetween('fecha_entrada', [
+        // Buscar reservas pendientes: no enviadas O enviadas sin lote real (falsos positivos).
+        // Una reserva se considera realmente enviada SOLO si mir_codigo_referencia tiene valor.
+        $query = Reserva::with(['cliente', 'apartamento.edificio'])
+            ->where(function ($q) {
+                $q->where('mir_enviado', false)
+                  ->orWhereNull('mir_enviado')
+                  ->orWhere(function ($qq) {
+                      // Falsos positivos historicos: mir_enviado=true pero sin lote
+                      $qq->where('mir_enviado', true)
+                         ->where(function ($qqq) {
+                             $qqq->whereNull('mir_codigo_referencia')
+                                 ->orWhere('mir_codigo_referencia', '');
+                         });
+                  });
+            });
+
+        // Ventana de fechas: [hoy-dias, hoy+dias] (cubre reservas pasadas y futuras
+        // que aun no se han enviado). Se puede desactivar con --todas.
+        if (!$todas) {
+            $query->whereBetween('fecha_entrada', [
                 Carbon::now()->subDays($dias)->startOfDay(),
-                Carbon::now()->endOfDay(),
-            ])
-            ->orderBy('fecha_entrada', 'asc')
-            ->get();
+                Carbon::now()->addDays($dias)->endOfDay(),
+            ]);
+        }
+
+        $reservas = $query->orderBy('fecha_entrada', 'asc')->get();
 
         $this->info("Encontradas {$reservas->count()} reserva(s) sin enviar a MIR.");
 
