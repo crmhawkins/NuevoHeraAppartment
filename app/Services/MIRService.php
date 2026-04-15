@@ -1015,6 +1015,11 @@ class MIRService
             return null;
         }
 
+        // [ALERTA] Capturamos el estado previo para detectar la transicion
+        // de "sano" a "error" y disparar alerta WhatsApp solo la primera vez,
+        // no en cada reintento del cron (evita spam).
+        $prevEstado = (string) ($reserva->mir_estado ?? '');
+
         try {
             $resultado = $this->enviarReserva($reserva);
 
@@ -1036,6 +1041,12 @@ class MIRService
                     'reserva_id' => $reserva->id,
                     'error' => $resultado['mensaje'],
                 ]);
+
+                // [ALERTA] Solo notificar cuando es un NUEVO error (el estado
+                // anterior no era ya de error). Evita spam en reintentos.
+                if (!str_starts_with($prevEstado, 'error')) {
+                    $this->enviarAlertaRechazoMIR($reserva, (string) ($resultado['mensaje'] ?? 'Error desconocido'));
+                }
             }
 
             return $resultado;
@@ -1051,11 +1062,50 @@ class MIRService
             $reserva->mir_fecha_envio = now();
             $reserva->save();
 
+            // [ALERTA] Excepcion inesperada durante el envio automatico
+            if (!str_starts_with($prevEstado, 'error')) {
+                $this->enviarAlertaRechazoMIR($reserva, 'Excepcion: ' . $e->getMessage());
+            }
+
             return [
                 'success' => false,
                 'estado' => 'error',
                 'mensaje' => $e->getMessage(),
             ];
+        }
+    }
+
+    /**
+     * Enviar alerta por WhatsApp cuando MIR rechaza una reserva por contenido
+     * (HTTP 200 + codigo de error dentro del XML, p.ej. 10118 "XML mal formado").
+     *
+     * Se dispara desde enviarSiLista solo en la PRIMERA transicion a error.
+     * No se dispara desde envios manuales (ReservasController::enviarMIR)
+     * porque ahi el usuario ya ve el error en la UI.
+     */
+    private function enviarAlertaRechazoMIR(Reserva $reserva, string $mensaje): void
+    {
+        try {
+            $whatsappService = app(WhatsappNotificationService::class);
+            $mensajeCorto = mb_substr(trim($mensaje), 0, 300);
+            $texto  = "⚠️ ALERTA MIR: Reserva #{$reserva->codigo_reserva} (ID: {$reserva->id}) rechazada por MIR.\n";
+            $texto .= "Motivo: {$mensajeCorto}\n";
+            if ($reserva->fecha_entrada) {
+                $texto .= "Entrada: " . \Carbon\Carbon::parse($reserva->fecha_entrada)->format('d/m/Y') . "\n";
+            }
+            $texto .= "Revisa en el CRM para resolverlo.";
+            $whatsappService->sendToConfiguredRecipients($texto);
+            Log::info('MIR: Alerta WhatsApp enviada por rechazo de contenido', [
+                'reserva_id' => $reserva->id,
+                'mensaje' => $mensajeCorto,
+            ]);
+        } catch (\Exception $e) {
+            // Fallo enviando la alerta: lo logueamos pero no propagamos para
+            // no romper el flujo de enviarSiLista.
+            Log::error('MIR: No se pudo enviar alerta WhatsApp por rechazo MIR', [
+                'reserva_id' => $reserva->id,
+                'error_whatsapp' => $e->getMessage(),
+            ]);
         }
     }
 
