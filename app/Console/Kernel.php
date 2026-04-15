@@ -5,11 +5,13 @@ namespace App\Console;
 use App\Mail\DespedidaEmail;
 use App\Mail\EnvioClavesEmail;
 use App\Models\Apartamento;
+use App\Models\ChatGpt;
 use App\Models\Invoices;
 use App\Models\InvoicesReferenceAutoincrement;
 use App\Models\MensajeAuto;
 use App\Models\Reserva;
 use App\Models\Setting;
+use App\Models\WhatsappMensaje;
 use Carbon\Carbon;
 use App\Services\ClienteService;
 use App\Services\MetodoEntradaService;
@@ -1471,6 +1473,59 @@ class Kernel extends ConsoleKernel
 
     }
 
+    /**
+     * Registra un mensaje WhatsApp automatico enviado por el CRM al cliente
+     * en la tabla whatsapp_mensajes (detalle) y whatsapp_mensaje_chatgpt (conversacion)
+     * para que aparezca en la seccion "Conversaciones" del CRM junto con los
+     * mensajes entrantes, en vez de quedar solo en los logs.
+     *
+     * @param string $telefono      Numero del cliente (sin +)
+     * @param string $textoLegible  Texto que se mostrara en la conversacion
+     * @param string $tipoAuto      Identificador breve: 'bienvenida', 'claves', 'recordatorio_dni', ...
+     * @param string|null $messageIdMeta ID del mensaje devuelto por WhatsApp Cloud API
+     * @param array  $metadata      Payload original enviado a Meta (para auditoria)
+     */
+    private function registrarWhatsappAutomatico(
+        string $telefono,
+        string $textoLegible,
+        string $tipoAuto,
+        ?string $messageIdMeta,
+        array $metadata = []
+    ): void {
+        try {
+            // 1) Registro detallado del mensaje saliente (un registro por mensaje
+            //    individual, con el id de Meta para tracking de estados/entregas)
+            WhatsappMensaje::create([
+                'mensaje_id' => $messageIdMeta,
+                'tipo' => 'template',
+                'contenido' => $textoLegible,
+                'remitente' => null, // null = saliente (enviado por nosotros)
+                'fecha_mensaje' => now(),
+                'metadata' => is_array($metadata) ? $metadata : [],
+            ]);
+
+            // 2) Registro en la tabla de conversacion. La vista "whatsapp" del CRM
+            //    agrupa por 'remitente', asi que metemos el telefono del cliente
+            //    ahi para que el mensaje auto aparezca dentro de SU conversacion.
+            //    mensaje=null + respuesta=texto indica que es un saliente auto.
+            ChatGpt::create([
+                'id_mensaje' => $messageIdMeta,
+                'remitente' => $telefono,
+                'mensaje' => null,
+                'respuesta' => $textoLegible,
+                'status' => 1,
+                'type' => 'auto_' . $tipoAuto,
+                'date' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('No se pudo registrar WhatsApp auto en conversaciones', [
+                'telefono' => $telefono,
+                'tipo' => $tipoAuto,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
     public function noEntregadoDNIMensaje($nombre, $codigoReserva, $plataforma, $telefono, $telefonoCliente, $url, $idioma = 'es', ){
         $tokenEnv = Setting::whatsappToken();
 
@@ -1535,7 +1590,20 @@ class Kernel extends ConsoleKernel
 
         $response = curl_exec($curl);
         curl_close($curl);
-        // $responseJson = json_decode($response);
+
+        // Registrar en conversaciones del CRM si el envio fue OK.
+        // Este mensaje se envia al CLIENTE (telefonoCliente), no al equipo.
+        $responseJson = json_decode($response, true);
+        if (is_array($responseJson) && isset($responseJson['messages'][0]['id']) && !empty($telefonoCliente)) {
+            $this->registrarWhatsappAutomatico(
+                $telefonoCliente,
+                "⚠️ Recordatorio DNI enviado a {$nombre} (reserva {$codigoReserva} · {$plataforma})",
+                'recordatorio_dni',
+                $responseJson['messages'][0]['id'],
+                $mensajePersonalizado
+            );
+        }
+
         return $response;
     }
 
@@ -1632,6 +1700,17 @@ class Kernel extends ConsoleKernel
                 'message_id' => $responseJson['messages'][0]['id'],
                 'http_code' => $httpCode
             ]);
+
+            // Registrar en conversaciones del CRM
+            $texto = "👋 Mensaje de bienvenida enviado a {$nombre}";
+            if ($urlDNI) $texto .= " — enlace check-in: {$urlDNI}";
+            $this->registrarWhatsappAutomatico(
+                $telefono,
+                $texto,
+                'bienvenida',
+                $responseJson['messages'][0]['id'],
+                $mensajePersonalizado
+            );
         } else {
             Log::error("❌ Error al enviar mensaje de bienvenida", [
                 'telefono' => $telefono,
@@ -1728,6 +1807,15 @@ class Kernel extends ConsoleKernel
                 'message_id' => $responseJson['messages'][0]['id'],
                 'http_code' => $httpCode
             ]);
+
+            // Registrar en conversaciones del CRM
+            $this->registrarWhatsappAutomatico(
+                $telefono,
+                "🔑 Claves enviadas a {$nombre} para {$apartamento}. Puerta principal: {$puertaPrincipal} · Apartamento: {$codigoApartamento}",
+                'claves',
+                $responseJson['messages'][0]['id'],
+                $mensajePersonalizado
+            );
         } else {
             Log::error("❌ Error al enviar mensaje de claves", [
                 'telefono' => $telefono,
@@ -1826,6 +1914,15 @@ class Kernel extends ConsoleKernel
                 'message_id' => $responseJson['messages'][0]['id'],
                 'http_code' => $httpCode
             ]);
+
+            // Registrar en conversaciones del CRM
+            $this->registrarWhatsappAutomatico(
+                $telefono,
+                "🔑 Claves enviadas a {$nombre} para {$apartamento} (ático). Puerta principal: {$puertaPrincipal} · Apartamento: {$codigoApartamento}",
+                'claves_atico',
+                $responseJson['messages'][0]['id'],
+                $mensajePersonalizado
+            );
         } else {
             Log::error("❌ Error al enviar mensaje de claves (ático)", [
                 'telefono' => $telefono,
@@ -1907,6 +2004,15 @@ class Kernel extends ConsoleKernel
                 'message_id' => $responseJson['messages'][0]['id'],
                 'http_code' => $httpCode
             ]);
+
+            // Registrar en conversaciones del CRM
+            $this->registrarWhatsappAutomatico(
+                $telefono,
+                "🤔 Consulta automática enviada a {$nombre} (preguntando si todo va bien en la estancia)",
+                'consulta',
+                $responseJson['messages'][0]['id'],
+                $mensajePersonalizado
+            );
         } else {
             Log::error("❌ Error al enviar mensaje de consulta", [
                 'telefono' => $telefono,
@@ -1963,7 +2069,19 @@ class Kernel extends ConsoleKernel
 
         $response = curl_exec($curl);
         curl_close($curl);
-        // $responseJson = json_decode($response);
+
+        // Registrar en conversaciones del CRM si el envio fue OK
+        $responseJson = json_decode($response, true);
+        if (is_array($responseJson) && isset($responseJson['messages'][0]['id'])) {
+            $this->registrarWhatsappAutomatico(
+                $telefono,
+                "👋 Despedida enviada a {$nombre} tras su estancia",
+                'despedida',
+                $responseJson['messages'][0]['id'],
+                $mensajePersonalizado
+            );
+        }
+
         return $response;
     }
 
@@ -2012,7 +2130,19 @@ class Kernel extends ConsoleKernel
 
         $response = curl_exec($curl);
         curl_close($curl);
-        // $responseJson = json_decode($response);
+
+        // Registrar en conversaciones del CRM si el envio fue OK
+        $responseJson = json_decode($response, true);
+        if (is_array($responseJson) && isset($responseJson['messages'][0]['id'])) {
+            $this->registrarWhatsappAutomatico(
+                $telefono,
+                "🎯 Sugerencias de ocio enviadas a {$nombre}",
+                'ocio',
+                $responseJson['messages'][0]['id'],
+                $mensajePersonalizado
+            );
+        }
+
         return $response;
     }
 
