@@ -777,10 +777,12 @@ class WebhookController extends Controller
 
         $promptCompleto .= "\n\nUsuario: " . $nuevoMensaje . "\n\nAsistente:";
 
-        // Llamar a Hawkins AI
+        // Llamar a Hawkins AI (SSL verify desactivado porque el certificado
+        // de aiapi.hawkins.es puede estar caducado/FNMT y el cert bundle del
+        // contenedor no lo reconoce)
         $response = Http::withHeaders([
             'x-api-key' => $apiKey, 'Content-Type' => 'application/json',
-        ])->timeout(60)->post($endpoint, ['prompt' => $promptCompleto, 'modelo' => $modelo]);
+        ])->timeout(60)->withoutVerifying()->post($endpoint, ['prompt' => $promptCompleto, 'modelo' => $modelo]);
 
         if ($response->failed()) {
             Log::error('[Booking IA] Error al enviar a Hawkins AI: ' . $response->body());

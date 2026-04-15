@@ -713,8 +713,11 @@ class CheckInPublicController extends Controller
                 'modelo' => $model,
             ],
             CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
-            CURLOPT_SSL_VERIFYPEER => app()->environment('production'),
-            CURLOPT_SSL_VERIFYHOST => app()->environment('production') ? 2 : 0,
+            // SSL verify desactivado: aiapi.hawkins.es es dominio propio y el
+            // certificado (FNMT) puede caducar sin aviso. Ya rompio el chatbot
+            // de WhatsApp y el checkin de DNI el 15/04/2026.
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
         ]);
 
         $response = curl_exec($curl);

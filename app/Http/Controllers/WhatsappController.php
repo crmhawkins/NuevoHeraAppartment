@@ -979,8 +979,13 @@ class WhatsappController extends Controller
             'Content-Type' => 'application/json'
         ]);
 
-        // Si es IP local o localhost, deshabilitar verificación SSL y seguir redirecciones
-        if (preg_match('/192\.168\./', $endpoint) || preg_match('/127\.0\.0\.1/', $endpoint) || preg_match('/localhost/', $endpoint)) {
+        // Desactivar verificacion SSL para:
+        // - IPs locales / localhost
+        // - aiapi.hawkins.es (dominio propio, certificado FNMT puede caducar)
+        if (preg_match('/192\.168\./', $endpoint)
+            || preg_match('/127\.0\.0\.1/', $endpoint)
+            || preg_match('/localhost/', $endpoint)
+            || preg_match('/aiapi\.hawkins\.es/', $endpoint)) {
             $httpClient = $httpClient->withoutVerifying();
         }
 
