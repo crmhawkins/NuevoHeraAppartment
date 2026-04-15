@@ -126,11 +126,13 @@ private function getCategorizationFromOpenAI($input)
         $category = trim($response['choices'][0]['message']['content']);
         $this->info('Extracted category from ChatGPT response: ' . $category);
 
-        // Validar que la respuesta sea una de las categorías
-        if (in_array($category, $input['categories'])) {
-            return $category;
+        // Validar que la respuesta sea una de las categorías (matching resiliente)
+        $categoriaResuelta = $this->extraerCategoriaResiliente($category, $input['categories']);
+
+        if ($categoriaResuelta !== null) {
+            return $categoriaResuelta;
         } else {
-            Log::error('OpenAI returned an invalid category for email ID: ' . $input['email_subject']);
+            Log::error('OpenAI returned an invalid category for email ID: ' . $input['email_subject'] . ' - raw: ' . $category);
             throw new \Exception('Invalid category returned by OpenAI.');
         }
 
@@ -144,6 +146,89 @@ private function getCategorizationFromOpenAI($input)
 
 
 
+
+    /**
+     * Extrae una categoría válida de la respuesta cruda del modelo de forma resiliente.
+     * Qwen3 y otros modelos no siempre devuelven exactamente una palabra: pueden añadir
+     * markdown, prefijos tipo "Categoría:", puntos finales, etc.
+     *
+     * Estrategia:
+     *  1) Limpieza: quitar markdown, comillas, prefijos comunes, puntos finales.
+     *  2) Match exacto case-insensitive contra $categorias.
+     *  3) Match por substring (palabra dentro de la respuesta), case-insensitive;
+     *     si hay varias candidatas, gana la más larga (más específica).
+     *  4) Fallback a "Otros" si existe en $categorias.
+     *  5) null si nada encaja.
+     */
+    private function extraerCategoriaResiliente(string $respuestaRaw, array $categorias): ?string
+    {
+        $limpio = $respuestaRaw;
+
+        // Quitar markdown basico: **, __, *
+        $limpio = str_replace(['**', '__'], '', $limpio);
+        $limpio = str_replace('*', '', $limpio);
+
+        // Quitar comillas (simples, dobles y tipograficas)
+        $limpio = str_replace(['"', "'", '“', '”', '‘', '’', '`'], '', $limpio);
+
+        // Quitar prefijos comunes (case-insensitive)
+        $prefijos = [
+            'la categoría es',
+            'la categoria es',
+            'categoría:',
+            'categoria:',
+            'category:',
+            'respuesta:',
+            'answer:',
+        ];
+        foreach ($prefijos as $prefijo) {
+            if (stripos($limpio, $prefijo) === 0) {
+                $limpio = substr($limpio, strlen($prefijo));
+            }
+        }
+
+        // Quitar puntos finales y espacios
+        $limpio = trim($limpio);
+        $limpio = rtrim($limpio, ".,;:!? \t\n\r\0\x0B");
+        $limpio = trim($limpio);
+
+        // 1) Match exacto case-insensitive
+        foreach ($categorias as $cat) {
+            if (mb_strtolower($cat) === mb_strtolower($limpio)) {
+                return $cat;
+            }
+        }
+
+        // 2) Match por substring: buscar categorias que aparezcan dentro de la respuesta
+        $limpioLower = mb_strtolower($limpio);
+        $candidatas = [];
+        foreach ($categorias as $cat) {
+            $catLower = mb_strtolower($cat);
+            if ($catLower !== '' && mb_strpos($limpioLower, $catLower) !== false) {
+                $candidatas[] = $cat;
+            }
+        }
+
+        if (!empty($candidatas)) {
+            // Elegir la mas larga (mas especifica)
+            usort($candidatas, function ($a, $b) {
+                return mb_strlen($b) - mb_strlen($a);
+            });
+            $elegida = $candidatas[0];
+            Log::debug('CategorizeEmails: match por substring aplicado. Raw: "' . $respuestaRaw . '" -> Categoria: "' . $elegida . '"');
+            return $elegida;
+        }
+
+        // 3) Fallback a "Otros" si existe
+        foreach ($categorias as $cat) {
+            if (mb_strtolower($cat) === 'otros') {
+                Log::debug('CategorizeEmails: fallback a "Otros" aplicado. Raw: "' . $respuestaRaw . '"');
+                return $cat;
+            }
+        }
+
+        return null;
+    }
 
     private function cleanEmailSubject($subject)
     {
