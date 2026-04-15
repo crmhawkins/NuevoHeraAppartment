@@ -104,7 +104,14 @@ class AIGatewayService
     {
         $baseUrl = config('services.hawkins_ai.url', env('HAWKINS_AI_URL', 'https://aiapi.hawkins.es/'));
         $apiKey  = config('services.hawkins_ai.api_key', env('HAWKINS_AI_API_KEY'));
-        $modelo  = $params['hawkins_model'] ?? config('services.hawkins_ai.model', env('HAWKINS_AI_MODEL', 'gpt-oss:120b-cloud'));
+
+        // Modelo de fallback para TEXTO (distinto del de vision que usa el
+        // resto del CRM para DNI/facturas). Usamos qwen3:latest por defecto
+        // porque es local, rapido y suficiente para clasificacion y respuesta
+        // de emails. Se puede sobrescribir via env HAWKINS_AI_CHAT_MODEL o
+        // pasando 'hawkins_model' en los parametros de la llamada.
+        $modelo = $params['hawkins_model']
+            ?? env('HAWKINS_AI_CHAT_MODEL', 'qwen3:latest');
 
         if (empty($apiKey)) {
             throw new \RuntimeException('Hawkins AI no configurada (falta HAWKINS_AI_API_KEY)');
