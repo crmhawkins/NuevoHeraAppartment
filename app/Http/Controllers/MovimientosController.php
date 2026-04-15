@@ -71,40 +71,19 @@ class MovimientosController extends Controller
         ';
         $jsonInput = json_encode($chunk, JSON_UNESCAPED_UNICODE);
 
-        $data = [
-            "model" => "gpt-4",
-            "messages" => [
-                [
-                    "role" => "user",
-                    "content" => $prompt . "\n\nDatos:\n" . $jsonInput
+        try {
+            $responses[] = app(\App\Services\AIGatewayService::class)->chatCompletion([
+                "model" => "gpt-4",
+                "messages" => [
+                    [
+                        "role" => "user",
+                        "content" => $prompt . "\n\nDatos:\n" . $jsonInput
+                    ]
                 ]
-            ]
-        ];
-
-        // Configuración de la solicitud cURL
-        $token = env('TOKEN_OPENAI', 'valorPorDefecto');
-        $url = 'https://api.openai.com/v1/chat/completions';
-        $headers = [
-            'Authorization: Bearer ' . $token,
-            'Content-Type: application/json'
-        ];
-
-        $curl = curl_init();
-        curl_setopt($curl, CURLOPT_URL, $url);
-        curl_setopt($curl, CURLOPT_POST, true);
-        curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($data));
-        curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-
-        $response = curl_exec($curl);
-        curl_close($curl);
-
-        if ($response === false) {
-            return response()->json(['status' => 'error', 'message' => 'Error al realizar la solicitud']);
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json(['status' => 'error', 'message' => 'Error al realizar la solicitud: ' . $e->getMessage()]);
         }
-
-        // Decodificar y guardar la respuesta
-        $responses[] = json_decode($response, true);
 
     }
 

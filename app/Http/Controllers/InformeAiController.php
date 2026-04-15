@@ -317,20 +317,9 @@ Muestra cada categoría con subtotales, en formato tabla o lista con emojis.
      */
     private function consultarChatGPT($prompt)
     {
-        $apiKey = env('OPENAI_API_KEY');
-        
-        if (!$apiKey) {
-            throw new \Exception('API Key de OpenAI no configurada');
-        }
+        Log::info('Consultando ChatGPT via AIGateway');
 
-        Log::info('Consultando ChatGPT con API Key: ' . substr($apiKey, 0, 10) . '...');
-
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $apiKey,
-            'Content-Type' => 'application/json',
-        ])
-        ->timeout(60)  // Aumenta el tiempo de espera a 60 segundos (puedes ajustar este valor)
-        ->post('https://api.openai.com/v1/chat/completions', [
+        $data = app(\App\Services\AIGatewayService::class)->chatCompletion([
             'model' => 'gpt-4',
             'messages' => [
                 [
@@ -346,14 +335,10 @@ Muestra cada categoría con subtotales, en formato tabla o lista con emojis.
             'temperature' => 0.7
         ]);
 
-        Log::info('Respuesta HTTP: ' . $response->status());
-        Log::info('Body de respuesta: ' . $response->body());
+        Log::info('Respuesta AIGateway recibida', [
+            'source' => $data['_gateway_source'] ?? 'unknown',
+        ]);
 
-        if ($response->failed()) {
-            throw new \Exception('Error en la API de OpenAI: ' . $response->body());
-        }
-
-        $data = $response->json();
         return $data['choices'][0]['message']['content'] ?? 'Error al obtener respuesta';
     }
 

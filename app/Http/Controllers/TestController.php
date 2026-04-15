@@ -31,36 +31,21 @@ class TestController extends Controller
 
     public function clasificarMensaje($mensaje)
     {
-        $token = env('TOKEN_OPENAI', 'valorPorDefecto');
-        $url = 'https://api.openai.com/v1/chat/completions';
+        try {
+            $response_data = app(\App\Services\AIGatewayService::class)->chatCompletion([
+                'model' => 'gpt-4',
+                'messages' => [
+                    ['role' => 'system', 'content' => 'Eres un asistente que clasifica mensajes en: "averia", "limpieza", "reserva_apartamento", o "otro".'],
+                    ['role' => 'user', 'content' => $mensaje]
+                ],
+                'max_tokens' => 10
+            ]);
 
-        $headers = [
-            'Content-Type: application/json',
-            'Authorization: Bearer ' . $token
-        ];
-
-        $body = json_encode([
-            'model' => 'gpt-4',
-            'messages' => [
-                ['role' => 'system', 'content' => 'Eres un asistente que clasifica mensajes en: "averia", "limpieza", "reserva_apartamento", o "otro".'],
-                ['role' => 'user', 'content' => $mensaje]
-            ],
-            'max_tokens' => 10
-        ]);
-
-        $curl = curl_init();
-        curl_setopt($curl, CURLOPT_URL, $url);
-        curl_setopt($curl, CURLOPT_POST, true);
-        curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($curl, CURLOPT_POSTFIELDS, $body);
-        $response = curl_exec($curl);
-        curl_close($curl);
-
-        $response_data = json_decode($response, true);
-
-        if (isset($response_data['choices'][0]['message']['content'])) {
-            return trim(strtolower($response_data['choices'][0]['message']['content']));
+            if (isset($response_data['choices'][0]['message']['content'])) {
+                return trim(strtolower($response_data['choices'][0]['message']['content']));
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('clasificarMensaje fallo via AIGateway: ' . $e->getMessage());
         }
 
         return 'otro';

@@ -229,27 +229,12 @@ FORMATO JSON EXACTO (responde SOLO esto):
     private function callOpenAI($base64Image, $prompt)
     {
         try {
-            Log::info('Iniciando llamada a OpenAI', [
+            Log::info('Iniciando llamada a OpenAI (via AIGateway)', [
                 'base64_length' => strlen($base64Image),
                 'prompt_length' => strlen($prompt)
             ]);
-            
-            $apiKey = config('services.openai.api_key');
-            
-            if (!$apiKey) {
-                Log::error('API key de OpenAI no configurada');
-                return null;
-            }
-            
-            Log::info('API key de OpenAI configurada', [
-                'api_key_length' => strlen($apiKey),
-                'api_key_preview' => substr($apiKey, 0, 10) . '...'
-            ]);
 
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $apiKey,
-                'Content-Type' => 'application/json'
-            ])->post('https://api.openai.com/v1/chat/completions', [
+            $response = app(\App\Services\AIGatewayService::class)->chatCompletion([
                 'model' => 'gpt-4o',
                 'messages' => [
                     [
@@ -271,27 +256,25 @@ FORMATO JSON EXACTO (responde SOLO esto):
                 'max_tokens' => 1000
             ]);
 
-            if ($response->successful()) {
-                $content = $response->json()['choices'][0]['message']['content'];
+            $content = $response['choices'][0]['message']['content'] ?? null;
+            if (is_string($content) && $content !== '') {
                 Log::info('Respuesta exitosa de OpenAI', ['content_length' => strlen($content)]);
                 return $content;
-            } else {
-                Log::error('Error en respuesta de OpenAI', [
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                    'headers' => $response->headers()
-                ]);
-                
-                // En lugar de devolver null, devolver un análisis básico
-                return json_encode([
-                    'calidad_general' => 'regular',
-                    'deficiencias' => ['Revisar detalle de limpieza', 'Verificar estándares de presentación'],
-                    'cumple_estandares' => false,
-                    'observaciones' => 'Análisis realizado con información limitada debido a error de API',
-                    'puntuacion' => 5,
-                    'recomendaciones' => ['Revisar manualmente la imagen', 'Verificar estándares de limpieza']
-                ]);
             }
+
+            Log::error('Error en respuesta de OpenAI', [
+                'response' => $response,
+            ]);
+
+            // En lugar de devolver null, devolver un análisis básico
+            return json_encode([
+                'calidad_general' => 'regular',
+                'deficiencias' => ['Revisar detalle de limpieza', 'Verificar estándares de presentación'],
+                'cumple_estandares' => false,
+                'observaciones' => 'Análisis realizado con información limitada debido a error de API',
+                'puntuacion' => 5,
+                'recomendaciones' => ['Revisar manualmente la imagen', 'Verificar estándares de limpieza']
+            ]);
 
         } catch (\Exception $e) {
             Log::error('Error llamando a OpenAI: ' . $e->getMessage());

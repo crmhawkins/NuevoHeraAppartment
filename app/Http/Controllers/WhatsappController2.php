@@ -443,9 +443,7 @@ class WhatsappController2 extends Controller
 
 function enviarMensajeOpenAiChatCompletions($id, $nuevoMensaje, $remitente)
 {
-    $apiKey = env('OPENAI_API_KEY');
     $modelo = 'gpt-4o';
-    $endpoint = 'https://api.openai.com/v1/chat/completions';
     $promptAsistente = PromptAsistente::first(); // o all()->first() si usas all()
 
     $promptSystem = [
@@ -499,21 +497,22 @@ function enviarMensajeOpenAiChatCompletions($id, $nuevoMensaje, $remitente)
 
     // Unir con prompt
     $mensajes = array_merge([$promptSystem], $historial);
-    // dd($nuevoMensaje);
-    // Llamar a OpenAI
-    $response = Http::withToken($apiKey)
-        ->post($endpoint, [
+
+    // Llamar a IA via gateway (OpenAI con fallback a Hawkins)
+    try {
+        $response = app(\App\Services\AIGatewayService::class)->chatCompletion([
             'model' => $modelo,
             'messages' => $mensajes,
             'temperature' => 0.7,
         ]);
-
-    if ($response->failed()) {
-        // \Log::error('Error al enviar a OpenAI: ' . $response->body());
+    } catch (\Throwable $e) {
         return null;
     }
 
-    $respuestaTexto = $response->json('choices.0.message.content');
+    $respuestaTexto = $response['choices'][0]['message']['content'] ?? null;
+    if (!$respuestaTexto) {
+        return null;
+    }
 
     // Guardar la respuesta generada
     ChatGpt::where('remitente', $remitente)
@@ -568,36 +567,21 @@ function enviarMensajeOpenAiChatCompletions($id, $nuevoMensaje, $remitente)
 
     public function clasificarMensaje($mensaje)
     {
-        $token = env('TOKEN_OPENAI', 'valorPorDefecto');
-        $url = 'https://api.openai.com/v1/chat/completions';
+        try {
+            $response_data = app(\App\Services\AIGatewayService::class)->chatCompletion([
+                'model' => 'gpt-4',
+                'messages' => [
+                    ['role' => 'system', 'content' => 'Eres un asistente que clasifica mensajes en: "averia", "limpieza", "reserva_apartamento", o "otro".'],
+                    ['role' => 'user', 'content' => $mensaje]
+                ],
+                'max_tokens' => 10
+            ]);
 
-        $headers = [
-            'Content-Type: application/json',
-            'Authorization: Bearer ' . $token
-        ];
-
-        $body = json_encode([
-            'model' => 'gpt-4',
-            'messages' => [
-                ['role' => 'system', 'content' => 'Eres un asistente que clasifica mensajes en: "averia", "limpieza", "reserva_apartamento", o "otro".'],
-                ['role' => 'user', 'content' => $mensaje]
-            ],
-            'max_tokens' => 10
-        ]);
-
-        $curl = curl_init();
-        curl_setopt($curl, CURLOPT_URL, $url);
-        curl_setopt($curl, CURLOPT_POST, true);
-        curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($curl, CURLOPT_POSTFIELDS, $body);
-        $response = curl_exec($curl);
-        curl_close($curl);
-
-        $response_data = json_decode($response, true);
-
-        if (isset($response_data['choices'][0]['message']['content'])) {
-            return trim(strtolower($response_data['choices'][0]['message']['content']));
+            if (isset($response_data['choices'][0]['message']['content'])) {
+                return trim(strtolower($response_data['choices'][0]['message']['content']));
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('clasificarMensaje fallo via AIGateway: ' . $e->getMessage());
         }
 
         return 'otro';
@@ -1088,9 +1072,6 @@ function enviarMensajeOpenAiChatCompletions($id, $nuevoMensaje, $remitente)
 
     public function chatGptPruebasConImagen($imagenFilename)
     {
-        $token = env('TOKEN_OPENAI', 'valorPorDefecto');
-
-        // token
         // Cargar los JSON de paises y tipos desde la carpeta pública
         $paisesFilePath = public_path('paises.json');
         $tiposFilePath = public_path('tipos.json');
@@ -1111,15 +1092,8 @@ function enviarMensajeOpenAiChatCompletions($id, $nuevoMensaje, $remitente)
         $paisesJsonText = json_encode($paisesData);
         $tiposJsonText = json_encode($tiposData);
 
-        // Configurar los parámetros de la solicitud
-        $url = 'https://api.openai.com/v1/chat/completions';
-        $headers = array(
-            'Authorization: Bearer ' . $token,
-            'Content-Type: application/json'
-        );
-
         // Construir el contenido del mensaje que incluye la imagen en base64, paises y tipos de documento como texto
-        $data = array(
+        $params = array(
             "model" => "gpt-4o",
             "messages" => [
                 [
@@ -1148,25 +1122,11 @@ function enviarMensajeOpenAiChatCompletions($id, $nuevoMensaje, $remitente)
             ]
         );
 
-        // Inicializar cURL y configurar las opciones
-        $curl = curl_init();
-        curl_setopt($curl, CURLOPT_URL, $url);
-        curl_setopt($curl, CURLOPT_POST, true);
-        curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($data));
-        curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-
-        // Ejecutar la solicitud y obtener la respuesta
-        $response = curl_exec($curl);
-        curl_close($curl);
-        Storage::disk('publico')->put('RespuestaChatSobreImagenDirecto-'.$imagePath.'.txt', $response );
-
-        // Decodificar la respuesta JSON
-        $response_data = json_decode($response, true);
-
-        // Si ocurre un error, devolver una respuesta de error
-        if ($response === false) {
-            return response()->json(['status' => 'error', 'message' => 'Error al realizar la solicitud']);
+        try {
+            $response_data = app(\App\Services\AIGatewayService::class)->chatCompletion($params);
+            Storage::disk('publico')->put('RespuestaChatSobreImagenDirecto-'.$imagePath.'.txt', json_encode($response_data));
+        } catch (\Throwable $e) {
+            return response()->json(['status' => 'error', 'message' => 'Error al realizar la solicitud: ' . $e->getMessage()]);
         }
 
         // Procesar la respuesta para ajustar los campos adicionales
@@ -1239,17 +1199,9 @@ function enviarMensajeOpenAiChatCompletions($id, $nuevoMensaje, $remitente)
 
     public function chatGpModelo( $texto )
     {
-        $token = env('TOKEN_OPENAI', 'valorPorDefecto');
-        // Configurar los parámetros de la solicitud
-        $url = 'https://api.openai.com/v1/chat/completions';
-        $headers = array(
-            'Content-Type: application/json',
-            'Authorization: Bearer '. $token
-        );
-
         $fecha = Carbon::now()->format('Y-m-d_H-i-s');
 
-        $data = array(
+        $params = array(
             "model" => "gpt-4o",
             "messages" => [
                 [
@@ -1284,39 +1236,22 @@ function enviarMensajeOpenAiChatCompletions($id, $nuevoMensaje, $remitente)
         );
         Storage::disk('local')->put('Justo antes de enviar al modelo'.$fecha.'.txt', json_encode($texto) );
 
-        // Inicializar cURL y configurar las opciones
-        $curl = curl_init();
-        curl_setopt($curl, CURLOPT_URL, $url);
-        curl_setopt($curl, CURLOPT_POST, true);
-        curl_setopt($curl, CURLOPT_POSTFIELDS, json_encode($data));
-        curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+        try {
+            $response_data = app(\App\Services\AIGatewayService::class)->chatCompletion($params);
+            Storage::disk('local')->put('respuestaFuncionChaptParaReparaciones.txt', json_encode($response_data));
 
-        // Ejecutar la solicitud y obtener la respuesta
-        $response = curl_exec($curl);
-        curl_close($curl);
-        $response_data = json_decode($response, true);
-        Storage::disk('local')->put('respuestaFuncionChaptParaReparaciones.txt', $response );
+            $content = $response_data['choices'][0]['message']['content'] ?? '';
+            Storage::disk('local')->put('respuestaFuncionChaptParaReparaciones.txt', $content);
 
-        // Procesar la respuesta
-        if ($response === false) {
+            return $content;
+        } catch (\Throwable $e) {
             $error = [
-            'status' => 'error',
-            'messages' => 'Error al realizar la solicitud'
+                'status' => 'error',
+                'messages' => 'Error al realizar la solicitud: ' . $e->getMessage(),
             ];
-            Storage::disk('local')->put('errorChapt.txt', $error['messages'] );
+            Storage::disk('local')->put('errorChapt.txt', $error['messages']);
 
-            return response()->json( $error );
-
-        } else {
-            $response_data = json_decode($response, true);
-            $responseReturn = [
-            'status' => 'ok',
-            'messages' => trim($response_data['choices'][0]['message']['content'])
-            ];
-            Storage::disk('local')->put('respuestaFuncionChaptParaReparaciones.txt', $response_data['choices'][0]['message']['content'] );
-
-            return $response_data['choices'][0]['message']['content'];
+            return response()->json($error);
         }
     }
 

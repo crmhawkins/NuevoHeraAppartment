@@ -2,38 +2,32 @@
 
 namespace App\Services;
 
-use GuzzleHttp\Client;
-
 class OpenAIService
 {
-    protected $client;
-    protected $apiUrl;
-    protected $apiKey;
-
     public function __construct()
     {
-        $this->client = new Client();
-        $this->apiUrl = env('OPENAI_API_URL');
-        $this->apiKey = env('OPENAI_API_KEY');
+        // Dejamos el constructor vacio: el gateway se resuelve via el container
+        // cuando se llama a sendMessage. No necesitamos instanciar Guzzle ni leer
+        // las env de OpenAI aqui; el gateway se encarga de eso y del fallback a
+        // Hawkins AI.
     }
 
     public function sendMessage($message, $functions = [])
     {
-        $response = $this->client->post($this->apiUrl, [
-            'headers' => [
-                'Authorization' => 'Bearer ' . $this->apiKey,
-                'Content-Type' => 'application/json',
+        $params = [
+            'model' => 'gpt-4', // o el modelo que estés utilizando
+            'messages' => [
+                ['role' => 'user', 'content' => $message]
             ],
-            'json' => [
-                'model' => 'gpt-4', // o el modelo que estés utilizando
-                'messages' => [
-                    ['role' => 'user', 'content' => $message]
-                ],
-                'functions' => $functions, // funciones API opcionales
-                'function_call' => 'auto' // permite que el modelo decida cuándo llamar a la función
-            ],
-        ]);
+        ];
 
-        return json_decode($response->getBody(), true);
+        // Solo anadir functions / function_call si realmente hay funciones
+        // (evitamos enviar arrays vacios que algunos modelos rechazan).
+        if (!empty($functions)) {
+            $params['functions'] = $functions;
+            $params['function_call'] = 'auto';
+        }
+
+        return app(\App\Services\AIGatewayService::class)->chatCompletion($params);
     }
 }
