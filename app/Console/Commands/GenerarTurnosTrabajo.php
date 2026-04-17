@@ -466,7 +466,17 @@ class GenerarTurnosTrabajo extends Command
                 'fecha_creacion' => now(),
             ]);
 
-            $tiempoDisponible = $empleada->horas_contratadas_dia * 60;
+            // [FIX 2026-04-17] Cap duro de 8 horas (480 min) por jornada,
+            // independientemente de lo que indique horas_contratadas_dia en
+            // la ficha de la empleada. El usuario reporta que hoy se asignan
+            // mas tareas de las 8h reglamentarias.
+            $maxMinutosJornada = 480; // 8 horas
+            $contratadasMin = (int) ($empleada->horas_contratadas_dia * 60);
+            $tiempoDisponible = min(max($contratadasMin, 0), $maxMinutosJornada);
+
+            if ($contratadasMin > $maxMinutosJornada) {
+                Log::warning("[TURNOS] {$empleada->user->name} tiene {$contratadasMin}min contratados, se capa a {$maxMinutosJornada}min (8h)");
+            }
 
             $turnos[] = [
                 'turno'             => $turno,
@@ -478,7 +488,7 @@ class GenerarTurnosTrabajo extends Command
             ];
 
             $turnosGenerados++;
-            Log::info("[TURNOS] Turno creado para {$empleada->user->name} ({$tiempoDisponible}min disponibles)");
+            Log::info("[TURNOS] Turno creado para {$empleada->user->name} ({$tiempoDisponible}min disponibles, max 8h/dia)");
         }
 
         // ── Separar tareas por nivel de prioridad ──

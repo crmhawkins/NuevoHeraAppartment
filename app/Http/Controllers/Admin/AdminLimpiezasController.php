@@ -208,6 +208,34 @@ class AdminLimpiezasController extends Controller
         ));
     }
 
+    /**
+     * [2026-04-17] Marca una limpieza como "No realizada".
+     * Se usa cuando la reserva fue no-show o la estancia se prolongo sin
+     * necesidad de limpieza. Status 4 = "No realizada" (creado en seed).
+     */
+    public function marcarNoRealizada($id)
+    {
+        $limpieza = ApartamentoLimpieza::findOrFail($id);
+
+        // Verificar que el estado destino existe
+        $estadoNoRealizada = \App\Models\ApartamentoLimpiezaEstado::where('nombre', 'No realizada')->first();
+        if (!$estadoNoRealizada) {
+            return redirect()->back()->with('error', 'El estado "No realizada" no esta configurado en la base de datos.');
+        }
+
+        $limpieza->status_id = $estadoNoRealizada->id;
+        $limpieza->fecha_fin = $limpieza->fecha_fin ?? now();
+        $limpieza->save();
+
+        \Illuminate\Support\Facades\Log::info('Limpieza marcada como No realizada', [
+            'limpieza_id' => $limpieza->id,
+            'user_id' => auth()->id(),
+        ]);
+
+        return redirect()->route('limpiezas.show', $limpieza->id)
+            ->with('success', 'Limpieza marcada como no realizada correctamente.');
+    }
+
     public function estadisticas()
     {
         // Estadísticas generales

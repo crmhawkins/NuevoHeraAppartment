@@ -35,6 +35,18 @@
                             <i class="fas fa-microscope"></i> Ver Análisis
                         </a>
                     @endif
+                    {{-- [2026-04-17] Boton para marcar la limpieza como NO realizada.
+                         Util cuando la reserva fue no-show o la estancia se prolongo sin
+                         necesidad de limpieza. Cambia status_id a 4 ("No realizada"). --}}
+                    @if(($limpieza->status_id ?? 0) !== 4)
+                        <form action="{{ route('admin.limpiezas.marcarNoRealizada', $limpieza->id) }}" method="POST" class="d-inline"
+                              onsubmit="return confirm('¿Marcar esta limpieza como NO realizada? (no-show / estancia prolongada)');">
+                            @csrf
+                            <button type="submit" class="btn btn-outline-danger">
+                                <i class="fas fa-ban"></i> No realizada
+                            </button>
+                        </form>
+                    @endif
                 </div>
             </div>
 

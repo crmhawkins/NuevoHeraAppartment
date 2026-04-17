@@ -1276,6 +1276,8 @@ Route::middleware(['auth'])->group(function () {
 Route::prefix('admin')->name('admin.')->middleware(['auth'])->group(function () {
     Route::get('/limpiezas', [App\Http\Controllers\Admin\AdminLimpiezasController::class, 'index'])->name('limpiezas.index');
     Route::get('/limpiezas/{id}', [App\Http\Controllers\Admin\AdminLimpiezasController::class, 'show'])->name('limpiezas.show');
+    // [2026-04-17] Marcar limpieza como NO realizada (no-show o estancia prolongada)
+    Route::post('/limpiezas/{id}/marcar-no-realizada', [App\Http\Controllers\Admin\AdminLimpiezasController::class, 'marcarNoRealizada'])->name('limpiezas.marcarNoRealizada');
 
     // Gestión de Zonas Comunes
     Route::resource('zonas-comunes', App\Http\Controllers\Admin\ZonaComunController::class);
