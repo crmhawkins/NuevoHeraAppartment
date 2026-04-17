@@ -197,6 +197,17 @@
                                             <i class="fas fa-file-pdf me-2"></i>Ver PDF
                                         </a>
                                     </div>
+
+                                    {{-- [2026-04-17] Enviar la factura al cliente por WhatsApp + email con enlace seguro --}}
+                                    <div>
+                                        <form action="{{ route('admin.facturas.enviarCliente', $invoice->id) }}" method="POST" class="d-inline"
+                                              onsubmit="return confirm('¿Enviar esta factura al cliente por WhatsApp y/o email? Se generará un enlace seguro de descarga con 30 días de validez.');">
+                                            @csrf
+                                            <button type="submit" class="btn btn-success">
+                                                <i class="fas fa-paper-plane me-2"></i>Enviar al cliente
+                                            </button>
+                                        </form>
+                                    </div>
                                     
                                     <div>
                                         <button type="submit" class="btn btn-primary">

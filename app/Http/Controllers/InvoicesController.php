@@ -1321,5 +1321,131 @@ class InvoicesController extends Controller
         ];
     }
 
+    /**
+     * [2026-04-17] Generar un token seguro de descarga y enviarselo al cliente
+     * por WhatsApp (numero del cliente) y email (facturacion_email o email).
+     * El enlace caduca a 30 dias. Queda registrado en invoice_download_tokens.
+     *
+     * Se dispara manualmente desde el detalle de la factura para no afectar
+     * flujos automaticos existentes ni re-enviar facturas antiguas.
+     */
+    public function enviarAlCliente($id)
+    {
+        $invoice = Invoices::with('cliente')->findOrFail($id);
+        $cliente = $invoice->cliente;
+
+        if (!$cliente) {
+            return redirect()->back()->with('error', 'La factura no tiene cliente asignado.');
+        }
+
+        $telefonoCliente = $cliente->telefono_movil ?: $cliente->telefono;
+        $emailCliente    = $cliente->facturacion_email ?: $cliente->email;
+
+        if (empty($telefonoCliente) && empty($emailCliente)) {
+            return redirect()->back()->with('error', 'El cliente no tiene telefono ni email para enviarle la factura.');
+        }
+
+        // Generar token unico (64 chars, no predecible)
+        $token = bin2hex(random_bytes(24));
+        $downloadToken = \App\Models\InvoiceDownloadToken::create([
+            'invoice_id'   => $invoice->id,
+            'token'        => $token,
+            'expires_at'   => now()->addDays(30),
+            'downloaded_at' => null,
+        ]);
+
+        $url = route('facturas.descargarPublica', ['token' => $token]);
+        $referencia = $invoice->reference ?: ('#' . $invoice->id);
+        $totalFormateado = number_format($invoice->total, 2, ',', '.') . ' EUR';
+
+        $enviados = [];
+        $errores  = [];
+
+        // 1) Email
+        if (!empty($emailCliente)) {
+            try {
+                $asunto = 'Tu factura ' . $referencia;
+                $cuerpo = "Hola " . ($cliente->nombre ?: '') . ",\n\n"
+                    . "Aqui tienes el enlace seguro para descargar tu factura " . $referencia
+                    . " (total: {$totalFormateado}):\n\n" . $url . "\n\n"
+                    . "El enlace caduca el " . $downloadToken->expires_at->format('d/m/Y') . ".\n\n"
+                    . "Gracias por elegirnos.";
+                \Illuminate\Support\Facades\Mail::raw($cuerpo, function ($m) use ($emailCliente, $asunto) {
+                    $m->to($emailCliente)->subject($asunto);
+                });
+                $enviados[] = 'email';
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Error enviando email factura al cliente: ' . $e->getMessage(), [
+                    'invoice_id' => $invoice->id,
+                ]);
+                $errores[] = 'email: ' . $e->getMessage();
+            }
+        }
+
+        // 2) WhatsApp (mensaje simple, sin template, para no depender de templates aprobados)
+        if (!empty($telefonoCliente)) {
+            try {
+                $texto = "Hola " . ($cliente->nombre ?: '')
+                    . ", aqui tienes tu factura {$referencia} (total {$totalFormateado}): {$url}"
+                    . " (el enlace caduca el " . $downloadToken->expires_at->format('d/m/Y') . ")";
+
+                $token_wa   = \App\Models\Setting::whatsappToken();
+                $urlMensajes = \App\Models\Setting::whatsappUrl();
+
+                // Normalizar telefono: solo digitos, anadir prefijo 34 si faltara
+                $phone = preg_replace('/\D+/', '', $telefonoCliente);
+                if ($phone !== '' && !str_starts_with($phone, '34') && strlen($phone) === 9) {
+                    $phone = '34' . $phone;
+                }
+
+                $payload = [
+                    'messaging_product' => 'whatsapp',
+                    'recipient_type'    => 'individual',
+                    'to'                => $phone,
+                    'type'              => 'text',
+                    'text'              => ['body' => $texto],
+                ];
+
+                $response = \Illuminate\Support\Facades\Http::withHeaders([
+                    'Content-Type'  => 'application/json',
+                    'Authorization' => 'Bearer ' . $token_wa,
+                ])->post($urlMensajes, $payload);
+
+                if ($response->successful()) {
+                    $enviados[] = 'whatsapp';
+                } else {
+                    $errores[] = 'whatsapp: ' . $response->body();
+                }
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Error enviando whatsapp factura al cliente: ' . $e->getMessage(), [
+                    'invoice_id' => $invoice->id,
+                ]);
+                $errores[] = 'whatsapp: ' . $e->getMessage();
+            }
+        }
+
+        // Registrar por que vias salio
+        if (!empty($enviados)) {
+            $downloadToken->sent_via = implode('+', $enviados);
+            $downloadToken->save();
+        }
+
+        \Illuminate\Support\Facades\Log::info('Factura enviada al cliente', [
+            'invoice_id' => $invoice->id,
+            'token_id' => $downloadToken->id,
+            'enviados' => $enviados,
+            'errores' => $errores,
+        ]);
+
+        if (!empty($enviados)) {
+            $msg = 'Factura enviada al cliente via ' . implode(' y ', $enviados) . '.';
+            if (!empty($errores)) {
+                $msg .= ' Algunos canales fallaron (' . implode('; ', $errores) . ').';
+            }
+            return redirect()->back()->with('success', $msg);
+        }
+
+        return redirect()->back()->with('error', 'No se pudo enviar la factura. Revisa los logs: ' . implode('; ', $errores));
+    }
 
 }

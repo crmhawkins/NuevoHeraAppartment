@@ -240,6 +240,12 @@ Route::middleware(['throttle:20,1'])->group(function () {
         ->name('facturas.subir.show');
     Route::post('/facturas/subir/{token}', [App\Http\Controllers\FacturaUploadMovilController::class, 'store'])
         ->name('facturas.subir.store');
+
+    // [2026-04-17] Descarga publica de factura por token (cliente recibe el
+    // enlace por WhatsApp/email). No requiere auth. El token caduca a 30 dias
+    // y queda registrado cuando se descarga.
+    Route::get('/facturas/descargar/{token}', [App\Http\Controllers\InvoicePublicDownloadController::class, 'download'])
+        ->name('facturas.descargarPublica');
 });
 
 // Rutas de admin
@@ -783,6 +789,8 @@ Route::get('/admin/historial-descuentos/{historial}/datos-momento', [HistorialDe
     Route::get('/facturas',[App\Http\Controllers\InvoicesController::class, 'index'])->name('admin.facturas.index');
     Route::get('/facturas/{id}/edit',[App\Http\Controllers\InvoicesController::class, 'edit'])->name('admin.facturas.edit');
     Route::put('/facturas/{id}',[App\Http\Controllers\InvoicesController::class, 'update'])->name('admin.facturas.update');
+    // [2026-04-17] Generar token de descarga y enviar la factura al cliente (WhatsApp + email)
+    Route::post('/facturas/{id}/enviar-cliente',[App\Http\Controllers\InvoicesController::class, 'enviarAlCliente'])->name('admin.facturas.enviarCliente');
     Route::get('/facturas-excel',[App\Http\Controllers\InvoicesController::class, 'exportInvoices'])->name('admin.facturas.export');
     Route::get('/facturas-descargar/{id}',[App\Http\Controllers\InvoicesController::class, 'previewPDF'])->name('admin.facturas.previewPDF');
     Route::get('/invoice/pdf/{id}', [App\Http\Controllers\InvoicesController::class, 'generateInvoicePDF'])->name('admin.facturas.generatePdf');
