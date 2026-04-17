@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Setting;
 use App\Models\Reserva;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use ZipArchive;
 
@@ -1001,7 +1002,54 @@ class MIRService
             return false;
         }
 
+        // Validar codigos postales del cliente y de los huespedes antes de
+        // enviar. Si alguno es sospechoso no enviamos: MIR lo rechazaria
+        // igualmente y recibiriamos un email de error. La alerta WhatsApp la
+        // emite enviarSiLista() a partir de validarCodigosPostales().
+        if ($this->validarCodigosPostales($reserva) !== null) {
+            return false;
+        }
+
         return true;
+    }
+
+    /**
+     * Comprueba los codigos postales (cliente + huespedes) contra el validador
+     * espanol. Devuelve null si todos son validos, o una descripcion legible
+     * del primer error encontrado (uso doble: marker para no enviar, y texto
+     * que va al WhatsApp de alerta).
+     */
+    public function validarCodigosPostales(Reserva $reserva): ?string
+    {
+        $reserva->loadMissing('cliente');
+
+        /** @var SpanishPostalCodeValidator $validator */
+        $validator = app(SpanishPostalCodeValidator::class);
+
+        $cliente = $reserva->cliente;
+        if ($cliente) {
+            $reason = $validator->getReason(
+                $cliente->codigo_postal ?? '',
+                $cliente->nacionalidad ?? 'ES'
+            );
+            if ($reason !== null) {
+                return "Cliente {$cliente->nombre} " . ($cliente->apellido1 ?? '') . ": {$reason}";
+            }
+        }
+
+        $huespedes = \App\Models\Huesped::where('reserva_id', $reserva->id)->get();
+        foreach ($huespedes as $huesped) {
+            $reason = $validator->getReason(
+                $huesped->codigo_postal ?? '',
+                $huesped->nacionalidad ?? 'ES'
+            );
+            if ($reason !== null) {
+                $nombreH = trim(($huesped->nombre ?? '') . ' ' . ($huesped->primer_apellido ?? $huesped->apellido1 ?? ''));
+                return "Huesped {$nombreH} (id {$huesped->id}): {$reason}";
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -1011,6 +1059,35 @@ class MIRService
      */
     public function enviarSiLista(Reserva $reserva): ?array
     {
+        // [VALIDACION CP] Comprobar los codigos postales ANTES de cualquier
+        // otra cosa. Si alguno no es valido, no tiene sentido mandar el lote
+        // a MIR (lo rechazaria por email unas horas despues). Alertamos una
+        // sola vez por reserva (24h TTL en Cache) para no spamear WhatsApp
+        // en cada reintento del cron.
+        $cpReason = $this->validarCodigosPostales($reserva);
+        if ($cpReason !== null) {
+            $cacheKey = "mir_alerta_cp_sent:{$reserva->id}";
+            if (!Cache::has($cacheKey)) {
+                $this->enviarAlertaCPInvalido($reserva, $cpReason);
+                Cache::put($cacheKey, true, now()->addHours(24));
+
+                // Dejar constancia en la propia reserva
+                $reserva->mir_estado = 'error_cp';
+                $reserva->mir_respuesta = json_encode([
+                    'error' => 'cp_invalido',
+                    'detalle' => $cpReason,
+                    'detectado_en' => now()->toDateTimeString(),
+                ]);
+                $reserva->save();
+
+                Log::warning('MIR: Envio cancelado por CP invalido', [
+                    'reserva_id' => $reserva->id,
+                    'detalle' => $cpReason,
+                ]);
+            }
+            return null;
+        }
+
         if (!$this->reservaListaParaMIR($reserva)) {
             return null;
         }
@@ -1103,6 +1180,39 @@ class MIRService
             // Fallo enviando la alerta: lo logueamos pero no propagamos para
             // no romper el flujo de enviarSiLista.
             Log::error('MIR: No se pudo enviar alerta WhatsApp por rechazo MIR', [
+                'reserva_id' => $reserva->id,
+                'error_whatsapp' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Enviar alerta por WhatsApp cuando la validacion local de codigo postal
+     * bloquea el envio a MIR. Se dispara antes de tocar la API de MIR para
+     * evitar que el lote caiga y nos llegue el email de rechazo horas despues.
+     *
+     * Se llama solo desde enviarSiLista() y solo una vez cada 24h por reserva
+     * (dedup con Cache). No se invoca desde envios manuales porque ahi el
+     * usuario ya ve el error en la UI.
+     */
+    private function enviarAlertaCPInvalido(Reserva $reserva, string $detalle): void
+    {
+        try {
+            $whatsappService = app(WhatsappNotificationService::class);
+            $detalleCorto = mb_substr(trim($detalle), 0, 300);
+            $texto  = "⚠️ ALERTA MIR: Reserva #{$reserva->codigo_reserva} (ID: {$reserva->id}) NO se ha enviado a MIR por codigo postal invalido.\n";
+            $texto .= "Detalle: {$detalleCorto}\n";
+            if ($reserva->fecha_entrada) {
+                $texto .= "Entrada: " . \Carbon\Carbon::parse($reserva->fecha_entrada)->format('d/m/Y') . "\n";
+            }
+            $texto .= "Corrige el codigo postal del cliente/huesped en el CRM y se reintentara automaticamente.";
+            $whatsappService->sendToConfiguredRecipients($texto);
+            Log::info('MIR: Alerta WhatsApp enviada por CP invalido', [
+                'reserva_id' => $reserva->id,
+                'detalle' => $detalleCorto,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('MIR: No se pudo enviar alerta WhatsApp por CP invalido', [
                 'reserva_id' => $reserva->id,
                 'error_whatsapp' => $e->getMessage(),
             ]);
