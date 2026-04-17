@@ -208,14 +208,29 @@ class TecnicoNotificationService
         ];
 
         // Agregar parámetros si existen
+        // [FIX 2026-04-17] Meta rechaza templates cuyos parametros de tipo text
+        // tengan \n, \t, o mas de 4 espacios consecutivos (error code 100
+        // "Param text cannot have new-line/tab characters or more than 4
+        // consecutive spaces"). Sanitizamos aqui antes de enviar: sustituimos
+        // saltos de linea por ". ", tabs por espacios, y colapsamos espacios.
         if (!empty($parameters)) {
             $mensajeTemplate["template"]["components"] = [
                 [
                     "type" => "body",
                     "parameters" => array_values(array_map(function($value) {
+                        $clean = (string) $value;
+                        // Reemplazar newlines (\r\n, \r, \n) por ". " para mantener legibilidad
+                        $clean = preg_replace('/\r\n|\r|\n/u', '. ', $clean);
+                        // Reemplazar tabs por espacio
+                        $clean = str_replace("\t", ' ', $clean);
+                        // Colapsar runs de espacios a uno solo (WhatsApp rechaza >4 seguidos)
+                        $clean = preg_replace('/\s{2,}/u', ' ', $clean);
+                        $clean = trim($clean);
+                        // Eliminar el punto sobrante si aparece ".. " tras la sustitucion
+                        $clean = preg_replace('/\.\s*\./u', '.', $clean);
                         return [
                             "type" => "text",
-                            "text" => $value
+                            "text" => $clean,
                         ];
                     }, $parameters))
                 ]

@@ -147,6 +147,41 @@ class GestionIncidenciasController extends Controller
                 $empleada->name
             );
 
+            // [2026-04-17] Notificar automaticamente a mantenimiento por WhatsApp.
+            // Antes solo se disparaba WhatsApp desde el flujo de limpieza (items
+            // con avería) o desde el boton manual de admin. Aqui lo extendemos
+            // al store generico del CRM para que cualquier incidencia creada por
+            // una empleada llegue al tecnico sin accion manual adicional.
+            // Envuelto en try/catch: si falla el envio (red, whatsapp api), la
+            // incidencia se crea igual; el error queda en el log.
+            try {
+                \App\Services\TecnicoNotificationService::notifyTechniciansAboutIncident($incidencia);
+                \Illuminate\Support\Facades\Log::info('Tecnicos notificados automaticamente sobre la incidencia', [
+                    'incidencia_id' => $incidencia->id,
+                    'origen' => 'gestion.incidencias.store',
+                ]);
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Error notificando tecnicos automaticamente: ' . $e->getMessage(), [
+                    'incidencia_id' => $incidencia->id,
+                ]);
+            }
+
+            // Alertar tambien al equipo de gestion por WhatsApp (informativo)
+            try {
+                \App\Services\AlertaEquipoService::alertar(
+                    'INCIDENCIA - ' . strtoupper($request->prioridad ?? 'media'),
+                    "Reportada por: " . $empleada->name . "\n"
+                    . ($request->tipo === 'apartamento' ? 'Apartamento: ' : 'Zona comun: ') . $elementoNombre . "\n"
+                    . "Titulo: " . $request->titulo . "\n"
+                    . "Descripcion: " . $request->descripcion,
+                    'incidencia_generica'
+                );
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Error WhatsApp alerta equipo incidencia: ' . $e->getMessage(), [
+                    'incidencia_id' => $incidencia->id,
+                ]);
+            }
+
             // Log the creation
             $this->logCreate('INCIDENCIA', $incidencia->id, $incidencia->toArray());
 
