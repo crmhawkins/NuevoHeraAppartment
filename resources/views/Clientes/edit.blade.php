@@ -556,22 +556,12 @@
                                 @enderror
                             </div>
 
-                            <!-- NIF/CIF Facturación -->
-                            <div class="col-md-6">
-                                <label for="facturacion_nif_cif" class="form-label fw-semibold">
-                                    NIF/CIF Facturación
-                                </label>
-                                <input type="text" 
-                                       class="form-control @error('facturacion_nif_cif') is-invalid @enderror" 
-                                       id="facturacion_nif_cif" 
-                                       name="facturacion_nif_cif" 
-                                       value="{{ old('facturacion_nif_cif', $cliente->facturacion_nif_cif) }}"
-                                       maxlength="20"
-                                       placeholder="NIF/CIF específico para facturación">
-                                @error('facturacion_nif_cif')
-                                    <div class="invalid-feedback">{{ $message }}</div>
-                                @enderror
-                            </div>
+                            {{-- [FIX 2026-04-17] Eliminado el segundo input "NIF/CIF Facturacion"
+                                 porque colisionaba con el name="facturacion_nif_cif" del bloque
+                                 de empresas/autonomos (L496-515): al enviar el formulario, si JS
+                                 mostraba ambos paneles simultaneamente, PHP solo recibia el valor
+                                 del segundo (vacio), borrando el primero. El CIF empresa ya
+                                 se captura en el bloque superior. --}}
 
                             <!-- Dirección Fiscal -->
                             <div class="col-12">

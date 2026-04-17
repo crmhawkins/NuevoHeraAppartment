@@ -216,7 +216,17 @@
                     <th style="text-align:center">Base</th>
                     <th style="text-align:center">Dto.</th>
                     <th style="text-align:center">
-                        IVA - {{ $invoice->reserva_id === null ? '21%' : '10%' }}
+                        {{-- [FIX 2026-04-17] Porcentaje IVA calculado dinamicamente a partir
+                             de base+iva en lugar de hardcoded 21%/10% por tipo de factura.
+                             Antes: presupuestos facturados siempre mostraban 21% aunque el
+                             calculo fuera al 10%, y las facturas de reserva podian mostrar
+                             un % incorrecto si el calculo se hacia de otra forma. --}}
+                        @php
+                            $ivaPct = ($invoice->base > 0)
+                                ? round(($invoice->iva / $invoice->base) * 100)
+                                : ($invoice->reserva_id === null ? 21 : 10);
+                        @endphp
+                        IVA - {{ $ivaPct }}%
                     </th>
                     <th style="text-align:right">TOTAL</th>
                 </tr>

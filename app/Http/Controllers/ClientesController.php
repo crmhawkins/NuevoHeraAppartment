@@ -258,7 +258,10 @@ class ClientesController extends Controller
             'apellido2' => 'nullable|string|max:255',
             'sexo' => 'required|string|max:255',
             'telefono' => 'required|string|max:20',
-            'email' => 'required|email|max:255|unique:clientes,email',
+            // [FIX 2026-04-17] email ya no es unique: permite huespedes recurrentes
+            // con varios registros (distintas reservas, misma persona). Si quieres
+            // deduplicar, hazlo por DNI/num_identificacion, no por email.
+            'email' => 'required|email|max:255',
             'idiomas' => 'nullable|string|max:255',
             'nacionalidad' => 'required|string|max:255',
             'tipo_documento' => 'nullable',
@@ -570,25 +573,28 @@ class ClientesController extends Controller
         $cliente = Cliente::findOrFail($id);
 
         // Definir las reglas de validación
+        // [FIX 2026-04-17] Varios campos pasaron de 'required' a 'nullable' en el
+        // update. El motivo es que el formulario de edicion se usa tambien para
+        // ediciones parciales (modales, tabs sueltas) y los campos que no se
+        // envien no deben invalidar la peticion. Mas abajo hacemos que tampoco
+        // pisen los valores existentes si llegan vacios.
         $rules = [
-            'alias' => 'required|string|max:255',
+            'alias' => 'nullable|string|max:255',
             'nombre' => 'required|string|max:255',
             'apellido1' => 'required|string|max:255',
             'apellido2' => 'nullable|string|max:255',
-            'fecha_nacimiento' => 'required|date',
-            'sexo' => 'required|string|max:255',
+            'fecha_nacimiento' => 'nullable|date',
+            'sexo' => 'nullable|string|max:255',
             'telefono' => 'nullable|string|max:20',
-            'email' => [
-                'required',
-                'email',
-                'max:255',
-                Rule::unique('clientes', 'email')->ignore($cliente->id)
-            ],
-            'nacionalidad' => 'required|string|max:255',
-            'tipo_documento' => 'required|string|max:255|in:DNI,Pasaporte',
-            'num_identificacion' => 'required|string|max:255',
-            'fecha_expedicion_doc' => 'required|date',
-            'idiomas' => 'required|string|max:255',
+            // [FIX 2026-04-17] email permite duplicados para soportar huespedes
+            // recurrentes. La dedup por persona real debe hacerse por documento
+            // (num_identificacion), no por email.
+            'email' => 'required|email|max:255',
+            'nacionalidad' => 'nullable|string|max:255',
+            'tipo_documento' => 'nullable|string|max:255|in:DNI,Pasaporte',
+            'num_identificacion' => 'nullable|string|max:255',
+            'fecha_expedicion_doc' => 'nullable|date',
+            'idiomas' => 'nullable|string|max:255',
             'direccion' => 'nullable|string|max:255',
             'localidad' => 'nullable|string|max:255',
             'codigo_postal' => 'nullable|string|max:255',
@@ -639,8 +645,26 @@ class ClientesController extends Controller
         $validatedData = $request->validate($rules, $messages);
 
         try {
-            // Actualizar el cliente con los datos validados
-            $cliente->update($validatedData);
+            // [FIX 2026-04-17] Actualizamos solo los campos que vienen con valor
+            // en la peticion. Asi los formularios parciales (modales, tabs) no
+            // blanquean campos ya rellenados como fecha_nacimiento, idiomas o
+            // nacionalidad. Los booleanos se tratan aparte porque false es un
+            // valor legitimo que queremos guardar.
+            $dataToUpdate = [];
+            $boolFields = ['es_empresa', 'requiere_factura'];
+            foreach ($validatedData as $key => $value) {
+                if (in_array($key, $boolFields, true)) {
+                    // Booleanos: persistir siempre
+                    $dataToUpdate[$key] = (bool) $value;
+                } elseif ($value !== null && $value !== '') {
+                    $dataToUpdate[$key] = $value;
+                }
+                // Si value es null o '', NO lo incluimos para no pisar el valor
+                // existente en DB. Si realmente hay que vaciar un campo, usa el
+                // endpoint especifico correspondiente.
+            }
+
+            $cliente->update($dataToUpdate);
 
             return redirect()->route('clientes.index')
                 ->with('swal_success', '¡Cliente actualizado exitosamente!');

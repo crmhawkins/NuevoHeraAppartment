@@ -497,13 +497,28 @@
                     <div class="card-body">
                         <div class="row">
                             @foreach($fotos as $foto)
+                                @php
+                                    // [FIX 2026-04-17] photo_url en DB esta guardado en dos formatos
+                                    // distintos segun el flujo de subida:
+                                    //   - PhotoController: 'images/xxx.jpg' (en public/images/)
+                                    //   - fotoRapida:      'limpiezas/123/xxx.jpg' (en storage/app/public/)
+                                    // Resolvemos ambos aqui para que la URL salga bien.
+                                    $rawPath = $foto->photo_url ?? '';
+                                    if (\Illuminate\Support\Str::startsWith($rawPath, ['http://', 'https://', '//'])) {
+                                        $urlFoto = $rawPath;
+                                    } elseif (\Illuminate\Support\Str::startsWith($rawPath, 'images/')) {
+                                        $urlFoto = asset($rawPath);
+                                    } else {
+                                        $urlFoto = asset('storage/' . ltrim($rawPath, '/'));
+                                    }
+                                @endphp
                                 <div class="col-md-3 mb-3">
                                     <div class="card">
-                                        <img src="{{ asset($foto->photo_url) }}" 
-                                             alt="Foto de limpieza" 
-                                             class="card-img-top foto-limpieza" 
+                                        <img src="{{ $urlFoto }}"
+                                             alt="Foto de limpieza"
+                                             class="card-img-top foto-limpieza"
                                              style="height: 150px; object-fit: cover; cursor: pointer;"
-                                             onclick="ampliarFoto('{{ asset($foto->photo_url) }}', '{{ $foto->photo_url }}')">
+                                             onclick="ampliarFoto('{{ $urlFoto }}', '{{ $foto->photo_url }}')">
                                         <div class="card-body text-center">
                                             <small class="text-muted">
                                                 @if($analisisFotos->where('image_url', $foto->photo_url)->first())
