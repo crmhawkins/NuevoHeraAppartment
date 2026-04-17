@@ -509,15 +509,26 @@ class BankinterScraperService
                         return 'duplicado';
                     }
 
-                    $categoriaIngreso = CategoriaIngresos::first();
-                    $categoriaGasto = CategoriaGastos::first();
+                    // [FIX 2026-04-17] Dos bugs reportados por el usuario:
+                    //   (a) banco salia como CAJA porque la config de "helen" tenia
+                    //       bank_id=2 (CAJA). Todo lo que viene del scraping ES
+                    //       Bankinter, asi que forzamos bank_id a un banco cuyo
+                    //       nombre contenga "BANKINTER".
+                    //   (b) categoria salia siempre NOMINA porque antes se usaba
+                    //       CategoriaGastos::first() (que devuelve la primera fila
+                    //       ordenada por id, y la id=1 es NOMINA). Ahora la IA
+                    //       (AIGatewayService con fallback a Hawkins AI) asigna
+                    //       la categoria correcta segun el concepto.
+                    $bankIdResuelto = $this->resolverBankIdBankinter($bankId);
+                    $categoriaIngresoId = $this->categorizarIngresoConIA($descripcion);
+                    $categoriaGastoId   = $this->categorizarGastoConIA($descripcion);
                     $diarioCajaId = null;
 
                     // Crear ingreso
                     if ($haber > 0) {
                         $ingresoData = [
-                            'categoria_id' => $categoriaIngreso->id ?? 1,
-                            'bank_id' => $bankId,
+                            'categoria_id' => $categoriaIngresoId,
+                            'bank_id' => $bankIdResuelto,
                             'title' => $descripcion,
                             'quantity' => $haber,
                             'date' => $fechaContable,
@@ -574,8 +585,8 @@ class BankinterScraperService
                     // Crear gasto
                     if ($debe != 0) {
                         $gasto = Gastos::create([
-                            'categoria_id' => $categoriaGasto->id ?? 1,
-                            'bank_id' => $bankId,
+                            'categoria_id' => $categoriaGastoId,
+                            'bank_id' => $bankIdResuelto,
                             'title' => $descripcion,
                             'quantity' => $debe,
                             'date' => $fechaContable,
@@ -942,5 +953,214 @@ class BankinterScraperService
         }
 
         return null; // Sin match, se deja para conciliación manual
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // [2026-04-17] Helpers para asignar banco y categorias correctamente.
+    // ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Cache interna por proceso para evitar llamar a la IA dos veces para
+     * el mismo concepto (muy habitual en importaciones: "COMISION BANCARIA"
+     * aparece 20 veces en un excel).
+     */
+    private array $cacheCategoriasGasto = [];
+    private array $cacheCategoriasIngreso = [];
+    private ?int $cachedBankinterId = null;
+
+    /**
+     * Dado el bank_id que viene de la config de la cuenta scrapeada, nos
+     * aseguramos de que corresponde a un banco cuyo nombre contenga
+     * "BANKINTER". Si no, redirigimos al primer BANKINTER encontrado. Todos
+     * los movimientos que pasan por este servicio vienen de Bankinter por
+     * definicion, asi que no tiene sentido guardarlos como CAJA ni otros.
+     */
+    private function resolverBankIdBankinter(int $bankIdOriginal): int
+    {
+        try {
+            $banco = \App\Models\Bancos::find($bankIdOriginal);
+            if ($banco && stripos((string) $banco->nombre, 'BANKINTER') !== false) {
+                return $bankIdOriginal;
+            }
+
+            if ($this->cachedBankinterId === null) {
+                $bankinter = \App\Models\Bancos::where('nombre', 'LIKE', '%BANKINTER%')
+                    ->orderBy('id')
+                    ->first();
+                $this->cachedBankinterId = $bankinter?->id ?? $bankIdOriginal;
+            }
+
+            if ($banco && $this->cachedBankinterId !== $bankIdOriginal) {
+                Log::warning('[Bankinter] bank_id config no es BANKINTER, redirigido', [
+                    'bank_id_original' => $bankIdOriginal,
+                    'banco_original'   => $banco->nombre ?? 'N/A',
+                    'bank_id_resuelto' => $this->cachedBankinterId,
+                ]);
+            }
+
+            return $this->cachedBankinterId;
+        } catch (\Throwable $e) {
+            Log::error('[Bankinter] Error resolviendo bank_id', ['err' => $e->getMessage()]);
+            return $bankIdOriginal;
+        }
+    }
+
+    /**
+     * Pide a la IA (AIGatewayService -> OpenAI con fallback Hawkins) que
+     * clasifique el concepto en una de las categorias de gastos. Fallback
+     * a "OTROS" si la IA falla o devuelve algo que no reconocemos.
+     */
+    private function categorizarGastoConIA(string $descripcion): int
+    {
+        $key = mb_strtolower(trim($descripcion));
+        if (isset($this->cacheCategoriasGasto[$key])) {
+            return $this->cacheCategoriasGasto[$key];
+        }
+
+        $categorias = CategoriaGastos::orderBy('id')->get(['id', 'nombre']);
+        if ($categorias->isEmpty()) {
+            return 1;
+        }
+
+        $fallbackId = ($categorias->firstWhere('nombre', 'OTROS')?->id)
+            ?? ($categorias->last()->id);
+
+        try {
+            $listado = $categorias->pluck('nombre')->implode(', ');
+            $prompt = "Clasifica el siguiente concepto de un movimiento BANCARIO de GASTO en UNA sola de estas categorias (responde EXACTAMENTE el nombre de la categoria, sin comillas, sin explicacion, sin mayusculas o minusculas distintas a las que te paso).\n"
+                . "Categorias disponibles: {$listado}\n\n"
+                . "Concepto: \"{$descripcion}\"\n\nCategoria:";
+
+            $gateway = app(\App\Services\AIGatewayService::class);
+            $response = $gateway->chatCompletion([
+                'model' => 'gpt-4',
+                'messages' => [['role' => 'user', 'content' => $prompt]],
+                'max_tokens' => 40,
+                'temperature' => 0.0,
+            ]);
+
+            $raw = trim((string) ($response['choices'][0]['message']['content'] ?? ''));
+            $rawClean = $this->limpiarRespuestaCategoria($raw);
+
+            // Match exacto
+            foreach ($categorias as $c) {
+                if (mb_strtolower($c->nombre) === mb_strtolower($rawClean)) {
+                    return $this->cacheCategoriasGasto[$key] = (int) $c->id;
+                }
+            }
+
+            // Match por substring: la categoria mas larga que aparezca en la respuesta
+            $mejor = null;
+            $mejorLen = 0;
+            foreach ($categorias as $c) {
+                $cat = mb_strtolower($c->nombre);
+                if ($cat !== '' && mb_strpos(mb_strtolower($rawClean), $cat) !== false) {
+                    if (mb_strlen($cat) > $mejorLen) {
+                        $mejor = $c;
+                        $mejorLen = mb_strlen($cat);
+                    }
+                }
+            }
+            if ($mejor) {
+                return $this->cacheCategoriasGasto[$key] = (int) $mejor->id;
+            }
+        } catch (\Throwable $e) {
+            Log::warning('[Bankinter] IA categorizacion gasto fallo, usando OTROS', [
+                'desc' => $descripcion,
+                'err'  => $e->getMessage(),
+            ]);
+        }
+
+        return $this->cacheCategoriasGasto[$key] = (int) $fallbackId;
+    }
+
+    /**
+     * Idem para ingresos. Categoria fallback: "OTROS" o la primera disponible.
+     */
+    private function categorizarIngresoConIA(string $descripcion): int
+    {
+        $key = mb_strtolower(trim($descripcion));
+        if (isset($this->cacheCategoriasIngreso[$key])) {
+            return $this->cacheCategoriasIngreso[$key];
+        }
+
+        $categorias = CategoriaIngresos::orderBy('id')->get(['id', 'nombre']);
+        if ($categorias->isEmpty()) {
+            return 1;
+        }
+
+        $fallbackId = ($categorias->firstWhere('nombre', 'OTROS')?->id)
+            ?? ($categorias->first()->id);
+
+        try {
+            $listado = $categorias->pluck('nombre')->implode(', ');
+            $prompt = "Clasifica el siguiente concepto de un movimiento BANCARIO de INGRESO en UNA sola de estas categorias (responde EXACTAMENTE el nombre de la categoria, sin comillas ni explicacion).\n"
+                . "Categorias disponibles: {$listado}\n\n"
+                . "Concepto: \"{$descripcion}\"\n\nCategoria:";
+
+            $gateway = app(\App\Services\AIGatewayService::class);
+            $response = $gateway->chatCompletion([
+                'model' => 'gpt-4',
+                'messages' => [['role' => 'user', 'content' => $prompt]],
+                'max_tokens' => 40,
+                'temperature' => 0.0,
+            ]);
+
+            $raw = trim((string) ($response['choices'][0]['message']['content'] ?? ''));
+            $rawClean = $this->limpiarRespuestaCategoria($raw);
+
+            foreach ($categorias as $c) {
+                if (mb_strtolower($c->nombre) === mb_strtolower($rawClean)) {
+                    return $this->cacheCategoriasIngreso[$key] = (int) $c->id;
+                }
+            }
+
+            $mejor = null;
+            $mejorLen = 0;
+            foreach ($categorias as $c) {
+                $cat = mb_strtolower($c->nombre);
+                if ($cat !== '' && mb_strpos(mb_strtolower($rawClean), $cat) !== false) {
+                    if (mb_strlen($cat) > $mejorLen) {
+                        $mejor = $c;
+                        $mejorLen = mb_strlen($cat);
+                    }
+                }
+            }
+            if ($mejor) {
+                return $this->cacheCategoriasIngreso[$key] = (int) $mejor->id;
+            }
+        } catch (\Throwable $e) {
+            Log::warning('[Bankinter] IA categorizacion ingreso fallo, usando fallback', [
+                'desc' => $descripcion,
+                'err'  => $e->getMessage(),
+            ]);
+        }
+
+        return $this->cacheCategoriasIngreso[$key] = (int) $fallbackId;
+    }
+
+    /**
+     * Limpia la respuesta cruda del modelo: quita markdown, comillas y
+     * prefijos tipo "Categoria:". Basado en la misma logica de
+     * CategorizeEmails::extraerCategoriaResiliente().
+     */
+    private function limpiarRespuestaCategoria(string $raw): string
+    {
+        $limpio = str_replace(['**', '__', '*'], '', $raw);
+        $limpio = str_replace(['"', "'", '`', '“', '”', '‘', '’'], '', $limpio);
+
+        $prefijos = [
+            'categoria:', 'categoría:', 'la categoria es', 'la categoría es',
+            'respuesta:', 'answer:',
+        ];
+        foreach ($prefijos as $p) {
+            if (stripos($limpio, $p) === 0) {
+                $limpio = substr($limpio, strlen($p));
+            }
+        }
+        $limpio = trim($limpio);
+        $limpio = rtrim($limpio, ".,;:!? \t\n\r\0\x0B");
+
+        return trim($limpio);
     }
 }
