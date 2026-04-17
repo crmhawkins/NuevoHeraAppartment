@@ -63,6 +63,9 @@ class PresupuestoController extends Controller
                 } else {
                     $request->validate([
                         "conceptos.{$idx}.unidades" => 'required|integer|min:1',
+                        // [2026-04-17] IVA solo configurable en servicios: 10 o 21.
+                        // Alojamiento es siempre 10% por normativa.
+                        "conceptos.{$idx}.iva_porcentaje" => 'nullable|in:10,21',
                     ]);
                 }
             }
@@ -92,7 +95,9 @@ class PresupuestoController extends Controller
                         'concepto' => $conceptoTexto,
                         'tipo' => 'alojamiento',
                         'precio' => $c['precio_por_dia'],
-                        'iva' => 0,
+                        // [2026-04-17] iva ahora guarda el PORCENTAJE aplicable.
+                        // Alojamiento = 10% fijo. Lo usa facturar() para calcular base/iva.
+                        'iva' => 10,
                         'subtotal' => $c['precio_total'],
                         'fecha_entrada' => $c['fecha_entrada'],
                         'fecha_salida' => $c['fecha_salida'],
@@ -104,12 +109,18 @@ class PresupuestoController extends Controller
                     $conceptoTexto = $c['descripcion']
                         . ' (' . $c['unidades'] . ' x ' . number_format($c['precio_por_dia'], 2, ',', '.') . ' EUR)';
 
+                    // [2026-04-17] Para servicios, el usuario elige IVA 10 o 21 en el form.
+                    // Default 21 si no llega (caso mas habitual en consumo de puntales, etc).
+                    $ivaPct = in_array((int)($c['iva_porcentaje'] ?? 21), [10, 21], true)
+                        ? (int) $c['iva_porcentaje']
+                        : 21;
+
                     $presupuesto->conceptos()->create([
                         'concepto' => $conceptoTexto,
                         'tipo' => 'servicio',
                         'unidades' => $c['unidades'],
                         'precio' => $c['precio_por_dia'],
-                        'iva' => 0,
+                        'iva' => $ivaPct,
                         'subtotal' => $c['precio_total'],
                         'precio_por_dia' => $c['precio_por_dia'],
                         'dias_totales' => $c['unidades'], // duplicamos en dias_totales para compatibilidad con exports/listados viejos
@@ -224,11 +235,31 @@ class PresupuestoController extends Controller
             return redirect()->back()->with('warning', 'Este presupuesto ya está facturado.');
         }
 
-        // Generar factura con lógica análoga a la de reservas:
-        $total = $presupuesto->total;
-        // Por ejemplo, IVA 10%:
-        $base = $total / 1.10;
-        $iva  = $total - $base;
+        // [2026-04-17] Calculamos base+iva por concepto usando el % guardado en
+        // cada PresupuestoConcepto.iva (10 o 21). Sumamos los resultados para el
+        // total de la factura. Esto respeta presupuestos MIXTOS (alojamiento 10%
+        // + servicios 21%) aunque hoy lo normal sea un solo tipo por presupuesto.
+        $presupuesto->loadMissing('conceptos');
+        $baseAcc = 0.0;
+        $ivaAcc  = 0.0;
+
+        foreach ($presupuesto->conceptos as $concepto) {
+            $pct = (float) ($concepto->iva ?: 10);
+            // Si iva no tiene sentido como porcentaje (valores antiguos 0, o cantidades en
+            // euros), caemos a 10% por defecto para no romper facturas historicas.
+            if ($pct <= 0 || $pct > 50) {
+                $pct = 10.0;
+            }
+            $bruto  = (float) $concepto->precio_total;
+            $bConc  = $bruto / (1 + $pct / 100);
+            $iConc  = $bruto - $bConc;
+            $baseAcc += $bConc;
+            $ivaAcc  += $iConc;
+        }
+
+        $total = round($baseAcc + $ivaAcc, 2);
+        $base  = round($baseAcc, 2);
+        $iva   = round($ivaAcc, 2);
 
         $invoice = Invoices::create([
             'budget_id'           => $presupuesto->id,
@@ -239,10 +270,10 @@ class PresupuestoController extends Controller
             'description'         => '',
             'fecha'               => now()->toDateString(),
             'fecha_cobro'         => null,
-            'base'                => round($base, 2),
-            'iva'                 => round($iva, 2),
+            'base'                => $base,
+            'iva'                 => $iva,
             'descuento'           => null,
-            'total'               => round($total, 2),
+            'total'               => $total,
             'created_at'          => now(),
             'updated_at'          => now(),
         ]);
@@ -365,6 +396,7 @@ class PresupuestoController extends Controller
             } else {
                 $request->validate([
                     "conceptos.{$idx}.unidades" => 'required|integer|min:1',
+                    "conceptos.{$idx}.iva_porcentaje" => 'nullable|in:10,21',
                 ]);
             }
         }
@@ -395,7 +427,8 @@ class PresupuestoController extends Controller
                     'concepto' => $conceptoTexto,
                     'tipo' => 'alojamiento',
                     'precio' => $c['precio_por_dia'],
-                    'iva' => 0,
+                    // [2026-04-17] Mismo criterio que store(): iva guarda el porcentaje.
+                    'iva' => 10,
                     'subtotal' => $c['precio_total'],
                     'fecha_entrada' => $c['fecha_entrada'],
                     'fecha_salida' => $c['fecha_salida'],
@@ -407,13 +440,17 @@ class PresupuestoController extends Controller
                 $conceptoTexto = $c['descripcion']
                     . ' (' . $c['unidades'] . ' x ' . number_format($c['precio_por_dia'], 2, ',', '.') . ' EUR)';
 
+                $ivaPct = in_array((int)($c['iva_porcentaje'] ?? 21), [10, 21], true)
+                    ? (int) $c['iva_porcentaje']
+                    : 21;
+
                 PresupuestoConcepto::create([
                     'presupuesto_id' => $presupuesto->id,
                     'concepto' => $conceptoTexto,
                     'tipo' => 'servicio',
                     'unidades' => $c['unidades'],
                     'precio' => $c['precio_por_dia'],
-                    'iva' => 0,
+                    'iva' => $ivaPct,
                     'subtotal' => $c['precio_total'],
                     'precio_por_dia' => $c['precio_por_dia'],
                     'dias_totales' => $c['unidades'],

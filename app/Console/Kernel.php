@@ -3198,41 +3198,62 @@ class Kernel extends ConsoleKernel
        $year = $datetimeBudgetCreationDate->format('Y');
        $monthNum = $datetimeBudgetCreationDate->format('m');
 
-       // Buscar la última referencia autoincremental para el año y mes correspondiente a la fecha de salida de la reserva
-       $latestReference = InvoicesReferenceAutoincrement::where('year', $year)
-                               ->where('month_num', $monthNum)
-                               ->orderBy('id', 'desc')
-                               ->first();
+       // [FIX 2026-04-17] Race condition: antes este metodo leia la ultima
+       // referencia SIN lockForUpdate y sin transaccion. El cron everyMinute
+       // que genera facturas al checkout podia arrancar dos procesos a la vez
+       // y ambos leer reference_autoincrement=42, ambos guardar 43, y otros
+       // llamadores que usan InvoicesController (con lock) terminaban saltando
+       // bloques enteros (0042 -> 0179 observado en produccion 16/04/2026).
+       // Ahora envolvemos en transaccion + lockForUpdate y ademas corroboramos
+       // contra la tabla invoices para no colisionar con numeros ya usados.
+       return \Illuminate\Support\Facades\DB::transaction(function () use ($year, $monthNum) {
+           $latestReference = InvoicesReferenceAutoincrement::where('year', $year)
+               ->where('month_num', $monthNum)
+               ->orderBy('id', 'desc')
+               ->lockForUpdate()
+               ->first();
 
-       // Si no existe, empezamos desde 1, de lo contrario, incrementamos
-       $newReferenceAutoincrement = $latestReference ? $latestReference->reference_autoincrement + 1 : 1;
+           $newReferenceAutoincrement = $latestReference ? $latestReference->reference_autoincrement + 1 : 1;
 
-       // Formatear el número autoincremental a 6 dígitos
-       $formattedAutoIncrement = str_pad($newReferenceAutoincrement, 6, '0', STR_PAD_LEFT);
+           // Comprobacion defensiva: si en la tabla invoices ya existe una
+           // referencia MAS ALTA para ese mes/anio (porque se creo por otra
+           // via o migracion), saltamos al siguiente valor para no colisionar.
+           $maxInInvoices = Invoices::where('reference', 'like', $year . '/' . $monthNum . '/%')
+               ->orderBy('reference', 'desc')
+               ->lockForUpdate()
+               ->value('reference');
+           if ($maxInInvoices) {
+               // reference tiene formato "YYYY/MM/NNNNNN" (o "RYYYY/MM/NNNNNN" para rectificativas)
+               $cleaned = ltrim($maxInInvoices, 'R');
+               $parts = explode('/', $cleaned);
+               if (count($parts) === 3) {
+                   $maxNumero = (int) $parts[2];
+                   if ($maxNumero >= $newReferenceAutoincrement) {
+                       $newReferenceAutoincrement = $maxNumero + 1;
+                   }
+               }
+           }
 
-       // Crear la referencia
-       $reference = $year . '/' . $monthNum . '/' . $formattedAutoIncrement;
+           $formattedAutoIncrement = str_pad((string) $newReferenceAutoincrement, 6, '0', STR_PAD_LEFT);
+           $reference = $year . '/' . $monthNum . '/' . $formattedAutoIncrement;
 
-       // Guardar o actualizar la referencia autoincremental en BudgetReferenceAutoincrement
-       $referenceToSave = new InvoicesReferenceAutoincrement([
-           'reference_autoincrement' => $newReferenceAutoincrement,
-           'year' => $year,
-           'month_num' => $monthNum,
-           // Otros campos pueden ser asignados si son necesarios
-       ]);
-       $referenceToSave->save();
-
-       // Devolver el resultado
-       return [
-           'id' => $referenceToSave->id,
-           'reference' => $reference,
-           'reference_autoincrement' => $newReferenceAutoincrement,
-           'budget_reference_autoincrements' => [
+           $referenceToSave = new InvoicesReferenceAutoincrement([
+               'reference_autoincrement' => $newReferenceAutoincrement,
                'year' => $year,
                'month_num' => $monthNum,
-               // Añade aquí más si es necesario
-           ],
-       ];
+           ]);
+           $referenceToSave->save();
+
+           return [
+               'id' => $referenceToSave->id,
+               'reference' => $reference,
+               'reference_autoincrement' => $newReferenceAutoincrement,
+               'budget_reference_autoincrements' => [
+                   'year' => $year,
+                   'month_num' => $monthNum,
+               ],
+           ];
+       });
    }
 
 }

@@ -120,6 +120,9 @@
                                     <th class="fw-semibold text-dark col-alojamiento">
                                         <i class="fas fa-clock me-2 text-secondary"></i>Noches
                                     </th>
+                                    <th class="fw-semibold text-dark col-servicio" style="width:90px;">
+                                        <i class="fas fa-percent me-2 text-info"></i>IVA
+                                    </th>
                                     <th class="fw-semibold text-dark">
                                         <i class="fas fa-calculator me-2 text-success"></i>Total
                                     </th>
@@ -150,6 +153,15 @@
                                     <td class="col-servicio"><input type="number" min="1" name="conceptos[{{ $index }}][unidades]" class="form-control unidades" value="{{ old("conceptos.$index.unidades", $concepto->unidades ?: 1) }}"></td>
                                     <td><input type="number" name="conceptos[{{ $index }}][precio_por_dia]" class="form-control precio-por-dia" step="0.01" value="{{ old("conceptos.$index.precio_por_dia", $concepto->precio_por_dia ?: $concepto->precio) }}"></td>
                                     <td class="col-alojamiento"><input type="number" name="conceptos[{{ $index }}][dias_totales]" class="form-control dias-totales" value="{{ old("conceptos.$index.dias_totales", $concepto->dias_totales) }}" readonly></td>
+                                    @php
+                                        $ivaPctActual = (int) old("conceptos.$index.iva_porcentaje", $concepto->iva > 0 && $concepto->iva <= 50 ? $concepto->iva : 21);
+                                    @endphp
+                                    <td class="col-servicio">
+                                        <select name="conceptos[{{ $index }}][iva_porcentaje]" class="form-select iva-porcentaje">
+                                            <option value="21" @selected($ivaPctActual === 21)>21%</option>
+                                            <option value="10" @selected($ivaPctActual === 10)>10%</option>
+                                        </select>
+                                    </td>
                                     <td><input type="number" name="conceptos[{{ $index }}][precio_total]" class="form-control precio-total" step="0.01" value="{{ old("conceptos.$index.precio_total", $concepto->precio_total ?: $concepto->subtotal) }}" readonly></td>
                                     <td class="text-center">
                                         <button type="button" class="btn btn-outline-danger btn-sm removeConcepto">
@@ -343,6 +355,12 @@
                 <td class="col-servicio" style="display:none;"><input type="number" min="1" name="conceptos[${index}][unidades]" class="form-control unidades" value="1"></td>
                 <td><input type="number" name="conceptos[${index}][precio_por_dia]" class="form-control precio-por-dia" step="0.01"></td>
                 <td class="col-alojamiento"><input type="number" name="conceptos[${index}][dias_totales]" class="form-control dias-totales" readonly></td>
+                <td class="col-servicio" style="display:none;">
+                    <select name="conceptos[${index}][iva_porcentaje]" class="form-select iva-porcentaje">
+                        <option value="21" selected>21%</option>
+                        <option value="10">10%</option>
+                    </select>
+                </td>
                 <td><input type="number" name="conceptos[${index}][precio_total]" class="form-control precio-total" step="0.01" readonly></td>
                 <td class="text-center">
                     <button type="button" class="btn btn-outline-danger btn-sm removeConcepto">

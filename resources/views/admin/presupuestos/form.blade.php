@@ -224,6 +224,7 @@
                         <th class="col-servicio">Unidades</th>
                         <th><span class="label-alojamiento">Precio por Noche</span><span class="label-servicio" style="display:none;">Precio por Unidad</span></th>
                         <th class="col-alojamiento">Noches</th>
+                        <th class="col-servicio" style="width:90px;">IVA</th>
                         <th>Precio Total</th>
                         <th>Acciones</th>
                     </tr>
@@ -242,6 +243,12 @@
                         <td class="col-servicio" style="display:none;"><input type="number" min="1" name="conceptos[0][unidades]" class="form-control unidades" value="1" /></td>
                         <td><input type="number" step="0.01" name="conceptos[0][precio_por_dia]" class="form-control precio-por-dia" /></td>
                         <td class="col-alojamiento"><input type="number" name="conceptos[0][dias_totales]" class="form-control dias-totales" readonly /></td>
+                        <td class="col-servicio" style="display:none;">
+                            <select name="conceptos[0][iva_porcentaje]" class="form-select iva-porcentaje">
+                                <option value="21" selected>21%</option>
+                                <option value="10">10%</option>
+                            </select>
+                        </td>
                         <td><input type="number" step="0.01" name="conceptos[0][precio_total]" class="form-control precio-total" readonly /></td>
                         <td><button type="button" class="btn btn-danger btn-sm removeConcepto">Eliminar</button></td>
                     </tr>
@@ -430,6 +437,12 @@
                 <td class="col-servicio" style="display:none;"><input type="number" min="1" name="conceptos[${index}][unidades]" class="form-control unidades" value="1" /></td>
                 <td><input type="number" step="0.01" name="conceptos[${index}][precio_por_dia]" class="form-control precio-por-dia" /></td>
                 <td class="col-alojamiento"><input type="number" name="conceptos[${index}][dias_totales]" class="form-control dias-totales" readonly /></td>
+                <td class="col-servicio" style="display:none;">
+                    <select name="conceptos[${index}][iva_porcentaje]" class="form-select iva-porcentaje">
+                        <option value="21" selected>21%</option>
+                        <option value="10">10%</option>
+                    </select>
+                </td>
                 <td><input type="number" step="0.01" name="conceptos[${index}][precio_total]" class="form-control precio-total" readonly /></td>
                 <td><button type="button" class="btn btn-danger btn-sm removeConcepto">Eliminar</button></td>
             `;
