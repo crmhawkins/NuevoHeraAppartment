@@ -323,26 +323,43 @@
                             <td>{{ number_format($factura->iva ?? 0, 2, ',', '.') }} €</td>
                             <td>{{ $factura->estado->name }}</td>
                             <td>
+                                {{-- [2026-04-17] Simplificacion de acciones pedida por el usuario:
+                                     solo Ver + Descargar + (Enviar al cliente si no se ha enviado)
+                                     + Rectificar. Eliminados "Recalcular IVA" y "Cambiar fecha +
+                                     recalcular referencia" porque no se usaban y despistaban. --}}
                                 <div class="btn-group" role="group">
+                                    {{-- VER: abre la pagina de detalle/edit de la factura --}}
+                                    <a href="{{route('admin.facturas.edit', $factura->id)}}" class="btn btn-sm btn-primary" title="Ver factura">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+
+                                    {{-- DESCARGAR PDF --}}
                                     <a href="{{route('admin.facturas.generatePdf', $factura->id)}}" class="btn btn-sm bg-color-segundo" title="Descargar PDF">
                                         <i class="fas fa-download"></i>
                                     </a>
-                                    @if($factura->reserva_id || $factura->budget_id)
-                                        <button type="button" 
-                                                class="btn btn-sm btn-info recalcular-factura" 
-                                                data-invoice-id="{{ $factura->id }}"
-                                                title="Recalcular IVA desde precio de reserva o presupuesto">
-                                            <i class="fas fa-calculator"></i>
-                                        </button>
+
+                                    {{-- ENVIAR AL CLIENTE: solo si no se ha enviado antes (no hay token con sent_via).
+                                         Si ya se envio, mostramos un indicador deshabilitado. --}}
+                                    @php
+                                        $yaEnviada = \App\Models\InvoiceDownloadToken::where('invoice_id', $factura->id)
+                                            ->whereNotNull('sent_via')
+                                            ->exists();
+                                    @endphp
+                                    @if(!$yaEnviada)
+                                        <form action="{{ route('admin.facturas.enviarCliente', $factura->id) }}" method="POST" class="d-inline"
+                                              onsubmit="return confirm('¿Enviar esta factura al cliente por WhatsApp y/o email?');">
+                                            @csrf
+                                            <button type="submit" class="btn btn-sm btn-success" title="Enviar al cliente (WhatsApp + email)">
+                                                <i class="fas fa-paper-plane"></i>
+                                            </button>
+                                        </form>
+                                    @else
+                                        <span class="btn btn-sm btn-success disabled" title="Factura ya enviada al cliente" style="opacity:.6;cursor:not-allowed;">
+                                            <i class="fas fa-check"></i>
+                                        </span>
                                     @endif
-                                    <button type="button" 
-                                            class="btn btn-sm btn-secondary actualizar-fecha-referencia" 
-                                            data-invoice-id="{{ $factura->id }}"
-                                            data-fecha-actual="{{ \Carbon\Carbon::parse($factura->fecha)->format('Y-m-d') }}"
-                                            data-referencia-actual="{{ $factura->reference }}"
-                                            title="Cambiar fecha y recalcular referencia">
-                                        <i class="fas fa-calendar-alt"></i>
-                                    </button>
+
+                                    {{-- RECTIFICAR --}}
                                     @if(!$factura->es_rectificativa && !$factura->tieneRectificativas())
                                         <a href="{{route('admin.facturas.createRectificativa', $factura->id)}}" class="btn btn-sm btn-warning" title="Crear Factura Rectificativa">
                                             <i class="fas fa-undo"></i>
