@@ -75,6 +75,29 @@ class AccessCodeService
             $esPortal = $count > 1;
         }
 
+        // [2026-04-19 FALLBACK] Si el edificio de este apartamento esta en modo
+        // fallback para el proveedor correspondiente (tuya o ttlock), saltamos
+        // toda la logica de programacion y devolvemos directamente el codigo
+        // de emergencia. El cliente recibira ese codigo en lugar del unico.
+        $edificio = $apartamento->edificioName ?? $apartamento->edificioRel ?? null;
+        if (!$edificio && !empty($apartamento->edificio_id)) {
+            $edificio = \App\Models\Edificio::find($apartamento->edificio_id);
+        }
+        $fallbackSvc = app(\App\Services\CerraduraFallbackService::class);
+        $proveedor = strtolower($tipoCerradura); // 'tuya' o 'ttlock'
+        if ($edificio && $fallbackSvc->estaEnFallback($edificio, $proveedor)) {
+            $codigoEmerg = $edificio->codigo_emergencia_portal;
+            if ($codigoEmerg) {
+                $reserva->update([
+                    'codigo_acceso' => $codigoEmerg,
+                    'codigo_enviado_cerradura' => 1, // asumido porque es codigo estatico ya programado
+                ]);
+                Log::info("[Fallback] Reserva {$reserva->id}: asignado codigo emergencia {$codigoEmerg} (modo fallback activo en edificio {$edificio->id} proveedor {$proveedor})");
+                return $codigoEmerg;
+            }
+            Log::warning("[Fallback] Edificio {$edificio->id} en modo fallback pero sin codigo_emergencia_portal configurado");
+        }
+
         if (!$lockId) {
             $codigo = $this->generarCodigoUnico();
             $reserva->update(['codigo_acceso' => $codigo, 'codigo_enviado_cerradura' => 0]);
@@ -153,6 +176,9 @@ class AccessCodeService
                     'provider_code_id' => $pinId,
                 ]);
 
+                // [FALLBACK] Exito -> resetear contador de fallos del edificio+proveedor
+                $this->notificarResultadoAlFallback($reserva, true, null);
+
                 return $pinReal;
             } else {
                 $reserva->update(['codigo_acceso' => $codigo, 'codigo_enviado_cerradura' => 0]);
@@ -161,14 +187,47 @@ class AccessCodeService
                     'response' => $response->body(),
                 ]);
                 $this->notificarError($reserva, "Error HTTP {$response->status()} al programar cerradura.\nApartamento: {$reserva->apartamento->titulo}");
+                $this->notificarResultadoAlFallback($reserva, false, "HTTP {$response->status()}: " . mb_substr($response->body(), 0, 200));
             }
         } catch (\Exception $e) {
             $reserva->update(['codigo_acceso' => $codigo, 'codigo_enviado_cerradura' => 0]);
             Log::error("AccessCodeService: excepción al llamar a Tuyalaravel: " . $e->getMessage());
             $this->notificarError($reserva, "Error al conectar con Tuyalaravel: {$e->getMessage()}\nApartamento: {$reserva->apartamento->titulo}");
+            $this->notificarResultadoAlFallback($reserva, false, 'Exception: ' . $e->getMessage());
         }
 
         return $codigo;
+    }
+
+    /**
+     * [2026-04-19] Notifica al CerraduraFallbackService el resultado del
+     * intento de programacion para que contabilice y, si procede, active
+     * el modo fallback del edificio+proveedor.
+     */
+    private function notificarResultadoAlFallback(Reserva $reserva, bool $exito, ?string $motivo): void
+    {
+        try {
+            $apt = $reserva->apartamento;
+            if (!$apt) return;
+            $edificio = $apt->edificioName ?? $apt->edificioRel ?? null;
+            if (!$edificio && !empty($apt->edificio_id)) {
+                $edificio = \App\Models\Edificio::find($apt->edificio_id);
+            }
+            if (!$edificio) return;
+
+            $tipo = strtolower($apt->tipo_cerradura ?? '');
+            if (!in_array($tipo, ['tuya', 'ttlock'], true)) return;
+
+            $svc = app(\App\Services\CerraduraFallbackService::class);
+            if ($exito) {
+                $svc->registrarExito($edificio, $tipo);
+            } else {
+                $svc->registrarFallo($edificio, $tipo, $motivo ?? '');
+            }
+        } catch (\Throwable $e) {
+            // No debe interrumpir el flujo principal
+            Log::warning('[Fallback] error registrando resultado: ' . $e->getMessage());
+        }
     }
 
     /**

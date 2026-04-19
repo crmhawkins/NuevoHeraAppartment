@@ -570,12 +570,10 @@ class Kernel extends ConsoleKernel
 
                         $metodoEntrada = app(MetodoEntradaService::class)->resolverParaReserva($reserva);
                         if ($metodoEntrada === MetodoEntradaService::METODO_DIGITAL) {
-                            // [2026-04-19] Flujo real: si la reserva YA tiene un PIN
-                            // generado y enviado a la cerradura, se lo pasamos al cliente
-                            // con su ventana horaria. Si aun no hay PIN (cron todavia
-                            // no lo ha programado porque faltan >150 dias, o hubo un
-                            // fallo), intentamos programarlo ahora mismo antes de
-                            // mandar el mensaje.
+                            // [FALLBACK 2026-04-19] Si el edificio esta en modo fallback,
+                            // AccessCodeService::generarYProgramar devolvera directamente
+                            // el codigo de emergencia. El mensaje al cliente incluira ese
+                            // codigo en lugar del PIN unico.
                             if (empty($reserva->codigo_acceso) || empty($reserva->codigo_enviado_cerradura)) {
                                 try {
                                     app(\App\Services\AccessCodeService::class)->generarYProgramar($reserva);
