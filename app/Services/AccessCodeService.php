@@ -61,8 +61,21 @@ class AccessCodeService
     {
         $lockId = $apartamento->tuyalaravel_lock_id ?? $apartamento->ttlock_lock_id;
 
+        // [2026-04-19] Deteccion cerradura exterior (portal) vs interior (puerta):
+        //   - Si el mismo lock_id aparece en varios apartamentos -> es PORTAL
+        //     (compartida) -> patron 000xxxx (3 ceros + 4 digitos) para que el
+        //     huesped la teclee facilmente varias veces al dia.
+        //   - Si aparece solo en este apartamento -> es INTERIOR -> 7 digitos
+        //     aleatorios (solo se usa 1 vez/dia, copia-pega desde movil).
+        $esPortal = false;
+        if ($lockId) {
+            $count = \App\Models\Apartamento::where(function ($q) use ($lockId) {
+                $q->where('tuyalaravel_lock_id', $lockId)->orWhere('ttlock_lock_id', $lockId);
+            })->count();
+            $esPortal = $count > 1;
+        }
+
         if (!$lockId) {
-            // No hay cerradura configurada, generar código y guardar sin enviar
             $codigo = $this->generarCodigoUnico();
             $reserva->update(['codigo_acceso' => $codigo, 'codigo_enviado_cerradura' => 0]);
             Log::warning("AccessCodeService: apartamento {$apartamento->id} tipo '{$tipoCerradura}' sin lock_id.");
@@ -70,7 +83,9 @@ class AccessCodeService
             return $codigo;
         }
 
-        $codigo = $this->generarCodigoUnico();
+        $codigo = $esPortal
+            ? $this->generarCodigoPortal()      // 000 + 4 digitos variables
+            : $this->generarCodigoUnico();       // 7 digitos aleatorios
 
         // Validación: reservas de un solo día
         if (Carbon::parse($reserva->fecha_entrada)->isSameDay(Carbon::parse($reserva->fecha_salida))) {
@@ -398,6 +413,42 @@ class AccessCodeService
 
         if ($existe) {
             throw new \Exception('No se pudo generar un código de acceso único después de ' . $maxIntentos . ' intentos.');
+        }
+
+        return $codigo;
+    }
+
+    /**
+     * [2026-04-19] Genera PIN con patron portal '000xxxx':
+     *   - Prefijo fijo '000' (3 ceros) para que el huesped identifique que
+     *     es el codigo del portal exterior y lo teclee rapido.
+     *   - Sufijo de 4 digitos variables (10.000 combinaciones: 0000-9999).
+     *   - Total 7 digitos (cumple requisito Tuya Smart Lock X7).
+     *
+     * Solo se usa para cerraduras COMPARTIDAS (portal de un edificio). Para
+     * cerraduras de puerta individual usamos generarCodigoUnico() con 7
+     * digitos totalmente aleatorios, que se copia-pega desde el WhatsApp.
+     *
+     * Unicidad: se comprueba contra reservas con fecha_salida >= hoy. Con
+     * 10.000 combinaciones aguanta sin problemas unas pocas decenas de
+     * reservas concurrentes en el mismo edificio.
+     */
+    private function generarCodigoPortal(): string
+    {
+        $intentos = 0;
+        $maxIntentos = 100;
+        do {
+            $sufijo = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+            $codigo = '000' . $sufijo;
+            $existe = Reserva::where('codigo_acceso', $codigo)
+                ->where('fecha_salida', '>=', now()->toDateString())
+                ->whereNotNull('codigo_acceso')
+                ->exists();
+            $intentos++;
+        } while ($existe && $intentos < $maxIntentos);
+
+        if ($existe) {
+            throw new \Exception('No se pudo generar un código de portal único después de ' . $maxIntentos . ' intentos. Espacio 000xxxx saturado, considera migrar a 7 digitos aleatorios.');
         }
 
         return $codigo;
