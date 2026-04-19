@@ -570,12 +570,52 @@ class Kernel extends ConsoleKernel
 
                         $metodoEntrada = app(MetodoEntradaService::class)->resolverParaReserva($reserva);
                         if ($metodoEntrada === MetodoEntradaService::METODO_DIGITAL) {
-                            $mensajeDigital = match (substr((string) $idiomaCliente, 0, 2)) {
-                                'es' => "Tu acceso será mediante cerradura digital.\n\nLa entrega del código está pendiente de integración con nuestra plataforma de accesos (código único por cliente y ventana horaria). Si lo necesitas, contáctanos y te ayudamos.",
-                                'fr' => "Votre accès se fera via une serrure digitale.\n\nLa livraison du code est en attente d’intégration avec notre plateforme d’accès (code unique par client et fenêtre horaire). Si besoin, contactez-nous.",
-                                'de' => "Ihr Zugang erfolgt über ein digitales Schloss.\n\nDie Code-Zustellung wartet noch auf die Integration mit unserer Zugang-Plattform (ein Code pro Gast, zeitlich begrenzt). Bei Bedarf kontaktieren Sie uns.",
-                                default => "Your access will be via a digital lock.\n\nCode delivery is pending integration with our access platform (unique code per guest and time window). If you need it, please contact us.",
-                            };
+                            // [2026-04-19] Flujo real: si la reserva YA tiene un PIN
+                            // generado y enviado a la cerradura, se lo pasamos al cliente
+                            // con su ventana horaria. Si aun no hay PIN (cron todavia
+                            // no lo ha programado porque faltan >150 dias, o hubo un
+                            // fallo), intentamos programarlo ahora mismo antes de
+                            // mandar el mensaje.
+                            if (empty($reserva->codigo_acceso) || empty($reserva->codigo_enviado_cerradura)) {
+                                try {
+                                    app(\App\Services\AccessCodeService::class)->generarYProgramar($reserva);
+                                    $reserva->refresh();
+                                } catch (\Exception $e) {
+                                    Log::error('Error generando PIN para reserva en flujo digital', [
+                                        'reserva_id' => $reserva->id,
+                                        'error' => $e->getMessage(),
+                                    ]);
+                                }
+                            }
+
+                            $pinReal = $reserva->codigo_acceso ?: null;
+                            $horaEntrada = '15:00';
+                            $horaSalida  = '11:00';
+                            $fechaEntradaFmt = \Carbon\Carbon::parse($reserva->fecha_entrada)->format('d/m/Y');
+                            $fechaSalidaFmt  = \Carbon\Carbon::parse($reserva->fecha_salida)->format('d/m/Y');
+
+                            if ($pinReal && $reserva->codigo_enviado_cerradura) {
+                                // PIN listo: mensaje util con el codigo real y la ventana
+                                $mensajeDigital = match (substr((string) $idiomaCliente, 0, 2)) {
+                                    'es' => "🔐 Acceso al portal de Hawkins Suites\n\nTu código de acceso único: *{$pinReal}* (pulsa # después)\n\nVálido del {$fechaEntradaFmt} a las {$horaEntrada}h hasta el {$fechaSalidaFmt} a las {$horaSalida}h.\n\nDirección: {$enlaceLimpio}\n\nCualquier duda, estamos a tu disposición.",
+                                    'fr' => "🔐 Accès au portail de Hawkins Suites\n\nVotre code d'accès unique : *{$pinReal}* (appuyez sur # après)\n\nValable du {$fechaEntradaFmt} à {$horaEntrada}h jusqu'au {$fechaSalidaFmt} à {$horaSalida}h.\n\nAdresse : {$enlaceLimpio}\n\nÀ votre disposition pour toute question.",
+                                    'de' => "🔐 Zugang zum Portal Hawkins Suites\n\nIhr einmaliger Zugangscode: *{$pinReal}* (anschließend # drücken)\n\nGültig vom {$fechaEntradaFmt} ab {$horaEntrada} Uhr bis zum {$fechaSalidaFmt} um {$horaSalida} Uhr.\n\nAdresse: {$enlaceLimpio}\n\nFür Fragen stehen wir zur Verfügung.",
+                                    default => "🔐 Access to Hawkins Suites portal\n\nYour unique access code: *{$pinReal}* (press # after)\n\nValid from {$fechaEntradaFmt} at {$horaEntrada} until {$fechaSalidaFmt} at {$horaSalida}.\n\nAddress: {$enlaceLimpio}\n\nPlease contact us if you have any questions.",
+                                };
+                            } else {
+                                // Fallback: no hemos podido programar el PIN — placeholder
+                                $mensajeDigital = match (substr((string) $idiomaCliente, 0, 2)) {
+                                    'es' => "Tu acceso será mediante cerradura digital. Estamos preparando tu código — te llegará antes de tu llegada. Si no lo recibes 6h antes, escríbenos.",
+                                    'fr' => "Votre accès se fera via serrure digitale. Nous préparons votre code — il arrivera avant votre arrivée. Si non reçu 6h avant, contactez-nous.",
+                                    'de' => "Ihr Zugang erfolgt über ein digitales Schloss. Ihr Code wird vor der Ankunft zugestellt. Bei Nicht-Erhalt 6h vorher bitte melden.",
+                                    default => "Your access will be via a digital lock. Your code is being prepared — it will arrive before your check-in. If not received 6h before, please contact us.",
+                                };
+                                Log::warning('Flujo digital: PIN no disponible aun al mandar claves', [
+                                    'reserva_id' => $reserva->id,
+                                    'codigo_acceso' => $reserva->codigo_acceso,
+                                    'codigo_enviado' => $reserva->codigo_enviado_cerradura,
+                                ]);
+                            }
 
                             if (!empty($phoneCliente)) {
                                 $this->enviarMensajeTextoWhatsapp($phoneCliente, $mensajeDigital);
