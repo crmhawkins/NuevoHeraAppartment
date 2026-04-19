@@ -1059,33 +1059,50 @@ class MIRService
      */
     public function enviarSiLista(Reserva $reserva): ?array
     {
-        // [VALIDACION CP] Comprobar los codigos postales ANTES de cualquier
-        // otra cosa. Si alguno no es valido, no tiene sentido mandar el lote
-        // a MIR (lo rechazaria por email unas horas despues). Alertamos una
-        // sola vez por reserva (24h TTL en Cache) para no spamear WhatsApp
-        // en cada reintento del cron.
-        $cpReason = $this->validarCodigosPostales($reserva);
-        if ($cpReason !== null) {
-            $cacheKey = "mir_alerta_cp_sent:{$reserva->id}";
+        // [VALIDACION PRE-ENVIO 2026-04-18] Validacion completa antes de enviar
+        // a MIR. Combina Nivel 1 (deterministico: CP, provincia, apellidos,
+        // DNI/NIE) y Nivel 3 (IA semantica con web search). Si hay CUALQUIER
+        // issue con severity='error', cancelamos el envio. Los warnings no
+        // bloquean pero quedan en el log.
+        //
+        // La alerta WhatsApp sale una sola vez por reserva (24h TTL) para no
+        // spamear el cron.
+        $preflight = app(\App\Services\MirPreflightValidator::class);
+        $issues = $preflight->validar($reserva);
+
+        if ($preflight->hasBlockingErrors($issues)) {
+            $detalle = $preflight->formatearParaAlerta($issues);
+            $cacheKey = "mir_alerta_validacion_sent:{$reserva->id}";
+
             if (!Cache::has($cacheKey)) {
-                $this->enviarAlertaCPInvalido($reserva, $cpReason);
+                $this->enviarAlertaValidacionInvalida($reserva, $detalle);
                 Cache::put($cacheKey, true, now()->addHours(24));
 
                 // Dejar constancia en la propia reserva
-                $reserva->mir_estado = 'error_cp';
+                $reserva->mir_estado = 'error_validacion';
                 $reserva->mir_respuesta = json_encode([
-                    'error' => 'cp_invalido',
-                    'detalle' => $cpReason,
+                    'error' => 'validacion_fallida',
+                    'issues' => $issues,
                     'detectado_en' => now()->toDateTimeString(),
-                ]);
+                ], JSON_UNESCAPED_UNICODE);
                 $reserva->save();
 
-                Log::warning('MIR: Envio cancelado por CP invalido', [
+                Log::warning('MIR: Envio cancelado por validacion pre-envio fallida', [
                     'reserva_id' => $reserva->id,
-                    'detalle' => $cpReason,
+                    'issues_count' => count($issues),
+                    'errores' => count(array_filter($issues, fn($i) => ($i['severity'] ?? '') === 'error')),
+                    'detalle' => $detalle,
                 ]);
             }
             return null;
+        }
+
+        // Log de warnings (no bloquean) para auditoria
+        if (!empty($issues)) {
+            Log::info('MIR: Envio con warnings (sin bloqueo)', [
+                'reserva_id' => $reserva->id,
+                'warnings' => $issues,
+            ]);
         }
 
         if (!$this->reservaListaParaMIR($reserva)) {
@@ -1213,6 +1230,40 @@ class MIRService
             ]);
         } catch (\Exception $e) {
             Log::error('MIR: No se pudo enviar alerta WhatsApp por CP invalido', [
+                'reserva_id' => $reserva->id,
+                'error_whatsapp' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * [2026-04-18] Alerta generica de validacion pre-envio fallida.
+     * Cubre cualquier issue detectado por MirPreflightValidator (Nivel 1 + 3):
+     * apellidos mal partidos, CP incoherente con provincia, DNI invalido,
+     * datos rechazados por IA, etc. Se usa como reemplazo/complemento de
+     * enviarAlertaCPInvalido cuando el error no es solo CP.
+     *
+     * Se dispara una sola vez cada 24h por reserva (dedup via Cache en
+     * enviarSiLista).
+     */
+    private function enviarAlertaValidacionInvalida(Reserva $reserva, string $detalle): void
+    {
+        try {
+            $whatsappService = app(WhatsappNotificationService::class);
+            $detalleCorto = mb_substr(trim($detalle), 0, 400);
+            $texto  = "⚠️ ALERTA MIR: Reserva #{$reserva->codigo_reserva} (ID: {$reserva->id}) NO se ha enviado a MIR — validacion pre-envio fallida.\n\n";
+            $texto .= "Problemas detectados:\n{$detalleCorto}\n\n";
+            if ($reserva->fecha_entrada) {
+                $texto .= "Entrada: " . \Carbon\Carbon::parse($reserva->fecha_entrada)->format('d/m/Y') . "\n";
+            }
+            $texto .= "Corrige los datos del cliente/huesped en el CRM y se reintentara automaticamente.";
+            $whatsappService->sendToConfiguredRecipients($texto);
+            Log::info('MIR: Alerta WhatsApp enviada por validacion pre-envio fallida', [
+                'reserva_id' => $reserva->id,
+                'detalle' => $detalleCorto,
+            ]);
+        } catch (\Exception $e) {
+            Log::error('MIR: No se pudo enviar alerta WhatsApp por validacion pre-envio', [
                 'reserva_id' => $reserva->id,
                 'error_whatsapp' => $e->getMessage(),
             ]);
