@@ -373,14 +373,22 @@ class AccessCodeService
     }
 
     /**
-     * Genera un código de 4 dígitos único entre reservas activas.
+     * Genera un código único entre reservas activas.
+     *
+     * [FIX 2026-04-19] Las cerraduras Tuya Smart Lock X7 requieren PIN de
+     * EXACTAMENTE 7 digitos (rechazan cualquier otra longitud con HTTP 422
+     * "PIN must be numeric and between 7 and 7 digits"). TTLock acepta
+     * ventanas de longitud mas amplias pero 7 es un punto comun valido para
+     * ambos, asi que lo usamos de forma homogenea.
      */
-    private function generarCodigoUnico(): string
+    private function generarCodigoUnico(int $digitos = 7): string
     {
         $intentos = 0;
         $maxIntentos = 100;
+        $min = (int) str_repeat('1', 1) . str_repeat('0', $digitos - 1); // 1000000 para 7 digitos
+        $max = (int) str_repeat('9', $digitos);                           // 9999999 para 7 digitos
         do {
-            $codigo = str_pad((string) random_int(1000, 9999), 4, '0', STR_PAD_LEFT);
+            $codigo = str_pad((string) random_int($min, $max), $digitos, '0', STR_PAD_LEFT);
             $existe = Reserva::where('codigo_acceso', $codigo)
                 ->where('fecha_salida', '>=', now()->toDateString())
                 ->whereNotNull('codigo_acceso')
