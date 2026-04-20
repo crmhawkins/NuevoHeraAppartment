@@ -116,14 +116,52 @@ class EnviarClavesChannexCommand extends Command
                 $this->line("   Booking ID (Channex): {$reserva->id_channex}");
                 $this->line("   Código Reserva: {$reserva->codigo_reserva}");
 
-                // Crear mensaje de chat
+                // [2026-04-19] Flujo digital real con PIN unico:
+                //  - Si la reserva ya tiene codigo_acceso programado en la cerradura,
+                //    se lo enviamos con su ventana horaria.
+                //  - Si aun no (cron de programacion todavia no corrio o fallo),
+                //    intentamos programar sobre la marcha con AccessCodeService.
+                //  - Fallback: mensaje "estamos preparando tu codigo" solo si NADA
+                //    se pudo programar.
                 if ($metodoEntrada === MetodoEntradaService::METODO_DIGITAL) {
-                    $mensajeChat = match (substr((string) $idiomaCliente, 0, 2)) {
-                        'es' => "Tu acceso será mediante cerradura digital.\n\nLa entrega del código está pendiente de integración con nuestra plataforma de accesos. Si necesitas ayuda, contáctanos.",
-                        'fr' => "Votre accès se fera via une serrure digitale.\n\nLa livraison du code est en attente d’intégration avec notre plateforme d’accès. Si besoin, contactez-nous.",
-                        'de' => "Ihr Zugang erfolgt über ein digitales Schloss.\n\nDie Code-Zustellung wartet noch auf die Integration. Bei Bedarf kontaktieren Sie uns.",
-                        default => "Your access will be via a digital lock.\n\nCode delivery is pending integration. If you need help, contact us.",
-                    };
+                    if (empty($reserva->codigo_acceso) || empty($reserva->codigo_enviado_cerradura)) {
+                        try {
+                            app(\App\Services\AccessCodeService::class)->generarYProgramar($reserva);
+                            $reserva->refresh();
+                        } catch (\Throwable $e) {
+                            Log::error('[EnviarClavesChannex] Error generando PIN', [
+                                'reserva_id' => $reserva->id,
+                                'error' => $e->getMessage(),
+                            ]);
+                        }
+                    }
+
+                    $pinReal = $reserva->codigo_acceso ?: null;
+                    if ($pinReal && $reserva->codigo_enviado_cerradura) {
+                        $fechaEntradaFmt = \Carbon\Carbon::parse($reserva->fecha_entrada)->format('d/m/Y');
+                        $fechaSalidaFmt  = \Carbon\Carbon::parse($reserva->fecha_salida)->format('d/m/Y');
+                        $enlaceLimpio = $esEdificio1 ? 'goo.gl/maps/qb7AxP1JAxx5yg3N9' : 'maps.app.goo.gl/t81tgLXnNYxKFGW4A';
+
+                        $mensajeChat = match (substr((string) $idiomaCliente, 0, 2)) {
+                            'es' => "🔐 Acceso al portal\n\nTu código de acceso único: *{$pinReal}* (pulsa # después)\n\nVálido del {$fechaEntradaFmt} a las 15:00h hasta el {$fechaSalidaFmt} a las 11:00h.\n\nDirección: {$enlaceLimpio}\n\nCualquier duda, estamos a tu disposición.",
+                            'fr' => "🔐 Accès au portail\n\nVotre code d'accès unique : *{$pinReal}* (appuyez sur # après)\n\nValable du {$fechaEntradaFmt} à 15:00h jusqu'au {$fechaSalidaFmt} à 11:00h.\n\nAdresse : {$enlaceLimpio}",
+                            'de' => "🔐 Zugang zum Portal\n\nIhr einmaliger Zugangscode: *{$pinReal}* (anschließend # drücken)\n\nGültig vom {$fechaEntradaFmt} ab 15:00 Uhr bis {$fechaSalidaFmt} um 11:00 Uhr.\n\nAdresse: {$enlaceLimpio}",
+                            default => "🔐 Access to the portal\n\nYour unique access code: *{$pinReal}* (press # after)\n\nValid from {$fechaEntradaFmt} at 15:00 until {$fechaSalidaFmt} at 11:00.\n\nAddress: {$enlaceLimpio}",
+                        };
+                    } else {
+                        // Aun no hay PIN listo — placeholder temporal
+                        $mensajeChat = match (substr((string) $idiomaCliente, 0, 2)) {
+                            'es' => "Tu acceso será mediante cerradura digital. Estamos preparando tu código — te llegará antes de tu llegada. Si no lo recibes 6h antes, escríbenos.",
+                            'fr' => "Votre accès se fera via serrure digitale. Nous préparons votre code — il arrivera avant votre arrivée.",
+                            'de' => "Ihr Zugang erfolgt über ein digitales Schloss. Ihr Code wird vor der Ankunft zugestellt.",
+                            default => "Your access will be via a digital lock. Your code is being prepared — it will arrive before your check-in.",
+                        };
+                        Log::warning('[EnviarClavesChannex] Flujo digital sin PIN listo', [
+                            'reserva_id' => $reserva->id,
+                            'codigo_acceso' => $reserva->codigo_acceso,
+                            'enviado_cerradura' => $reserva->codigo_enviado_cerradura,
+                        ]);
+                    }
                 } else {
                     $mensajeChat = \App\Http\Controllers\WebhookController::crearMensajeChat('claves', $datosClaves, $idiomaCliente);
                 }
