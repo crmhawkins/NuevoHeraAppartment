@@ -61,8 +61,28 @@
                         @endif
                         Cliente desde {{ formatDate($cliente->created_at) }}
                     </p>
+                    @if(isset($vetoActivo) && $vetoActivo)
+                        <div class="alert alert-danger mt-2 mb-0 py-2" style="max-width:600px;">
+                            <i class="fas fa-ban me-2"></i>
+                            <strong>Cliente VETADO</strong> desde {{ formatDate($vetoActivo->vetado_at) }}.
+                            Motivo: <em>{{ $vetoActivo->motivo }}</em>
+                        </div>
+                    @endif
                 </div>
                 <div class="d-flex gap-2">
+                    @if(isset($vetoActivo) && $vetoActivo)
+                        <form method="POST" action="{{ route('admin.clientes-vetados.levantar', $vetoActivo->id) }}"
+                              onsubmit="return confirm('¿Levantar el veto de este cliente? Podrá volver a reservar.');">
+                            @csrf
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-unlock me-2"></i>Levantar veto
+                            </button>
+                        </form>
+                    @else
+                        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#modalVetarCliente">
+                            <i class="fas fa-ban me-2"></i>Vetar
+                        </button>
+                    @endif
                     <a href="{{ route('clientes.edit', $cliente->id) }}" class="btn btn-warning">
                         <i class="fas fa-edit me-2"></i>Editar
                     </a>
@@ -1172,4 +1192,47 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 }
 </style>
+
+{{-- [2026-04-19] Modal para vetar cliente (derecho de admision) --}}
+@if(!isset($vetoActivo) || !$vetoActivo)
+<div class="modal fade" id="modalVetarCliente" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <form method="POST" action="{{ route('admin.clientes-vetados.store') }}" class="modal-content">
+            @csrf
+            <input type="hidden" name="cliente_id" value="{{ $cliente->id }}">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-ban me-2"></i>Vetar a {{ $cliente->nombre }} {{ $cliente->apellido1 }}
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning small">
+                    <strong>¿Qué ocurre al vetar?</strong> Este cliente no podrá volver a hospedarse.
+                    Cualquier reserva futura con su DNI ({{ $cliente->num_identificacion ?: '—' }})
+                    o teléfono ({{ $cliente->telefono ?: '—' }}) quedará bloqueada: no se enviará a MIR,
+                    no se generará PIN de cerradura y en lugar de las claves recibirá un mensaje de
+                    derecho de admisión. Puede levantarse en cualquier momento.
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Motivo <span class="text-danger">*</span></label>
+                    <textarea name="motivo" class="form-control" rows="3" required minlength="3" maxlength="2000"
+                              placeholder="Ej: Daños en el apartamento, ruidos constantes, trato irrespetuoso..."></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Notas internas (opcional)</label>
+                    <textarea name="notas_internas" class="form-control" rows="2" maxlength="2000"
+                              placeholder="Información adicional para el equipo..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-ban me-1"></i>Confirmar veto
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+@endif
 @endsection

@@ -348,7 +348,11 @@ class ClientesController extends Controller
             'reservas_pendientes_pago' => $reservas->where('estado_id', 1)->count(), // Asumiendo que estado_id 1 es pendiente
         ];
         
-        return view('Clientes.show', compact('cliente', 'mensajes', 'photos', 'reservas', 'estadisticasEconomicas'));
+        // [2026-04-19] Info de veto para la vista: null si no esta vetado,
+        // un ClienteVetado si tiene un veto activo.
+        $vetoActivo = app(\App\Services\ClienteVetadoService::class)->isVetado($cliente);
+
+        return view('Clientes.show', compact('cliente', 'mensajes', 'photos', 'reservas', 'estadisticasEconomicas', 'vetoActivo'));
     }
 
     /**

@@ -444,6 +444,15 @@
                                             <i class="fas fa-user text-success"></i>
                                         </div>
                                         <span class="fw-semibold">{{ $reserva->cliente->alias }}</span>
+                                        @if($reserva->vetada)
+                                            <span class="badge bg-danger ms-2" title="Cliente vetado"><i class="fas fa-ban"></i></span>
+                                        @endif
+                                        @if($reserva->cliente_id)
+                                            <a href="{{ route('clientes.show', $reserva->cliente_id) }}"
+                                               class="btn btn-outline-primary btn-sm ms-2" title="Ver ficha del cliente">
+                                                <i class="fas fa-id-card"></i>
+                                            </a>
+                                        @endif
                                     </div>
                                 </td>
                                 <td>
