@@ -1437,6 +1437,14 @@ Route::prefix('api')->middleware('auth')->group(function () {
 // Rutas web de notificaciones
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:ADMIN'])->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+
+    // [2026-04-19] Sistema de veto de clientes ("derecho de admision")
+    Route::get('/clientes-vetados', [\App\Http\Controllers\Admin\ClienteVetoController::class, 'index'])
+        ->name('clientes-vetados.index');
+    Route::post('/clientes-vetados', [\App\Http\Controllers\Admin\ClienteVetoController::class, 'store'])
+        ->name('clientes-vetados.store');
+    Route::post('/clientes-vetados/{id}/levantar', [\App\Http\Controllers\Admin\ClienteVetoController::class, 'levantar'])
+        ->name('clientes-vetados.levantar');
 });
 
 // ============================================

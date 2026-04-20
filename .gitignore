@@ -50,3 +50,4 @@ logs.log
 main.py
 *.log
 !storage/logs/.gitignore
+.claude/worktrees/

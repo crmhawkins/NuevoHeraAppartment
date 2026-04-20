@@ -1059,6 +1059,32 @@ class MIRService
      */
     public function enviarSiLista(Reserva $reserva): ?array
     {
+        // [VETO 2026-04-19] Si la reserva esta vetada (o el cliente cae bajo
+        // un veto activo), NO enviamos a MIR. El cliente no debe hospedarse.
+        try {
+            $vetoSvc = app(\App\Services\ClienteVetadoService::class);
+            $vetoSvc->detectarYMarcarReserva($reserva);
+            if ($reserva->vetada) {
+                Log::warning('[MIR] Envio cancelado: reserva vetada', [
+                    'reserva_id' => $reserva->id,
+                    'veto_id' => $reserva->veto_id,
+                ]);
+                $reserva->mir_estado = 'cancelado_veto';
+                $reserva->mir_respuesta = json_encode([
+                    'cancelado_por' => 'veto',
+                    'veto_id' => $reserva->veto_id,
+                    'detectado_en' => now()->toDateTimeString(),
+                ], JSON_UNESCAPED_UNICODE);
+                $reserva->save();
+                return null;
+            }
+        } catch (\Throwable $e) {
+            Log::error('[MIR] Error comprobando veto', [
+                'reserva_id' => $reserva->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
         // [VALIDACION PRE-ENVIO 2026-04-18] Validacion completa antes de enviar
         // a MIR. Combina Nivel 1 (deterministico: CP, provincia, apellidos,
         // DNI/NIE) y Nivel 3 (IA semantica con web search). Si hay CUALQUIER

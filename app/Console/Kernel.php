@@ -537,6 +537,43 @@ class Kernel extends ConsoleKernel
                             'tiempo_desde_bienvenida' => $tiempoDesdeBienvenida
                         ]);
 
+                        // [VETO 2026-04-19] Si la reserva esta vetada, enviar mensaje
+                        // de derecho de admision y saltarse el envio de claves.
+                        try {
+                            $vetoService = app(\App\Services\ClienteVetadoService::class);
+                            $vetoService->detectarYMarcarReserva($reserva);
+                            if ($reserva->vetada) {
+                                $idiomaVeto = app(\App\Services\ClienteService::class)->idiomaCodigo($reserva->cliente->nacionalidad ?? 'ES');
+                                $mensajeVeto = $vetoService->mensajeDerechoAdmision($idiomaVeto);
+                                try {
+                                    if (!empty($reserva->id_channex)) {
+                                        \App\Http\Controllers\WebhookController::enviarMensajeAutomaticoAChannex($mensajeVeto, $reserva->id_channex);
+                                    }
+                                    // Para reservas web/directas sin id_channex dejamos constancia
+                                    // en log; el admin ya recibio alerta al detectarse el veto.
+                                    MensajeAuto::updateOrCreate(
+                                        ['reserva_id' => $reserva->id, 'categoria_id' => 3],
+                                        ['cliente_id' => $reserva->cliente_id, 'fecha_envio' => Carbon::now()]
+                                    );
+                                } catch (\Throwable $e) {
+                                    Log::error('[Kernel] Error enviando derecho admision (veto)', [
+                                        'reserva_id' => $reserva->id,
+                                        'error' => $e->getMessage(),
+                                    ]);
+                                }
+                                Log::warning('[Kernel] Claves NO enviadas: reserva vetada', [
+                                    'reserva_id' => $reserva->id,
+                                    'veto_id' => $reserva->veto_id,
+                                ]);
+                                continue;
+                            }
+                        } catch (\Throwable $e) {
+                            Log::error('[Kernel] Error comprobando veto en envio claves', [
+                                'reserva_id' => $reserva->id,
+                                'error' => $e->getMessage(),
+                            ]);
+                        }
+
                         // Verificar que el DNI esté subido antes de enviar las claves
                         if (empty($reserva->dni_entregado) || $reserva->dni_entregado != true) {
                             Log::warning('⚠️ No se pueden enviar claves: el DNI no ha sido subido', [

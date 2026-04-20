@@ -15,6 +15,28 @@ class AccessCodeService
      */
     public function generarYProgramar(Reserva $reserva): ?string
     {
+        // [2026-04-19] Sistema de veto: si la reserva esta marcada (o el
+        // cliente cae bajo un veto activo), no generamos PIN. La reserva
+        // seguira sin codigo_acceso y el flujo de envio de claves mandara
+        // el mensaje de derecho de admision en lugar de las claves.
+        try {
+            $vetoSvc = app(\App\Services\ClienteVetadoService::class);
+            $vetoSvc->detectarYMarcarReserva($reserva);
+            if ($reserva->vetada) {
+                Log::warning('[AccessCodeService] Reserva vetada, abortando generacion PIN', [
+                    'reserva_id' => $reserva->id,
+                    'veto_id' => $reserva->veto_id,
+                ]);
+                return null;
+            }
+        } catch (\Throwable $e) {
+            Log::error('[AccessCodeService] Error comprobando veto', [
+                'reserva_id' => $reserva->id,
+                'error' => $e->getMessage(),
+            ]);
+            // Si falla la comprobacion, seguimos (no bloqueamos por error tecnico)
+        }
+
         $apartamento = $reserva->apartamento;
         if (!$apartamento) {
             Log::warning("AccessCodeService: reserva {$reserva->id} sin apartamento asociado.");

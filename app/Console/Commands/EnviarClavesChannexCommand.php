@@ -58,12 +58,40 @@ class EnviarClavesChannexCommand extends Command
 
         $clienteService = app(ClienteService::class);
         $metodoEntradaService = app(MetodoEntradaService::class);
+        $vetoService = app(\App\Services\ClienteVetadoService::class);
         $enviadas = 0;
         $errores = 0;
         $omitidas = 0;
+        $vetadas = 0;
 
         foreach ($reservas as $reserva) {
             try {
+                // [VETO 2026-04-19] Si la reserva esta vetada, enviar mensaje
+                // de derecho de admision en vez de las claves.
+                $vetoService->detectarYMarcarReserva($reserva);
+                if ($reserva->vetada) {
+                    $idiomaCliente = $clienteService->idiomaCodigo($reserva->cliente->nacionalidad ?? 'ES');
+                    $mensajeVeto = $vetoService->mensajeDerechoAdmision($idiomaCliente);
+                    $this->warn("🚫 Reserva #{$reserva->id}: CLIENTE VETADO -> enviando derecho de admision");
+                    try {
+                        \App\Http\Controllers\WebhookController::enviarMensajeAutomaticoAChannex(
+                            $mensajeVeto,
+                            $reserva->id_channex
+                        );
+                        Log::warning('[EnviarClavesChannex] Mensaje derecho admision enviado (veto)', [
+                            'reserva_id' => $reserva->id,
+                            'veto_id' => $reserva->veto_id,
+                        ]);
+                    } catch (\Throwable $e) {
+                        Log::error('[EnviarClavesChannex] Error enviando derecho admision', [
+                            'reserva_id' => $reserva->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                    $vetadas++;
+                    continue;
+                }
+
                 // Verificar que tenga mensaje de bienvenida
                 $mensajeBienvenida = MensajeAuto::where('reserva_id', $reserva->id)
                     ->where('categoria_id', 4)
@@ -234,6 +262,9 @@ class EnviarClavesChannexCommand extends Command
         $this->info("   ✅ Enviadas: {$enviadas}");
         if ($omitidas > 0) {
             $this->warn("   ⏭️  Omitidas: {$omitidas}");
+        }
+        if ($vetadas > 0) {
+            $this->warn("   🚫 Vetadas (derecho de admision): {$vetadas}");
         }
         if ($errores > 0) {
             $this->error("   ❌ Errores: {$errores}");

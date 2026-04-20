@@ -284,6 +284,36 @@ class CheckInPublicController extends Controller
             $cliente->update(['data_dni' => true]);
         }
 
+        // [VETO 2026-04-19] Comprobar veto AHORA que tenemos DNI real del
+        // huesped. Si match -> marca la reserva; los servicios posteriores
+        // (AccessCode, MIR, claves) detectan la marca y reaccionan.
+        try {
+            $vetoService = app(\App\Services\ClienteVetadoService::class);
+            if ($vetoService->detectarYMarcarReserva($reserva)) {
+                Log::warning('[CheckInPublic] Reserva marcada como VETADA en check-in', [
+                    'reserva_id' => $reserva->id,
+                    'veto_id' => $reserva->fresh()->veto_id,
+                ]);
+                // Alerta a admin por WhatsApp
+                try {
+                    $msg = "🚫 CLIENTE VETADO detectado en check-in\n"
+                        . "Reserva #{$reserva->id}\n"
+                        . "Cliente: " . ($cliente->nombre ?? $cliente->alias ?? '-') . "\n"
+                        . "DNI: " . ($cliente->num_identificacion ?? '-') . "\n"
+                        . "Telefono: " . ($cliente->telefono ?? '-');
+                    app(\App\Services\WhatsappNotificationService::class)->sendToConfiguredRecipients($msg);
+                } catch (\Throwable $e) {
+                    Log::error('[CheckInPublic] Error enviando alerta veto admin', ['error' => $e->getMessage()]);
+                }
+                $reserva->refresh();
+            }
+        } catch (\Throwable $e) {
+            Log::error('[CheckInPublic] Error comprobando veto', [
+                'reserva_id' => $reserva->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
         // Generar código de acceso si no tiene uno aún
         if (empty($reserva->codigo_acceso)) {
             try {
