@@ -297,17 +297,8 @@ class CheckInPublicController extends Controller
                     'reserva_id' => $reserva->id,
                     'veto_id' => $reserva->fresh()->veto_id,
                 ]);
-                // Alerta a admin por WhatsApp
-                try {
-                    $msg = "🚫 CLIENTE VETADO detectado en check-in\n"
-                        . "Reserva #{$reserva->id}\n"
-                        . "Cliente: " . ($cliente->nombre ?? $cliente->alias ?? '-') . "\n"
-                        . "DNI: " . ($cliente->num_identificacion ?? '-') . "\n"
-                        . "Telefono: " . ($cliente->telefono ?? '-');
-                    app(\App\Services\WhatsappNotificationService::class)->sendToConfiguredRecipients($msg);
-                } catch (\Throwable $e) {
-                    Log::error('[CheckInPublic] Error enviando alerta veto admin', ['error' => $e->getMessage()]);
-                }
+                // La alerta WhatsApp al admin la dispara cancelarReservaVetada()
+                // con el detalle completo de la reserva cancelada.
                 $reserva->refresh();
             }
         } catch (\Throwable $e) {

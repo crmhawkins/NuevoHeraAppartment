@@ -323,5 +323,46 @@ class ClienteVetadoService
             'reserva_id' => $reserva->id,
             'veto_id' => $reserva->veto_id,
         ]);
+
+        // Alerta por WhatsApp al admin: "Incidencia - reserva cancelada por cliente vetado"
+        $this->alertarAdminCancelacion($reserva);
+    }
+
+    /**
+     * Manda WhatsApp al admin con los datos de la reserva cancelada por veto.
+     * Se dispara una vez por cancelacion (si se ejecuta varias veces sobre la
+     * misma reserva, la guard de "ya cancelada" en cancelarReservaVetada evita
+     * duplicados en la misma iteracion).
+     */
+    private function alertarAdminCancelacion(\App\Models\Reserva $reserva): void
+    {
+        try {
+            $reserva->loadMissing(['cliente', 'apartamento']);
+
+            $cliente = $reserva->cliente;
+            $apt = $reserva->apartamento;
+
+            $mensaje = "🚫 INCIDENCIA — Reserva cancelada por cliente vetado\n\n"
+                . "Reserva: #{$reserva->id}"
+                . ($reserva->codigo_reserva ? " (cod: {$reserva->codigo_reserva})" : "")
+                . "\n"
+                . "Apartamento: " . ($apt->titulo ?? ('#' . ($reserva->apartamento_id ?? '-'))) . "\n"
+                . "Cliente: " . ($cliente->nombre ?? $cliente->alias ?? '-') . " "
+                . ($cliente->apellido1 ?? '') . "\n"
+                . "DNI: " . ($cliente->num_identificacion ?? '-') . "\n"
+                . "Telefono: " . ($cliente->telefono ?? $cliente->telefono_movil ?? '-') . "\n"
+                . "Entrada: " . ($reserva->fecha_entrada ? \Carbon\Carbon::parse($reserva->fecha_entrada)->format('d/m/Y') : '-')
+                . " | Salida: " . ($reserva->fecha_salida ? \Carbon\Carbon::parse($reserva->fecha_salida)->format('d/m/Y') : '-') . "\n"
+                . "Origen: " . ($reserva->origen ?? '-') . "\n"
+                . "Veto #" . ($reserva->veto_id ?? '?')
+                . "\n\nLa disponibilidad ha sido liberada. Revisa si procede devolucion.";
+
+            app(\App\Services\WhatsappNotificationService::class)->sendToConfiguredRecipients($mensaje);
+        } catch (\Throwable $e) {
+            Log::error('[Veto] No se pudo enviar alerta WhatsApp de cancelacion', [
+                'reserva_id' => $reserva->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 }
