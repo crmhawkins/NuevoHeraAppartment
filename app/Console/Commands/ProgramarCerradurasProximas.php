@@ -9,39 +9,63 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Comando programado que envía códigos PIN a cerraduras TTLock para reservas futuras.
+ * Comando programado que envía códigos PIN a cerraduras (TTLock y Tuya) para
+ * reservas futuras.
  *
- * TTLock tiene un límite de ~180 días para programar códigos. Para reservas con fecha de
- * entrada superior a 150 días, el servicio AccessCodeService genera el PIN pero NO lo envía
- * a la cerradura. Este comando se ejecuta diariamente y envía los PINs pendientes cuando
- * la reserva ya está dentro del rango de 150 días.
+ * Ventanas de programacion:
+ *  - TTLock: 150 dias (limite cloud ~180d)
+ *  - Tuya:   7 dias (cerradura portal compartida, slots limitados ~10)
+ *
+ * Para reservas fuera de la ventana, AccessCodeService genera el PIN y lo
+ * guarda en BD con codigo_enviado_cerradura=false. Este comando se ejecuta
+ * a diario y reintenta enviarlos cuando la reserva ya entra en la ventana.
  */
 class ProgramarCerradurasProximas extends Command
 {
     protected $signature = 'cerraduras:programar-proximas';
 
-    protected $description = 'Programa en cerraduras TTLock los códigos de reservas próximas (dentro de 150 días)';
+    protected $description = 'Programa en cerraduras (TTLock/Tuya) los códigos de reservas próximas';
 
     public function handle(): int
     {
-        $limite = Carbon::now()->addDays(150);
+        $hoy = Carbon::now()->toDateString();
+        $limiteTTLock = Carbon::now()->addDays(150)->toDateString();
+        $limiteTuya   = Carbon::now()->addDays(7)->toDateString();
 
-        // Buscar reservas que:
-        // - Tienen código de acceso generado
-        // - NO se ha enviado a la cerradura todavía
-        // - La fecha de entrada está dentro de los próximos 150 días
-        // - El apartamento tiene cerradura TTLock configurada
-        // - La reserva no está cancelada (estado_id != 4)
+        // Reservas candidatas: con PIN generado pero no enviado, no canceladas,
+        // entrada dentro de la ventana de su proveedor.
         $reservas = Reserva::with(['apartamento'])
             ->whereNotNull('codigo_acceso')
             ->where('codigo_enviado_cerradura', false)
             ->where('estado_id', '!=', 4) // no canceladas
-            ->where('fecha_entrada', '<=', $limite->toDateString())
-            ->where('fecha_entrada', '>=', Carbon::now()->toDateString())
-            ->whereHas('apartamento', function ($q) {
-                $q->whereNotNull('ttlock_lock_id')->where('ttlock_lock_id', '!=', '');
+            ->where('fecha_entrada', '>=', $hoy)
+            ->whereHas('apartamento', function ($q) use ($limiteTTLock, $limiteTuya) {
+                $q->where(function ($inner) use ($limiteTTLock, $limiteTuya) {
+                    // TTLock: ventana 150d
+                    $inner->where(function ($sub) use ($limiteTTLock) {
+                        $sub->whereNotNull('ttlock_lock_id')
+                            ->where('ttlock_lock_id', '!=', '')
+                            ->whereHas('reservas', fn($r) => $r->where('fecha_entrada', '<=', $limiteTTLock), '>=', 1);
+                    })
+                    // Tuya: ventana 7d
+                    ->orWhere(function ($sub) use ($limiteTuya) {
+                        $sub->whereNotNull('tuyalaravel_lock_id')
+                            ->whereHas('reservas', fn($r) => $r->where('fecha_entrada', '<=', $limiteTuya), '>=', 1);
+                    });
+                });
             })
-            ->get();
+            ->get()
+            // Filtrado final en PHP por ventana segun tipo (mas legible que el SQL)
+            ->filter(function ($r) use ($limiteTTLock, $limiteTuya) {
+                $apt = $r->apartamento;
+                if (!$apt) return false;
+                $tipo = strtolower($apt->tipo_cerradura ?? '');
+                $fechaE = substr((string) $r->fecha_entrada, 0, 10);
+                if ($tipo === 'tuya'   && !empty($apt->tuyalaravel_lock_id) && $fechaE <= $limiteTuya)   return true;
+                if ($tipo === 'ttlock' && !empty($apt->ttlock_lock_id)      && $fechaE <= $limiteTTLock) return true;
+                return false;
+            })
+            ->values();
 
         $this->info("Encontradas {$reservas->count()} reservas pendientes de programar cerradura.");
 
@@ -56,10 +80,15 @@ class ProgramarCerradurasProximas extends Command
 
         foreach ($reservas as $reserva) {
             try {
-                // Enviar el código existente a TTLock, sin regenerar
-                $accessCodeService->programarEnCerradura($reserva);
-                $programadas++;
-                $this->info("  Reserva #{$reserva->id}: código programado OK");
+                // Reintenta enviar el PIN existente a la cerradura (TTLock o Tuya).
+                // Si sigue fallando, el propio servicio maneja el fallback.
+                $ok = $accessCodeService->reintentarOFallback($reserva);
+                if ($ok) {
+                    $programadas++;
+                    $this->info("  Reserva #{$reserva->id} ({$reserva->apartamento->tipo_cerradura}): código programado OK");
+                } else {
+                    $this->warn("  Reserva #{$reserva->id}: pendiente (se reintentara manana)");
+                }
             } catch (\Exception $e) {
                 $errores++;
                 Log::error('cerraduras:programar-proximas error', [

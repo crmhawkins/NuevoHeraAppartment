@@ -147,11 +147,19 @@ class AccessCodeService
             return $codigo;
         }
 
-        // TTLock tiene límite ~180 días. Si falta mucho, guardar sin enviar (el cron lo enviará después).
+        // [2026-04-20] Ventana de programacion segun proveedor:
+        //  - TTLock: hasta 150 dias (limite de su cloud ~180d)
+        //  - Tuya:   hasta 7 dias (la cerradura del portal es compartida y el
+        //            slot de temp_passwords es limitado ~10; si programamos
+        //            con meses de antelacion saturamos la cerradura y las
+        //            reservas inmediatas no pueden crearse).
+        // Si falta mas, guardamos el PIN en BD pero no lo enviamos aun. El
+        // cron 'cerraduras:programar-proximas' lo enviara cuando toque.
+        $ventanaDias = ($tipoCerradura === 'tuya') ? 7 : 150;
         $diasHastaEntrada = Carbon::now()->diffInDays(Carbon::parse($reserva->fecha_entrada), false);
-        if ($diasHastaEntrada > 150) {
+        if ($diasHastaEntrada > $ventanaDias) {
             $reserva->update(['codigo_acceso' => $codigo, 'codigo_enviado_cerradura' => 0]);
-            Log::info("AccessCodeService: código para reserva {$reserva->id} diferido ({$diasHastaEntrada} días).");
+            Log::info("AccessCodeService: código para reserva {$reserva->id} diferido ({$diasHastaEntrada} días, ventana {$ventanaDias}d para {$tipoCerradura}).");
             return $codigo;
         }
 
