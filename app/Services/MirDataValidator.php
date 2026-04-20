@@ -329,6 +329,18 @@ class MirDataValidator
             return $issues;
         }
 
+        // [FIX 2026-04-19] Delegar al SpanishPostalCodeValidator que ya tiene
+        // la blacklist empirica de CPs rechazados por MIR. Si ahi dice error,
+        // lo devolvemos como bloqueante aqui tambien.
+        try {
+            $spv = app(\App\Services\SpanishPostalCodeValidator::class);
+            $reasonSpv = $spv->getReason($cp, $pais);
+            if ($reasonSpv !== null) {
+                $issues[] = $this->issue('error', $entidad, $id, 'codigo_postal', $reasonSpv, null);
+                // Continuamos con la coherencia provincia abajo — puede haber warnings adicionales
+            }
+        } catch (\Throwable $e) { /* ignora, continuamos con la validacion local */ }
+
         $prefix = substr($cp, 0, 2);
         if (!isset($this->provincias[$prefix])) {
             $issues[] = $this->issue('error', $entidad, $id, 'codigo_postal', "Codigo postal '{$cp}' tiene prefijo provincial inexistente ({$prefix})", null);

@@ -76,16 +76,43 @@ class MirIaValidator
             $hash = md5(json_encode($datos, JSON_UNESCAPED_UNICODE));
             $cacheKey = "mir_ia_val:{$hash}";
 
-            return Cache::remember($cacheKey, self::CACHE_TTL, function () use ($datos) {
+            $resultado = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($datos) {
                 return $this->ejecutarValidacionIA($datos);
             });
+
+            // [FIX 2026-04-19] Si la IA no pudo validar (timeout, API caida,
+            // JSON malformado...), devolvemos un error BLOQUEANTE en vez de
+            // dejar pasar. Mejor NO enviar a MIR que enviar sin validar.
+            if ($resultado === null) {
+                Cache::forget($cacheKey); // no persistir "null" en cache
+                Log::warning('[MirIaValidator] IA no disponible -> bloqueando envio MIR', [
+                    'reserva_id' => $reserva->id,
+                ]);
+                return [[
+                    'severity'   => 'error',
+                    'entidad'    => 'reserva',
+                    'entidad_id' => $reserva->id,
+                    'campo'      => '_ia_no_disponible',
+                    'mensaje'    => 'Validacion IA no disponible (reintentar en breve). No se envia a MIR sin validar.',
+                    'sugerencia' => null,
+                ]];
+            }
+            return $resultado;
         } catch (\Throwable $e) {
-            // Fail-safe: jamas propagamos excepciones
-            Log::warning('[MirIaValidator] Fallo no capturado en validar()', [
+            // [FIX 2026-04-19] Antes era fail-safe (dejaba pasar). Ahora
+            // bloqueamos para no enviar sin validar.
+            Log::warning('[MirIaValidator] Excepcion no capturada -> bloqueando envio MIR', [
                 'error' => $e->getMessage(),
                 'reserva_id' => $reserva->id ?? null,
             ]);
-            return [];
+            return [[
+                'severity'   => 'error',
+                'entidad'    => 'reserva',
+                'entidad_id' => $reserva->id ?? 0,
+                'campo'      => '_ia_excepcion',
+                'mensaje'    => 'Validacion IA lanzo excepcion: ' . mb_substr($e->getMessage(), 0, 200),
+                'sugerencia' => null,
+            ]];
         }
     }
 
@@ -199,11 +226,13 @@ class MirIaValidator
             try {
                 $response = $gateway->chatCompletion($params);
             } catch (\Throwable $e) {
+                // [FIX 2026-04-19] Devolver null para señalizar "no pude validar"
+                // — validar() lo convertira en error bloqueante.
                 Log::warning('[MirIaValidator] chatCompletion fallo', [
                     'iter'  => $i,
                     'error' => mb_substr($e->getMessage(), 0, 250),
                 ]);
-                return [];
+                return null;
             }
 
             $choice = $response['choices'][0] ?? null;
@@ -211,7 +240,7 @@ class MirIaValidator
                 Log::warning('[MirIaValidator] Respuesta sin choices', [
                     'source' => $response['_gateway_source'] ?? 'unknown',
                 ]);
-                return [];
+                return null;
             }
 
             $message   = $choice['message'] ?? [];
@@ -255,7 +284,7 @@ class MirIaValidator
         }
 
         Log::warning('[MirIaValidator] Excedido MAX_TOOL_ITERATIONS sin respuesta final');
-        return [];
+        return null; // señal de "no pude validar" -> bloqueante
     }
 
     // =========================================================================
@@ -331,10 +360,13 @@ SYS;
      *
      * @return array<int, array<string, mixed>>
      */
-    private function parsearRespuesta(string $content): array
+    private function parsearRespuesta(string $content): ?array
     {
         $content = trim($content);
-        if ($content === '') return [];
+        if ($content === '') {
+            Log::warning('[MirIaValidator] content vacio de la IA -> bloquear');
+            return null; // no pudo validar
+        }
 
         // Intento 1: JSON directo
         $data = json_decode($content, true);
@@ -348,14 +380,18 @@ SYS;
         }
 
         if (!is_array($data)) {
-            Log::warning('[MirIaValidator] No se pudo parsear JSON de la IA', [
+            Log::warning('[MirIaValidator] No se pudo parsear JSON de la IA -> bloquear', [
                 'preview' => mb_substr($content, 0, 200),
             ]);
-            return [];
+            return null;
         }
 
+        // Si el JSON parsea pero no tiene "issues" o es invalido -> trataremos como "sin issues" (IA valido y dijo "todo OK"). Esto ES correcto.
         $issues = $data['issues'] ?? [];
-        if (!is_array($issues)) return [];
+        if (!is_array($issues)) {
+            Log::warning('[MirIaValidator] campo issues invalido, asumir [] (IA dijo OK)');
+            return [];
+        }
 
         $out = [];
         foreach ($issues as $issue) {

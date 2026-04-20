@@ -325,32 +325,35 @@ class CheckInPublicController extends Controller
             'guests_count' => count($guestsData),
         ]);
 
-        // Envío INMEDIATO a MIR tras completar el checkin
-        // Si falla, el cron de 10:00/22:00 lo reintentará. Si sigue fallando, alerta.
+        // [FIX 2026-04-19] Pasamos por enviarSiLista() que incluye el preflight
+        // (Nivel 1 deterministico + Nivel 3 IA con web_search). Si el preflight
+        // detecta un problema (CP no existe, apellido mal partido, etc.), NO se
+        // envia a MIR, se marca mir_estado='error_validacion' y se alerta por
+        // WhatsApp. Esto evita lotes rechazados por MIR horas despues.
         $reserva->refresh();
         $reserva->load(['cliente', 'apartamento.edificio']);
         try {
             $mirService = new MIRService();
-            if ($mirService->reservaListaParaMIR($reserva)) {
-                $resultado = $mirService->enviarReserva($reserva);
-                if (!empty($resultado['success'])) {
-                    $reserva->update(['mir_enviado' => true]);
-                    Log::info('[MIR] Envío inmediato tras checkin OK', [
-                        'reserva_id' => $reserva->id,
-                        'codigo_reserva' => $reserva->codigo_reserva,
-                    ]);
-                } else {
-                    Log::warning('[MIR] Envío inmediato tras checkin FALLIDO (reintentará en cron)', [
-                        'reserva_id' => $reserva->id,
-                        'error' => $resultado['error'] ?? 'desconocido',
-                    ]);
-                    // Alerta por email al equipo
-                    $this->alertarFalloMIR($reserva, $resultado['error'] ?? 'Error desconocido');
-                }
-            } else {
-                Log::info('[MIR] Datos incompletos tras checkin, se enviará cuando estén listos', [
+            $resultado = $mirService->enviarSiLista($reserva);
+            if ($resultado === null) {
+                // enviarSiLista devuelve null si los datos no estan listos o
+                // la validacion fallo. No es bug — el propio servicio ya
+                // envia alerta WhatsApp si procede.
+                Log::info('[MIR] enviarSiLista devolvio null (datos no listos o validacion fallida)', [
                     'reserva_id' => $reserva->id,
+                    'mir_estado' => $reserva->fresh()->mir_estado,
                 ]);
+            } elseif (!empty($resultado['success'])) {
+                Log::info('[MIR] Envío inmediato tras checkin OK', [
+                    'reserva_id' => $reserva->id,
+                    'codigo_reserva' => $reserva->codigo_reserva,
+                ]);
+            } else {
+                Log::warning('[MIR] Envío inmediato tras checkin FALLIDO (reintentará en cron)', [
+                    'reserva_id' => $reserva->id,
+                    'error' => $resultado['mensaje'] ?? $resultado['error'] ?? 'desconocido',
+                ]);
+                $this->alertarFalloMIR($reserva, $resultado['mensaje'] ?? $resultado['error'] ?? 'Error desconocido');
             }
         } catch (\Exception $e) {
             Log::error('[MIR] Excepción en envío inmediato tras checkin', [

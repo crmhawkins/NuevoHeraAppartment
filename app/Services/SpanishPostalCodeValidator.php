@@ -89,6 +89,8 @@ class SpanishPostalCodeValidator
      */
     private array $blacklist = [
         '11070', // Algeciras/Cadiz - reportado por MIR 2026-04-16
+        '18017', // Granada - reportado por MIR 2026-04-18 (pero era dir gallega, CP mal)
+        '29661', // Malaga - reportado por MIR 2026-04-19 (reserva 6302, dir Avda Bonaire)
     ];
 
     /**
