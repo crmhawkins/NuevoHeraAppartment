@@ -224,16 +224,24 @@ class ClienteVetadoService
                     });
                 });
 
-            $n = $q->update([
-                'vetada' => true,
-                'veto_detectado_at' => now(),
-                'veto_id' => $veto->id,
-            ]);
+            // Traer primero para poder cancelar una a una (manteniendo auditoria)
+            $reservasFuturas = (clone $q)->get();
 
-            if ($n > 0) {
-                Log::info('[Veto] Reservas futuras marcadas al crear veto', [
+            foreach ($reservasFuturas as $r) {
+                $r->vetada = true;
+                $r->veto_detectado_at = now();
+                $r->veto_id = $veto->id;
+                $r->save();
+
+                // Cancelar para liberar disponibilidad
+                $this->cancelarReservaVetada($r);
+            }
+
+            if ($reservasFuturas->count() > 0) {
+                Log::info('[Veto] Reservas futuras marcadas y CANCELADAS al crear veto', [
                     'veto_id' => $veto->id,
-                    'n_reservas' => $n,
+                    'n_reservas' => $reservasFuturas->count(),
+                    'ids' => $reservasFuturas->pluck('id')->all(),
                 ]);
             }
         } catch (\Throwable $e) {
@@ -262,17 +270,58 @@ class ClienteVetadoService
     }
 
     /**
-     * Mensaje de derecho de admision para enviar por WhatsApp/Channex
-     * al cliente vetado en lugar de las claves.
+     * Mensaje de derecho de admision (envio al final, cuando ya hay DNI).
+     * Se manda en lugar de las claves si se confirma el veto en check-in.
      */
     public function mensajeDerechoAdmision(string $idiomaCodigo = 'es'): string
     {
         $lang = substr((string) $idiomaCodigo, 0, 2);
         return match ($lang) {
-            'es' => "Estimado/a cliente,\n\nLamentamos comunicarle que, en ejercicio de nuestro derecho de admisión, no podemos confirmar su estancia. Por favor, póngase en contacto con nosotros para gestionar la devolución correspondiente.\n\nGracias por su comprensión.",
-            'fr' => "Cher client,\n\nNous regrettons de vous informer que, dans l'exercice de notre droit d'admission, nous ne pouvons pas confirmer votre séjour. Veuillez nous contacter pour gérer le remboursement.\n\nMerci de votre compréhension.",
-            'de' => "Sehr geehrter Gast,\n\nLeider müssen wir Ihnen mitteilen, dass wir im Rahmen unseres Hausrechts Ihren Aufenthalt nicht bestätigen können. Bitte kontaktieren Sie uns zur Abwicklung der Rückerstattung.\n\nVielen Dank für Ihr Verständnis.",
-            default => "Dear guest,\n\nWe regret to inform you that, exercising our right of admission, we cannot confirm your stay. Please contact us to arrange the corresponding refund.\n\nThank you for your understanding.",
+            'es' => "Su reserva ha sido bloqueada por nuestro servicio de derecho de admisión.\n\nSe procederá a la anulación de la misma y a la devolución del importe. Si considera que esto se debe a un error, por favor contacte con el 630625624 en horario laboral de lunes a viernes.",
+            'fr' => "Votre réservation a été bloquée par notre service du droit d'admission.\n\nNous allons procéder à son annulation et au remboursement du montant. Si vous pensez qu'il s'agit d'une erreur, veuillez contacter le +34 630 625 624 en horaire de bureau, du lundi au vendredi.",
+            'de' => "Ihre Buchung wurde von unserem Hausrecht-Service gesperrt.\n\nDie Buchung wird storniert und der Betrag erstattet. Falls Sie der Meinung sind, dass es sich um einen Fehler handelt, kontaktieren Sie bitte +34 630 625 624 werktags (Montag bis Freitag).",
+            default => "Your reservation has been blocked by our right of admission service.\n\nIt will be cancelled and the amount refunded. If you believe this is a mistake, please contact +34 630 625 624 during office hours, Monday to Friday.",
         };
+    }
+
+    /**
+     * Mensaje de bloqueo que se envia EN LUGAR del mensaje de bienvenida
+     * cuando la reserva entra ya marcada como vetada (match por telefono al
+     * llegar la reserva de Booking/Airbnb antes del check-in).
+     *
+     * Es el mismo texto que derechoAdmision — se unifica porque el cliente
+     * no debe ver dos mensajes distintos; el mensaje ya incluye el telefono
+     * de contacto y la info de anulacion.
+     */
+    public function mensajeBloqueoBienvenida(string $idiomaCodigo = 'es'): string
+    {
+        return $this->mensajeDerechoAdmision($idiomaCodigo);
+    }
+
+    /**
+     * Cancela una reserva vetada: estado_id=4 (cancelada) + marca auditoria.
+     * Se llama automaticamente al detectar el veto para liberar la disponibilidad.
+     */
+    public function cancelarReservaVetada(\App\Models\Reserva $reserva): void
+    {
+        if ((int) $reserva->estado_id === 4) {
+            return; // ya cancelada
+        }
+
+        $reserva->estado_id = 4;
+        // Nota de auditoria (si existe el campo 'observaciones', no rompemos si no)
+        try {
+            if (\Illuminate\Support\Facades\Schema::hasColumn('reservas', 'observaciones')) {
+                $nota = "[" . now()->format('Y-m-d H:i') . "] CANCELADA AUTOMATICAMENTE por veto #"
+                    . ($reserva->veto_id ?? '?') . "\n";
+                $reserva->observaciones = $nota . ($reserva->observaciones ?? '');
+            }
+        } catch (\Throwable $e) { /* ignora */ }
+        $reserva->save();
+
+        Log::warning('[Veto] Reserva cancelada automaticamente', [
+            'reserva_id' => $reserva->id,
+            'veto_id' => $reserva->veto_id,
+        ]);
     }
 }

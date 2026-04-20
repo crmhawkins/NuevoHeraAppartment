@@ -473,6 +473,61 @@ class Kernel extends ConsoleKernel
                 // MENSAJE DE BIEVENIDA
                 if ($diferenciasHoraBienvenida <= 0 && $mensajeBienvenida == null) {
 
+                    // [VETO 2026-04-19] Antes de enviar la bienvenida, comprobar si
+                    // el cliente (por DNI o telefono ya disponibles) esta vetado.
+                    // En ese caso NO se envia la bienvenida: se envia el mensaje de
+                    // bloqueo + se cancela automaticamente la reserva (estado_id=4)
+                    // para liberar la disponibilidad.
+                    try {
+                        $vetoService = app(\App\Services\ClienteVetadoService::class);
+                        $vetoService->detectarYMarcarReserva($reserva);
+                        if ($reserva->vetada) {
+                            $idiomaVeto = $clienteService->idiomaCodigo($reserva->cliente->nacionalidad ?? 'ES');
+                            $msgBloqueo = $vetoService->mensajeBloqueoBienvenida($idiomaVeto);
+
+                            // NOTA: para reservas web no podemos mandar WhatsApp
+                            // arbitrario (Meta exige plantilla pre-aprobada o ventana
+                            // de 24h abierta). Dejamos constancia via Channex si
+                            // aplica; el admin recibe alerta al marcarse el veto.
+
+                            // Enviar por Channex si la reserva viene de canal externo
+                            if ($reserva->origen !== 'web' && !empty($reserva->id_channex)) {
+                                try {
+                                    \App\Http\Controllers\WebhookController::enviarMensajeAutomaticoAChannex(
+                                        $msgBloqueo,
+                                        $reserva->id_channex
+                                    );
+                                } catch (\Throwable $e) {
+                                    Log::error('[Kernel] Error enviando bloqueo por Channex', [
+                                        'reserva_id' => $reserva->id,
+                                        'error' => $e->getMessage(),
+                                    ]);
+                                }
+                            }
+
+                            // Marcar categoria_id=4 (bienvenida) como "enviada" para no
+                            // reintentar en la proxima iteracion del cron.
+                            MensajeAuto::firstOrCreate(
+                                ['reserva_id' => $reserva->id, 'categoria_id' => 4],
+                                ['cliente_id' => $reserva->cliente_id, 'fecha_envio' => Carbon::now()]
+                            );
+
+                            // Cancelar la reserva para liberar disponibilidad
+                            $vetoService->cancelarReservaVetada($reserva);
+
+                            Log::warning('[Kernel] Bienvenida BLOQUEADA y reserva CANCELADA por veto', [
+                                'reserva_id' => $reserva->id,
+                                'veto_id' => $reserva->veto_id,
+                            ]);
+                            continue;
+                        }
+                    } catch (\Throwable $e) {
+                        Log::error('[Kernel] Error comprobando veto en bienvenida', [
+                            'reserva_id' => $reserva->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+
                     // Asegurar que la reserva tenga token para el enlace del botón
                     if (empty($reserva->token)) {
                         $token = bin2hex(random_bytes(16)); // Genera un token de 32 caracteres
@@ -561,7 +616,10 @@ class Kernel extends ConsoleKernel
                                         'error' => $e->getMessage(),
                                     ]);
                                 }
-                                Log::warning('[Kernel] Claves NO enviadas: reserva vetada', [
+                                // Cancelar reserva para liberar disponibilidad
+                                $vetoService->cancelarReservaVetada($reserva);
+
+                                Log::warning('[Kernel] Claves NO enviadas: reserva vetada y CANCELADA', [
                                     'reserva_id' => $reserva->id,
                                     'veto_id' => $reserva->veto_id,
                                 ]);

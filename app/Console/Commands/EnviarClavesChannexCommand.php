@@ -88,6 +88,15 @@ class EnviarClavesChannexCommand extends Command
                             'error' => $e->getMessage(),
                         ]);
                     }
+                    // Cancelar la reserva vetada para liberar disponibilidad
+                    try {
+                        $vetoService->cancelarReservaVetada($reserva);
+                    } catch (\Throwable $e) {
+                        Log::error('[EnviarClavesChannex] Error cancelando reserva vetada', [
+                            'reserva_id' => $reserva->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
                     $vetadas++;
                     continue;
                 }

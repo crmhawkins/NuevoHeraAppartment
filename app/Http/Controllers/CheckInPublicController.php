@@ -290,7 +290,10 @@ class CheckInPublicController extends Controller
         try {
             $vetoService = app(\App\Services\ClienteVetadoService::class);
             if ($vetoService->detectarYMarcarReserva($reserva)) {
-                Log::warning('[CheckInPublic] Reserva marcada como VETADA en check-in', [
+                // Cancelar automaticamente para liberar disponibilidad
+                $vetoService->cancelarReservaVetada($reserva);
+
+                Log::warning('[CheckInPublic] Reserva marcada como VETADA en check-in y CANCELADA', [
                     'reserva_id' => $reserva->id,
                     'veto_id' => $reserva->fresh()->veto_id,
                 ]);
