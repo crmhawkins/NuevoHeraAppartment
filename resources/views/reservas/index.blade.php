@@ -118,6 +118,44 @@
     </div>
 @endif
 
+{{-- [2026-04-21] Aviso de reservas OTA con posible impago (check-out > 10 dias sin ingreso) --}}
+@php
+    $reservasImpagas = \App\Models\Reserva::where('estado_id', '!=', 4)
+        ->whereRaw("LOWER(origen) NOT IN ('web','directo','')")
+        ->whereNotNull('origen')
+        ->whereDate('fecha_salida', '<', \Carbon\Carbon::today()->subDays(10))
+        ->whereDate('fecha_salida', '>=', '2026-04-01')
+        ->whereNotExists(function ($q) {
+            $q->select(\Illuminate\Support\Facades\DB::raw(1))
+              ->from('pagos')
+              ->whereColumn('pagos.reserva_id', 'reservas.id')
+              ->where('pagos.estado', 'completado');
+        })
+        ->whereNotExists(function ($q) {
+            if (\Illuminate\Support\Facades\Schema::hasColumn('ingresos', 'reserva_id')) {
+                $q->select(\Illuminate\Support\Facades\DB::raw(1))
+                  ->from('ingresos')
+                  ->whereColumn('ingresos.reserva_id', 'reservas.id');
+            }
+        })
+        ->count();
+@endphp
+@if ($reservasImpagas > 0)
+    <div class="alert alert-danger d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <i class="fas fa-euro-sign me-2"></i>
+            <strong>{{ $reservasImpagas }}</strong>
+            reserva{{ $reservasImpagas == 1 ? '' : 's' }} con posible
+            <strong>impago</strong> de Booking/Airbnb/Agoda
+            (check-out hace más de 10 días sin ingreso en banco).
+            Busca las marcadas como <span class="badge bg-danger">IMPAGO</span> en la columna "Pagado".
+        </div>
+        <a href="?filter=impago" class="btn btn-light btn-sm" onclick="document.querySelector('#searchInput')?.focus();return true;">
+            <i class="fas fa-search me-1"></i>Ver
+        </a>
+    </div>
+@endif
+
 <!-- Page Header -->
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
@@ -480,18 +518,46 @@
                                 </td>
                                 <td>
                                     @php
+                                        // [2026-04-21] Logica de pago mejorada
+                                        //  - Web (Stripe): pago=completado -> SI, si no -> NO rojo
+                                        //  - OTA (Booking/Airbnb/Agoda...): si hay ingreso bancario vinculado -> SI
+                                        //    Si salida > 10 dias sin ingreso -> IMPAGO rojo (asumimos morosidad OTA)
+                                        //    Si salida <= 10 dias -> ? amarillo (margen normal pago OTA)
+                                        //  - Reservas anteriores a 2026-04-01 (historicas): asumidas pagadas
+                                        //    salvo que esten canceladas. No se marca en BD, solo visual.
+                                        $FECHA_CORTE_HISTORICO = '2026-04-01';
+                                        $UMBRAL_DIAS_OTA = 10;
+
                                         $pagoStripe = \App\Models\Pago::where('reserva_id', $reserva->id)->where('estado', 'completado')->exists();
                                         $pagoBanco = \Illuminate\Support\Facades\Schema::hasColumn('ingresos', 'reserva_id')
                                             ? \App\Models\Ingresos::where('reserva_id', $reserva->id)->exists()
                                             : false;
                                         $pagado = $pagoStripe || $pagoBanco;
+
+                                        $origenLower = strtolower((string) $reserva->origen);
+                                        $esWeb = in_array($origenLower, ['web', 'directo'], true);
+                                        $esCancelada = (int) $reserva->estado_id === 4;
+
+                                        $salida = $reserva->fecha_salida ? \Carbon\Carbon::parse($reserva->fecha_salida) : null;
+                                        $diasDesdeSalida = $salida ? (int) \Carbon\Carbon::today()->diffInDays($salida, false) * -1 : 0;
+                                        $esHistorica = $salida && $salida->lt(\Carbon\Carbon::parse($FECHA_CORTE_HISTORICO));
                                     @endphp
+
                                     @if($pagado)
                                         <span class="badge bg-success-subtle text-success" title="{{ $pagoStripe ? 'Stripe' : 'Banco' }}"><i class="fas fa-check me-1"></i>SI</span>
-                                    @elseif($reserva->origen !== 'Web')
-                                        <span class="badge bg-warning-subtle text-warning" title="Pendiente verificar en banco"><i class="fas fa-clock me-1"></i>?</span>
+                                    @elseif($esHistorica && !$esCancelada)
+                                        {{-- Reserva anterior al 01/04/2026: se asume cobrada (modo limpieza historica) --}}
+                                        <span class="badge bg-success-subtle text-success" title="Asumida pagada (anterior a {{ $FECHA_CORTE_HISTORICO }})"><i class="fas fa-check me-1"></i>SI</span>
+                                    @elseif(!$esWeb && $salida && $diasDesdeSalida > $UMBRAL_DIAS_OTA)
+                                        {{-- OTA con check-out hace mas de 10 dias sin ingreso: IMPAGO --}}
+                                        <a href="#" class="badge bg-danger text-white text-decoration-none"
+                                           title="{{ $reserva->origen }} no ha abonado esta reserva. Check-out hace {{ $diasDesdeSalida }} dias. Revisa la extranet del canal o el banco.">
+                                            <i class="fas fa-exclamation-triangle me-1"></i>IMPAGO
+                                        </a>
+                                    @elseif(!$esWeb)
+                                        <span class="badge bg-warning-subtle text-warning" title="Pendiente verificar en banco (margen {{ $UMBRAL_DIAS_OTA }}d tras salida)"><i class="fas fa-clock me-1"></i>?</span>
                                     @else
-                                        <span class="badge bg-danger-subtle text-danger"><i class="fas fa-times me-1"></i>NO</span>
+                                        <span class="badge bg-danger-subtle text-danger" title="Reserva web sin pago Stripe"><i class="fas fa-times me-1"></i>NO</span>
                                     @endif
                                 </td>
                                 <td>
