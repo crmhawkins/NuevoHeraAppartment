@@ -63,12 +63,16 @@ class ReservaRevisionManualController extends Controller
         }
 
         $relUrl = (string) $photo->url;
-        // Solo permitimos servir fotos de DNI (no otras photo categorias)
-        if (!in_array($photo->photo_categoria_id, [13, 14], true)) {
-            abort(403, 'Solo fotos de DNI');
+        // Solo permitimos servir fotos de identificacion (DNI/pasaporte)
+        // 13=DNI Frontal, 14=DNI Trasera, 15=Pasaporte Frontal, 16=Pasaporte Trasera
+        if (!in_array($photo->photo_categoria_id, [13, 14, 15, 16], true)) {
+            abort(403, 'Solo fotos de DNI / pasaporte');
         }
 
-        // Mapeo 'private/photos/dni/xxx.jpg' -> storage_path('app/photos/dni/xxx.jpg')
+        // Mapeo de prefijos posibles -> storage_path:
+        //  'private/photos/dni/...'        -> storage/app/photos/dni/...
+        //  'private/photos/dni/legacy/...' -> storage/app/photos/dni/legacy/...
+        //  'photos/dni/...' (disco local)  -> storage/app/photos/dni/...
         $rel = preg_replace('~^private/~', '', $relUrl);
         $full = storage_path('app/' . $rel);
 
@@ -88,7 +92,7 @@ class ReservaRevisionManualController extends Controller
     private function getFotosDni(int $reservaId): array
     {
         $fotos = Photo::where('reserva_id', $reservaId)
-            ->whereIn('photo_categoria_id', [13, 14])
+            ->whereIn('photo_categoria_id', [13, 14, 15, 16]) // DNI + Pasaporte
             ->orderBy('photo_categoria_id')
             ->get();
 

@@ -2539,8 +2539,9 @@ INSTRUCCIONES ESPECÍFICAS:
                             continue;
                         }
                         
-                        // Crear directorio si no existe
-                        $uploadPath = public_path('imagesCliente');
+                        // [2026-04-21 SECURITY] Ya no guardamos en public/imagesCliente.
+                        // Ruta privada servida solo via endpoint autenticado admin.
+                        $uploadPath = storage_path('app/photos/dni');
                         if (!file_exists($uploadPath)) {
                             if (!mkdir($uploadPath, 0755, true)) {
                                 Log::error('No se pudo crear directorio', ['upload_path' => $uploadPath]);
@@ -2589,7 +2590,7 @@ INSTRUCCIONES ESPECÍFICAS:
                             // Comprimir imagen si es necesario
                             $this->comprimirImagenSiNecesario($destinationPath);
                             
-                            $imageUrl = 'imagesCliente/' . $imageName;
+                            $imageUrl = 'private/photos/dni/' . $imageName;
                             
                             // Determinar si es huésped o cliente
                             $esHuesped = ($personaTipo === 'huesped');

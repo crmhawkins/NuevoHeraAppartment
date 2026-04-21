@@ -71,10 +71,13 @@ class HuespedesController extends Controller
         // Subir fotos
         if ($request->hasFile('foto_dni_frente')) {
             $fotoFrente = $request->file('foto_dni_frente');
-            $fotoFrentePath = $fotoFrente->store('imagesCliente', 'public');
+            // [2026-04-21 SECURITY] Disco privado (local, no public) para que
+            // las fotos de DNI no sean accesibles via URL sin auth.
+            $fotoFrentePath = $fotoFrente->store('photos/dni', 'local');
+            $fotoFrentePath = 'private/' . $fotoFrentePath; // mantiene convencion con verFoto()
 
             // Limpiar metadatos EXIF de la imagen
-            $fullPath = storage_path('app/public/' . $fotoFrentePath);
+            $fullPath = storage_path('app/' . str_replace('private/', '', $fotoFrentePath));
             $this->stripExifData($fullPath);
 
             // Determinar categoría según tipo de documento
@@ -90,10 +93,11 @@ class HuespedesController extends Controller
 
         if ($request->hasFile('foto_dni_reverso') && $request->tipo_documento == 1) {
             $fotoReverso = $request->file('foto_dni_reverso');
-            $fotoReversoPath = $fotoReverso->store('imagesCliente', 'public');
+            $fotoReversoPath = $fotoReverso->store('photos/dni', 'local');
+            $fotoReversoPath = 'private/' . $fotoReversoPath;
 
             // Limpiar metadatos EXIF de la imagen
-            $fullPath = storage_path('app/public/' . $fotoReversoPath);
+            $fullPath = storage_path('app/' . str_replace('private/', '', $fotoReversoPath));
             $this->stripExifData($fullPath);
 
             Photo::create([
@@ -175,10 +179,13 @@ class HuespedesController extends Controller
             }
 
             $fotoFrente = $request->file('foto_dni_frente');
-            $fotoFrentePath = $fotoFrente->store('imagesCliente', 'public');
+            // [2026-04-21 SECURITY] Disco privado (local, no public) para que
+            // las fotos de DNI no sean accesibles via URL sin auth.
+            $fotoFrentePath = $fotoFrente->store('photos/dni', 'local');
+            $fotoFrentePath = 'private/' . $fotoFrentePath; // mantiene convencion con verFoto()
 
             // Limpiar metadatos EXIF de la imagen
-            $fullPath = storage_path('app/public/' . $fotoFrentePath);
+            $fullPath = storage_path('app/' . str_replace('private/', '', $fotoFrentePath));
             $this->stripExifData($fullPath);
 
             Photo::create([
@@ -200,10 +207,11 @@ class HuespedesController extends Controller
             }
 
             $fotoReverso = $request->file('foto_dni_reverso');
-            $fotoReversoPath = $fotoReverso->store('imagesCliente', 'public');
+            $fotoReversoPath = $fotoReverso->store('photos/dni', 'local');
+            $fotoReversoPath = 'private/' . $fotoReversoPath;
 
             // Limpiar metadatos EXIF de la imagen
-            $fullPath = storage_path('app/public/' . $fotoReversoPath);
+            $fullPath = storage_path('app/' . str_replace('private/', '', $fotoReversoPath));
             $this->stripExifData($fullPath);
 
             Photo::create([

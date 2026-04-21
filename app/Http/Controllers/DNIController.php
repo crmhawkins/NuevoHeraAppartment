@@ -1847,26 +1847,28 @@ class DNIController extends Controller
         Log::info("Nombre de archivo generado: $imageName");
         
         try {
-            // Crear directorio si no existe
-            $uploadPath = public_path('imagesCliente');
+            // [2026-04-21 SECURITY] Ya NO guardamos en public/imagesCliente (era publico).
+            // Guardamos en storage/app/photos/dni/ (privado, solo servido por
+            // endpoint autenticado admin).
+            $uploadPath = storage_path('app/photos/dni');
             if (!file_exists($uploadPath)) {
                 mkdir($uploadPath, 0755, true);
             }
-            
+
             // Comprimir imagen antes de guardar
             $compressed = $this->comprimirImagen($file, $uploadPath, $imageName);
             if (!$compressed) {
                 Log::error("Error comprimiendo imagen");
                 return false;
             }
-            
-            Log::info("Imagen comprimida y guardada exitosamente: " . $uploadPath . '/' . $imageName);
+
+            Log::info("Imagen comprimida y guardada exitosamente (privado): " . $uploadPath . '/' . $imageName);
         } catch (\Exception $e) {
             Log::error("Error procesando archivo: " . $e->getMessage());
             return false;
         }
 
-        $imageUrl = 'imagesCliente/' . $imageName;
+        $imageUrl = 'private/photos/dni/' . $imageName;
         Log::info("URL de imagen: $imageUrl");
 
         if($huesped == true){

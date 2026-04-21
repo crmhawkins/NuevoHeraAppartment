@@ -101,8 +101,8 @@
                                                                data-bs-toggle="modal"
                                                                data-bs-target="#modalFoto"
                                                                data-src="{{ route('admin.reservas-revision-manual.foto', $foto->id) }}"
-                                                               data-titulo="Cliente — {{ $foto->photo_categoria_id == 13 ? 'Frontal' : 'Trasera' }}"
-                                                               title="{{ $foto->photo_categoria_id == 13 ? 'DNI Frontal' : 'DNI Trasera' }}">
+                                                               data-titulo="Cliente — {{ in_array($foto->photo_categoria_id, [13, 15]) ? 'Frontal' : 'Trasera' }}"
+                                                               title="{{ in_array($foto->photo_categoria_id, [13, 15]) ? 'Documento Frontal' : 'Documento Trasera' }}">
                                                                 <img src="{{ route('admin.reservas-revision-manual.foto', $foto->id) }}"
                                                                      alt="DNI"
                                                                      style="width:56px;height:56px;object-fit:cover;border-radius:4px;border:1px solid #ccc;">
@@ -120,7 +120,7 @@
                                                                data-bs-toggle="modal"
                                                                data-bs-target="#modalFoto"
                                                                data-src="{{ route('admin.reservas-revision-manual.foto', $foto->id) }}"
-                                                               data-titulo="Huésped #{{ $huespedId }} — {{ $foto->photo_categoria_id == 13 ? 'Frontal' : 'Trasera' }}">
+                                                               data-titulo="Huésped #{{ $huespedId }} — {{ in_array($foto->photo_categoria_id, [13, 15]) ? 'Frontal' : 'Trasera' }}">
                                                                 <img src="{{ route('admin.reservas-revision-manual.foto', $foto->id) }}"
                                                                      alt="DNI"
                                                                      style="width:56px;height:56px;object-fit:cover;border-radius:4px;border:1px solid #ccc;">
