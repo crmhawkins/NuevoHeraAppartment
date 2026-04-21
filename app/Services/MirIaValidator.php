@@ -325,12 +325,22 @@ Analiza si:
    - Para espanoles: DNI (8 digitos + letra) o NIE si es residente extranjero.
    - Para extranjeros: Pasaporte o documento de identidad nacional de su
      pais. EL CAMPO "dni"/"num_identificacion" CONTIENE EL NUMERO DE SU
-     DOCUMENTO EXTRANJERO, NO debe estar vacio. No marques como error que
-     "dni no coincide con DNI espanol" si el viajero es extranjero — es
-     normal que tenga su documento de su pais.
-   - Si la IA que extrajo los datos del DNI/pasaporte clasifico mal el
-     tipo_documento (p.ej. puso 'DNI' para un checo), no marques error
-     por eso — es un warning a lo sumo.
+     DOCUMENTO EXTRANJERO, NO debe estar vacio.
+
+REGLA TAJANTE sobre tipo_documento y viajeros extranjeros:
+   - Si la nacionalidad NO es espanola (ES), NUNCA marques ERROR por:
+     * El valor del campo tipo_documento (puede estar mal clasificado por
+       el OCR que leyo el documento — p.ej. "DNI" para un checo es solo
+       un error de clasificacion nuestro, no un problema de datos).
+     * El formato del numero de documento (no tiene que cumplir el
+       formato espanol).
+     * Que el numero tenga mas o menos digitos que un DNI espanol.
+   - TODO esto debe ser, como mucho, severity="warning". MIR acepta
+     viajeros extranjeros aunque nuestro sistema haya clasificado mal
+     internamente el tipo_documento: se envia como pasaporte extranjero
+     y punto.
+   - Tampoco marques error cuando un viajero extranjero tenga municipio
+     o provincia de otro pais. Eso es lo normal.
 4. Si el pais es Espana y el codigo postal es espanol, comprobar que
    existe realmente en el callejero para el municipio/provincia indicados.
 
