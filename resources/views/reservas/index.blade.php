@@ -95,31 +95,13 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
 
-{{-- [2026-04-20] Aviso si hay reservas bloqueadas por validacion MIR --}}
+{{-- [2026-04-21] Cabecera compacta: avisos en linea, header + acciones en una fila, filtros en una fila --}}
 @php
+    // Contadores de avisos
     $reservasPendientesRevision = \App\Models\Reserva::where('mir_estado', 'error_validacion')
         ->where('estado_id', '!=', 4)
         ->where('dni_entregado', true)
         ->count();
-@endphp
-@if ($reservasPendientesRevision > 0)
-    <div class="alert alert-danger d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <i class="fas fa-exclamation-triangle me-2"></i>
-            <strong>{{ $reservasPendientesRevision }}</strong>
-            reserva{{ $reservasPendientesRevision == 1 ? '' : 's' }}
-            bloqueada{{ $reservasPendientesRevision == 1 ? '' : 's' }}
-            para enviar a MIR por datos incorrectos (CP, DNI, etc.).
-            Revisa y corrige los datos del cliente.
-        </div>
-        <a href="{{ route('admin.reservas-revision-manual.index') }}" class="btn btn-light btn-sm">
-            <i class="fas fa-wrench me-1"></i>Revisar ahora
-        </a>
-    </div>
-@endif
-
-{{-- [2026-04-21] Aviso de reservas OTA con posible impago (check-out > 10 dias sin ingreso) --}}
-@php
     $reservasImpagas = \App\Models\Reserva::where('estado_id', '!=', 4)
         ->whereRaw("LOWER(origen) NOT IN ('web','directo','presencial','manual','')")
         ->whereNotNull('origen')
@@ -140,142 +122,95 @@
         })
         ->count();
 @endphp
-@if ($reservasImpagas > 0)
-    <div class="alert alert-danger d-flex justify-content-between align-items-center mb-3">
-        <div>
-            <i class="fas fa-euro-sign me-2"></i>
-            <strong>{{ $reservasImpagas }}</strong>
-            reserva{{ $reservasImpagas == 1 ? '' : 's' }} con posible
-            <strong>impago</strong> de Booking/Airbnb/Agoda
-            (check-out hace más de 10 días sin ingreso en banco).
-            Busca las marcadas como <span class="badge bg-danger">IMPAGO</span> en la columna "Pagado".
-        </div>
-        <a href="?filter=impago" class="btn btn-light btn-sm" onclick="document.querySelector('#searchInput')?.focus();return true;">
-            <i class="fas fa-search me-1"></i>Ver
-        </a>
+
+{{-- Avisos compactos, 1 sola linea cada uno --}}
+@if ($reservasPendientesRevision > 0 || $reservasImpagas > 0)
+    <div class="mb-2 d-flex flex-wrap gap-2">
+        @if ($reservasPendientesRevision > 0)
+            <a href="{{ route('admin.reservas-revision-manual.index') }}"
+               class="alert alert-danger mb-0 py-1 px-2 small text-decoration-none d-inline-flex align-items-center">
+                <i class="fas fa-exclamation-triangle me-1"></i>
+                <strong class="me-1">{{ $reservasPendientesRevision }}</strong>
+                bloqueadas MIR (CP/DNI)
+                <i class="fas fa-arrow-right ms-1"></i>
+            </a>
+        @endif
+        @if ($reservasImpagas > 0)
+            <span class="alert alert-danger mb-0 py-1 px-2 small d-inline-flex align-items-center">
+                <i class="fas fa-euro-sign me-1"></i>
+                <strong class="me-1">{{ $reservasImpagas }}</strong>
+                posibles impagos OTA (ver <span class="badge bg-danger ms-1">IMPAGO</span> en tabla)
+            </span>
+        @endif
     </div>
 @endif
 
-<!-- Page Header -->
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h1 class="h3 mb-1 text-gray-800">
-            <i class="fas fa-calendar-check text-primary me-2"></i>
-            Gestión de Reservas
-        </h1>
-        <nav aria-label="breadcrumb">
-            <ol class="breadcrumb mb-0">
-                <li class="breadcrumb-item"><a href="{{ route('inicio') }}">Dashboard</a></li>
-                <li class="breadcrumb-item active" aria-current="page">Reservas</li>
-            </ol>
-        </nav>
-    </div>
-</div>
-
-<!-- Session Alerts -->
+{{-- Flash messages (compactos) --}}
 @if (session('success'))
-    <div class="alert alert-success alert-dismissible fade show" role="alert">
-        <i class="fas fa-check-circle me-2"></i>
-        {{ session('success') }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    <div class="alert alert-success alert-dismissible fade show py-2 mb-2" role="alert">
+        <i class="fas fa-check-circle me-1"></i>{{ session('success') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 @endif
-
 @if (session('error'))
-    <div class="alert alert-danger alert-dismissible fade show" role="alert">
-        <i class="fas fa-exclamation-circle me-2"></i>
-        {{ session('error') }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    <div class="alert alert-danger alert-dismissible fade show py-2 mb-2" role="alert">
+        <i class="fas fa-exclamation-circle me-1"></i>{{ session('error') }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
 @endif
 
-<!-- Tarjeta de Acciones -->
-<div class="card shadow-sm border-0 mb-4">
-    <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center">
-            <h5 class="card-title mb-0">
-                <i class="fas fa-tools text-primary me-2"></i>
-                Acciones
-            </h5>
-            <div class="d-flex gap-2">
-                <a href="{{ route('reservas.create') }}" class="btn btn-primary btn-lg">
-                    <i class="fas fa-plus me-2"></i>
-                    Crear Reserva
-                </a>
-                <button type="button" 
-                        class="btn btn-success btn-lg" 
-                        data-bs-toggle="tooltip" 
-                        title="Ver ocupación de apartamentos"
-                        onclick="mostrarOcupacionHoy()">
-                    <i class="fas fa-calendar-check me-2"></i>
-                    Ocupación Hoy
-                </button>
-            </div>
-        </div>
+{{-- Header + acciones en una sola barra --}}
+<div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+    <h1 class="h4 mb-0 text-gray-800">
+        <i class="fas fa-calendar-check text-primary me-1"></i>
+        Gestión de Reservas
+    </h1>
+    <div class="d-flex gap-2">
+        <a href="{{ route('reservas.create') }}" class="btn btn-primary btn-sm">
+            <i class="fas fa-plus me-1"></i>Crear reserva
+        </a>
+        <button type="button" class="btn btn-success btn-sm" onclick="mostrarOcupacionHoy()"
+                data-bs-toggle="tooltip" title="Ver ocupación de apartamentos">
+            <i class="fas fa-calendar-check me-1"></i>Ocupación hoy
+        </button>
     </div>
 </div>
-<!-- Tarjeta de Filtros -->
-<div class="card shadow-sm border-0 mb-4">
-    <div class="card-header bg-light">
-        <h5 class="card-title mb-0">
-            <i class="fas fa-filter text-primary me-2"></i>
-            Filtros de Búsqueda
-        </h5>
-    </div>
-    <div class="card-body">
-        @php
-            $orderDirection = request()->get('direction', 'asc') == 'asc' ? 'desc' : 'asc';
-        @endphp
-        
-        <form action="{{ route('reservas.index') }}" method="GET" id="filtrosForm">
-            <!-- Campos ocultos para mantener el orden y la dirección -->
-            <input type="hidden" name="order_by" value="{{ request()->get('order_by', 'fecha_entrada') }}">
-            <input type="hidden" name="direction" value="{{ request()->get('direction', 'asc') }}">
-            
-            <div class="row g-3">
-                <div class="col-md-2">
-                    <label for="perPage" class="form-label fw-semibold">
-                        <i class="fas fa-list-ol text-primary me-1"></i>
-                        Registros por página
-                    </label>
-                    <select name="perPage" id="perPage" class="form-select" onchange="this.form.submit()">
+
+{{-- Filtros: todo en una sola fila horizontal, sin labels ni titulo de tarjeta --}}
+@php
+    $orderDirection = request()->get('direction', 'asc') == 'asc' ? 'desc' : 'asc';
+@endphp
+<form action="{{ route('reservas.index') }}" method="GET" id="filtrosForm" class="mb-3">
+    <input type="hidden" name="order_by" value="{{ request()->get('order_by', 'fecha_entrada') }}">
+    <input type="hidden" name="direction" value="{{ request()->get('direction', 'asc') }}">
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body py-2 px-3">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-auto">
+                    <select name="perPage" class="form-select form-select-sm" onchange="this.form.submit()" title="Registros por página" style="min-width:70px;">
                         <option value="10" {{ request()->get('perPage') == 10 ? 'selected' : '' }}>10</option>
                         <option value="20" {{ request()->get('perPage') == 20 ? 'selected' : '' }}>20</option>
                         <option value="50" {{ request()->get('perPage') == 50 ? 'selected' : '' }}>50</option>
                         <option value="100" {{ request()->get('perPage') == 100 ? 'selected' : '' }}>100</option>
                     </select>
                 </div>
-                
-                <div class="col-md-2">
-                    <label for="filtro_estado" class="form-label fw-semibold">
-                        <i class="fas fa-toggle-on text-primary me-1"></i>
-                        Estado
-                    </label>
-                    <select name="filtro_estado" id="filtro_estado" class="form-select" onchange="this.form.submit()">
-                        <option value="activas" {{ request()->get('filtro_estado', 'activas') == 'activas' ? 'selected' : '' }}>Reservas Activas</option>
-                        <option value="eliminadas" {{ request()->get('filtro_estado') == 'eliminadas' ? 'selected' : '' }}>Reservas Eliminadas</option>
-                        <option value="todas" {{ request()->get('filtro_estado') == 'todas' ? 'selected' : '' }}>Todas las Reservas</option>
+                <div class="col-md-auto">
+                    <select name="filtro_estado" class="form-select form-select-sm" onchange="this.form.submit()" title="Estado">
+                        <option value="activas" {{ request()->get('filtro_estado', 'activas') == 'activas' ? 'selected' : '' }}>Activas</option>
+                        <option value="eliminadas" {{ request()->get('filtro_estado') == 'eliminadas' ? 'selected' : '' }}>Eliminadas</option>
+                        <option value="todas" {{ request()->get('filtro_estado') == 'todas' ? 'selected' : '' }}>Todas</option>
                     </select>
                 </div>
-                
-                <div class="col-md-3">
-                    <label for="search" class="form-label fw-semibold">
-                        <i class="fas fa-search text-primary me-1"></i>
-                        Buscar
-                    </label>
-                    <input type="text" class="form-control" id="search" name="search" 
-                           placeholder="Buscar por cliente, código..." 
+                <div class="col-md">
+                    <input type="text" class="form-control form-control-sm" id="search" name="search"
+                           placeholder="🔍 Buscar por cliente, código..."
                            value="{{ request()->get('search') }}"
                            onkeypress="if(event.key==='Enter') this.form.submit()">
                 </div>
-                
-                <div class="col-md-2">
-                    <label for="filtro_apartamento" class="form-label fw-semibold">
-                        <i class="fas fa-building text-primary me-1"></i>
-                        Apartamento
-                    </label>
-                    <select class="form-select" name="filtro_apartamento" id="filtro_apartamento">
-                        <option value="">Todos</option>
+                <div class="col-md-auto">
+                    <select class="form-select form-select-sm" name="filtro_apartamento" title="Apartamento">
+                        <option value="">Todos los apartamentos</option>
                         @foreach($apartamentos as $apartamento)
                             <option value="{{ $apartamento->id }}"
                                 {{ request()->get('filtro_apartamento') == $apartamento->id ? 'selected' : '' }}>
@@ -284,43 +219,28 @@
                         @endforeach
                     </select>
                 </div>
-                
-                <div class="col-md-2">
-                    <label for="fecha_entrada" class="form-label fw-semibold">
-                        <i class="fas fa-calendar-alt text-primary me-1"></i>
-                        Fecha Inicio
-                    </label>
-                    <input type="text" class="form-control" id="fecha_entrada" name="fecha_entrada" 
-                           value="{{ request()->get('fecha_entrada') }}" placeholder="dd/mm/yyyy">
+                <div class="col-md-auto">
+                    <input type="text" class="form-control form-control-sm" id="fecha_entrada" name="fecha_entrada"
+                           value="{{ request()->get('fecha_entrada') }}" placeholder="Desde" style="min-width:110px;">
                 </div>
-                
-                <div class="col-md-2">
-                    <label for="fecha_salida" class="form-label fw-semibold">
-                        <i class="fas fa-calendar-alt text-primary me-1"></i>
-                        Fecha Fin
-                    </label>
-                    <input type="text" class="form-control" id="fecha_salida" name="fecha_salida" 
-                           value="{{ request()->get('fecha_salida') }}" placeholder="dd/mm/yyyy">
+                <div class="col-md-auto">
+                    <input type="text" class="form-control form-control-sm" id="fecha_salida" name="fecha_salida"
+                           value="{{ request()->get('fecha_salida') }}" placeholder="Hasta" style="min-width:110px;">
                 </div>
-            </div>
-            
-            <div class="row mt-3">
-                <div class="col-12">
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-search me-2"></i>
-                            Buscar
+                <div class="col-md-auto">
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="submit" class="btn btn-primary" title="Buscar">
+                            <i class="fas fa-search"></i>
                         </button>
-                        <button type="button" id="limpiarFiltros" class="btn btn-outline-secondary">
-                            <i class="fas fa-trash me-2"></i>
-                            Limpiar Filtros
+                        <button type="button" id="limpiarFiltros" class="btn btn-outline-secondary" title="Limpiar filtros">
+                            <i class="fas fa-times"></i>
                         </button>
                     </div>
                 </div>
             </div>
-        </form>
+        </div>
     </div>
-</div>
+</form>
 
 <!-- Tarjeta Principal -->
 <div class="card shadow-sm border-0">
