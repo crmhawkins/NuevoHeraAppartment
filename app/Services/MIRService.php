@@ -1027,6 +1027,8 @@ class MIRService
         $validator = app(SpanishPostalCodeValidator::class);
 
         $cliente = $reserva->cliente;
+        $nacClienteFallback = trim((string) ($cliente->nacionalidad ?? ''));
+
         if ($cliente) {
             $reason = $validator->getReason(
                 $cliente->codigo_postal ?? '',
@@ -1039,9 +1041,17 @@ class MIRService
 
         $huespedes = \App\Models\Huesped::where('reserva_id', $reserva->id)->get();
         foreach ($huespedes as $huesped) {
+            // [2026-04-21] Si el huesped no tiene nacionalidad rellenada,
+            // heredar la del cliente principal (viaja con el cliente). Solo
+            // caemos a 'ES' si ni siquiera el cliente tiene nacionalidad.
+            $nacHuesped = trim((string) ($huesped->nacionalidad ?? ''));
+            if ($nacHuesped === '') {
+                $nacHuesped = $nacClienteFallback !== '' ? $nacClienteFallback : 'ES';
+            }
+
             $reason = $validator->getReason(
                 $huesped->codigo_postal ?? '',
-                $huesped->nacionalidad ?? 'ES'
+                $nacHuesped
             );
             if ($reason !== null) {
                 $nombreH = trim(($huesped->nombre ?? '') . ' ' . ($huesped->primer_apellido ?? $huesped->apellido1 ?? ''));
