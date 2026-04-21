@@ -121,7 +121,7 @@
 {{-- [2026-04-21] Aviso de reservas OTA con posible impago (check-out > 10 dias sin ingreso) --}}
 @php
     $reservasImpagas = \App\Models\Reserva::where('estado_id', '!=', 4)
-        ->whereRaw("LOWER(origen) NOT IN ('web','directo','')")
+        ->whereRaw("LOWER(origen) NOT IN ('web','directo','presencial','manual','')")
         ->whereNotNull('origen')
         ->whereDate('fecha_salida', '<', \Carbon\Carbon::today()->subDays(10))
         ->whereDate('fecha_salida', '>=', '2026-04-01')
@@ -535,7 +535,8 @@
                                         $pagado = $pagoStripe || $pagoBanco;
 
                                         $origenLower = strtolower((string) $reserva->origen);
-                                        $esWeb = in_array($origenLower, ['web', 'directo'], true);
+                                        // Orígenes que se cobran en efectivo / no via OTA: no aplican al impago OTA
+                                        $esWeb = in_array($origenLower, ['web', 'directo', 'presencial', 'manual'], true);
                                         $esCancelada = (int) $reserva->estado_id === 4;
 
                                         $salida = $reserva->fecha_salida ? \Carbon\Carbon::parse($reserva->fecha_salida) : null;

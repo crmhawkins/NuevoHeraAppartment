@@ -41,7 +41,7 @@ class AlertarImpagosOTA extends Command
         $fechaLimite = $hoy->copy()->subDays(self::UMBRAL_DIAS);
 
         $impagas = Reserva::where('estado_id', '!=', 4) // no canceladas
-            ->whereRaw("LOWER(origen) NOT IN ('web','directo','')")
+            ->whereRaw("LOWER(origen) NOT IN ('web','directo','presencial','manual','')")
             ->whereNotNull('origen')
             ->whereDate('fecha_salida', '<', $fechaLimite)
             ->whereDate('fecha_salida', '>=', self::FECHA_INICIO)
