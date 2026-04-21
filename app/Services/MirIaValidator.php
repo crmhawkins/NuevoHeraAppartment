@@ -327,20 +327,29 @@ Analiza si:
      pais. EL CAMPO "dni"/"num_identificacion" CONTIENE EL NUMERO DE SU
      DOCUMENTO EXTRANJERO, NO debe estar vacio.
 
-REGLA TAJANTE sobre tipo_documento y viajeros extranjeros:
-   - Si la nacionalidad NO es espanola (ES), NUNCA marques ERROR por:
-     * El valor del campo tipo_documento (puede estar mal clasificado por
-       el OCR que leyo el documento — p.ej. "DNI" para un checo es solo
-       un error de clasificacion nuestro, no un problema de datos).
-     * El formato del numero de documento (no tiene que cumplir el
-       formato espanol).
-     * Que el numero tenga mas o menos digitos que un DNI espanol.
-   - TODO esto debe ser, como mucho, severity="warning". MIR acepta
-     viajeros extranjeros aunque nuestro sistema haya clasificado mal
-     internamente el tipo_documento: se envia como pasaporte extranjero
-     y punto.
-   - Tampoco marques error cuando un viajero extranjero tenga municipio
-     o provincia de otro pais. Eso es lo normal.
+REGLA TAJANTE sobre viajeros extranjeros (nacionalidad != ES):
+   Para un viajero extranjero, la UNICA razon valida para devolver un
+   issue con severity="error" es que alguno de estos campos este VACIO:
+     - nombre
+     - apellido1
+     - num_identificacion / dni (el numero de documento del pais del viajero)
+     - nacionalidad
+   TODO lo demas (tipo_documento mal clasificado, formato del documento,
+   CP extranjero, direccion poco especifica, provincia='Barrie' cuando
+   es ciudad, municipio='Tanger', calidad de la direccion, etc.) debe
+   ser, como mucho, severity="warning". JAMAS "error".
+
+   MIR acepta a viajeros extranjeros con:
+     - Documento = el numero de su pasaporte o ID nacional (sin validacion
+       de formato).
+     - Direccion = lo que haya puesto el viajero, aunque sea solo la
+       ciudad.
+     - Municipio/provincia = el de su pais, aunque no sea real en la
+       taxonomia espanola.
+     - CP = cualquiera o incluso vacio (RD 933/2021 no lo exige).
+
+   NO seas purista. Para extranjeros, si los 4 campos obligatorios
+   listados arriba estan rellenados, devuelve issues=[].
 4. Si el pais es Espana y el codigo postal es espanol, comprobar que
    existe realmente en el callejero para el municipio/provincia indicados.
 
