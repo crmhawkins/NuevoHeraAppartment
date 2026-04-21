@@ -100,6 +100,33 @@ class ReservasController extends Controller
         $query->where('apartamento_id', $filtroApartamento);
     }
 
+    // [2026-04-21] Filtros especiales (links desde avisos superiores):
+    //  - filter=impago: solo reservas OTA con check-out > 10 dias sin cobrar
+    //  - filter=mir_bloqueadas: solo bloqueadas por validacion MIR
+    $filterEspecial = $request->get('filter');
+    if ($filterEspecial === 'impago') {
+        $query->whereRaw("LOWER(origen) NOT IN ('web','directo','presencial','manual','')")
+            ->whereNotNull('origen')
+            ->whereDate('fecha_salida', '<', \Carbon\Carbon::today()->subDays(10))
+            ->whereDate('fecha_salida', '>=', '2026-04-01')
+            ->whereNotExists(function ($q) {
+                $q->select(\Illuminate\Support\Facades\DB::raw(1))
+                  ->from('pagos')
+                  ->whereColumn('pagos.reserva_id', 'reservas.id')
+                  ->where('pagos.estado', 'completado');
+            })
+            ->whereNotExists(function ($q) {
+                if (\Illuminate\Support\Facades\Schema::hasColumn('ingresos', 'reserva_id')) {
+                    $q->select(\Illuminate\Support\Facades\DB::raw(1))
+                      ->from('ingresos')
+                      ->whereColumn('ingresos.reserva_id', 'reservas.id');
+                }
+            });
+    } elseif ($filterEspecial === 'mir_bloqueadas') {
+        $query->where('mir_estado', 'error_validacion')
+              ->where('dni_entregado', true);
+    }
+
 
     // // Aplicar filtros de fechas solo si se proporcionan
     // if (!empty($fechaEntrada)) {
@@ -124,9 +151,10 @@ class ReservasController extends Controller
         'fecha_salida' => $fechaSalida,
         'filtro_apartamento' => $filtroApartamento,
         'filtro_estado' => $filtroEstado,
+        'filter' => $filterEspecial,
     ]);
 
-    return view('reservas.index', compact('reservas', 'apartamentos'));
+    return view('reservas.index', compact('reservas', 'apartamentos', 'filterEspecial'));
 }
 
 

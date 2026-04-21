@@ -123,6 +123,26 @@
         ->count();
 @endphp
 
+{{-- Filtro especial activo (p.ej. solo impagos o solo bloqueadas MIR) --}}
+@if (!empty($filterEspecial ?? null))
+    <div class="alert alert-warning py-2 px-3 mb-2 d-flex justify-content-between align-items-center">
+        <div>
+            <i class="fas fa-filter me-1"></i>
+            Mostrando solo
+            @if ($filterEspecial === 'impago')
+                <strong>reservas con posible impago OTA</strong> (check-out hace más de 10 días sin ingreso)
+            @elseif ($filterEspecial === 'mir_bloqueadas')
+                <strong>reservas bloqueadas para MIR</strong> por validación
+            @else
+                <strong>filtro: {{ $filterEspecial }}</strong>
+            @endif
+        </div>
+        <a href="{{ route('reservas.index') }}" class="btn btn-sm btn-outline-secondary">
+            <i class="fas fa-times me-1"></i>Quitar filtro
+        </a>
+    </div>
+@endif
+
 {{-- Avisos compactos, 1 sola linea cada uno --}}
 @if ($reservasPendientesRevision > 0 || $reservasImpagas > 0)
     <div class="mb-2 d-flex flex-wrap gap-2">
@@ -136,11 +156,13 @@
             </a>
         @endif
         @if ($reservasImpagas > 0)
-            <span class="alert alert-danger mb-0 py-1 px-2 small d-inline-flex align-items-center">
+            <a href="{{ route('reservas.index', ['filter' => 'impago']) }}"
+               class="alert alert-danger mb-0 py-1 px-2 small text-decoration-none d-inline-flex align-items-center">
                 <i class="fas fa-euro-sign me-1"></i>
                 <strong class="me-1">{{ $reservasImpagas }}</strong>
-                posibles impagos OTA (ver <span class="badge bg-danger ms-1">IMPAGO</span> en tabla)
-            </span>
+                posibles impagos OTA
+                <i class="fas fa-arrow-right ms-1"></i>
+            </a>
         @endif
     </div>
 @endif
