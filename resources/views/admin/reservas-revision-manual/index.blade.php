@@ -210,20 +210,29 @@
                                                             </div>
                                                         @endif
                                                     </div>
-                                                    <button type="button"
-                                                            class="btn btn-sm btn-primary btn-fix"
-                                                            data-bs-toggle="modal"
-                                                            data-bs-target="#modalFix"
-                                                            data-reserva="{{ $r->id }}"
-                                                            data-entidad="{{ $entidad }}"
-                                                            data-entidad-id="{{ $entidadId }}"
-                                                            data-campo="{{ $campo }}"
-                                                            data-valor="{{ $valorActual }}"
-                                                            data-sugerencia="{{ $sugerencia }}"
-                                                            data-mensaje="{{ $mensaje }}"
-                                                            title="Corregir este campo">
-                                                        <i class="fas fa-wrench"></i> Arreglar
-                                                    </button>
+                                                    @if (str_starts_with((string) $campo, '_'))
+                                                        {{-- Pseudo-campo tecnico (_ia_excepcion, _ia_no_disponible):
+                                                             no hay nada que editar. Solo reintentar. --}}
+                                                        <span class="badge bg-secondary-subtle text-secondary small"
+                                                              title="Error tecnico del validador IA. Usa el boton 'Revalidar' de la columna Acciones para reintentar.">
+                                                            <i class="fas fa-robot me-1"></i>Error IA
+                                                        </span>
+                                                    @else
+                                                        <button type="button"
+                                                                class="btn btn-sm btn-primary btn-fix"
+                                                                data-bs-toggle="modal"
+                                                                data-bs-target="#modalFix"
+                                                                data-reserva="{{ $r->id }}"
+                                                                data-entidad="{{ $entidad }}"
+                                                                data-entidad-id="{{ $entidadId }}"
+                                                                data-campo="{{ $campo }}"
+                                                                data-valor="{{ $valorActual }}"
+                                                                data-sugerencia="{{ $sugerencia }}"
+                                                                data-mensaje="{{ $mensaje }}"
+                                                                title="Corregir este campo">
+                                                            <i class="fas fa-wrench"></i> Arreglar
+                                                        </button>
+                                                    @endif
                                                 </div>
                                             </div>
                                         @empty

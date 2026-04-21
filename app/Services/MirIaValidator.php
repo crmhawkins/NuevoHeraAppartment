@@ -60,6 +60,13 @@ class MirIaValidator
      *
      * @return array<int, array<string, mixed>>
      */
+    /**
+     * Numero maximo de intentos de llamar al modelo IA antes de rendirse.
+     * Entre intentos se espera con backoff exponencial (1s, 3s, 8s).
+     */
+    private const MAX_REINTENTOS_IA = 3;
+    private const BACKOFF_SEGUNDOS = [1, 3, 8];
+
     public function validar(Reserva $reserva): array
     {
         try {
@@ -76,32 +83,62 @@ class MirIaValidator
             $hash = md5(json_encode($datos, JSON_UNESCAPED_UNICODE));
             $cacheKey = "mir_ia_val:{$hash}";
 
-            $resultado = Cache::remember($cacheKey, self::CACHE_TTL, function () use ($datos) {
-                return $this->ejecutarValidacionIA($datos);
-            });
+            // [2026-04-21] Reintento con backoff: si la IA falla (null o
+            // excepcion), esperamos y reintentamos hasta MAX_REINTENTOS_IA
+            // veces antes de rendirnos. Esto evita escalar fallos puntuales
+            // (timeouts del modelo, respuesta JSON mal formada) a error
+            // bloqueante que requiere intervencion manual del admin.
+            $resultado = null;
+            $ultimaExcepcion = null;
+            for ($intento = 1; $intento <= self::MAX_REINTENTOS_IA; $intento++) {
+                try {
+                    // Solo cachear si hay resultado valido
+                    $resultado = $this->ejecutarValidacionIA($datos);
+                    if ($resultado !== null) {
+                        Cache::put($cacheKey, $resultado, self::CACHE_TTL);
+                        break;
+                    }
+                    // null -> fallo suave, reintentamos
+                    Log::warning('[MirIaValidator] Intento ' . $intento . '/' . self::MAX_REINTENTOS_IA . ' devolvio null', [
+                        'reserva_id' => $reserva->id,
+                    ]);
+                } catch (\Throwable $ex) {
+                    $ultimaExcepcion = $ex;
+                    Log::warning('[MirIaValidator] Intento ' . $intento . '/' . self::MAX_REINTENTOS_IA . ' lanzo excepcion', [
+                        'reserva_id' => $reserva->id,
+                        'error' => $ex->getMessage(),
+                    ]);
+                }
 
-            // [FIX 2026-04-19] Si la IA no pudo validar (timeout, API caida,
-            // JSON malformado...), devolvemos un error BLOQUEANTE en vez de
-            // dejar pasar. Mejor NO enviar a MIR que enviar sin validar.
-            if ($resultado === null) {
-                Cache::forget($cacheKey); // no persistir "null" en cache
-                Log::warning('[MirIaValidator] IA no disponible -> bloqueando envio MIR', [
-                    'reserva_id' => $reserva->id,
-                ]);
-                return [[
-                    'severity'   => 'error',
-                    'entidad'    => 'reserva',
-                    'entidad_id' => $reserva->id,
-                    'campo'      => '_ia_no_disponible',
-                    'mensaje'    => 'Validacion IA no disponible (reintentar en breve). No se envia a MIR sin validar.',
-                    'sugerencia' => null,
-                ]];
+                // Backoff si no es el ultimo intento
+                if ($intento < self::MAX_REINTENTOS_IA) {
+                    $sleepSecs = self::BACKOFF_SEGUNDOS[$intento - 1] ?? 5;
+                    sleep($sleepSecs);
+                }
             }
-            return $resultado;
+
+            if ($resultado !== null) {
+                return $resultado;
+            }
+
+            // Tras todos los reintentos seguimos fallando -> error bloqueante
+            Cache::forget($cacheKey);
+            $msgExtra = $ultimaExcepcion ? ' (ultimo error: ' . mb_substr($ultimaExcepcion->getMessage(), 0, 150) . ')' : '';
+            Log::error('[MirIaValidator] IA no disponible tras ' . self::MAX_REINTENTOS_IA . ' reintentos -> bloqueando envio MIR', [
+                'reserva_id' => $reserva->id,
+                'ultima_excepcion' => $ultimaExcepcion ? $ultimaExcepcion->getMessage() : null,
+            ]);
+            return [[
+                'severity'   => 'error',
+                'entidad'    => 'reserva',
+                'entidad_id' => $reserva->id,
+                'campo'      => '_ia_no_disponible',
+                'mensaje'    => 'Validacion IA no disponible tras ' . self::MAX_REINTENTOS_IA . ' reintentos. No se envia a MIR sin validar.' . $msgExtra,
+                'sugerencia' => null,
+            ]];
         } catch (\Throwable $e) {
-            // [FIX 2026-04-19] Antes era fail-safe (dejaba pasar). Ahora
-            // bloqueamos para no enviar sin validar.
-            Log::warning('[MirIaValidator] Excepcion no capturada -> bloqueando envio MIR', [
+            // Excepcion realmente inesperada (no del propio loop IA).
+            Log::error('[MirIaValidator] Excepcion externa al loop de reintentos', [
                 'error' => $e->getMessage(),
                 'reserva_id' => $reserva->id ?? null,
             ]);
@@ -110,7 +147,7 @@ class MirIaValidator
                 'entidad'    => 'reserva',
                 'entidad_id' => $reserva->id ?? 0,
                 'campo'      => '_ia_excepcion',
-                'mensaje'    => 'Validacion IA lanzo excepcion: ' . mb_substr($e->getMessage(), 0, 200),
+                'mensaje'    => 'Validacion IA lanzo excepcion inesperada: ' . mb_substr($e->getMessage(), 0, 200),
                 'sugerencia' => null,
             ]];
         }
