@@ -88,7 +88,7 @@
                                 <td class="text-muted fw-semibold" style="width: 40%;">Cliente</td>
                                 <td>
                                     @if($reserva->cliente)
-                                        {{ $reserva->cliente->nombre }} {{ $reserva->cliente->apellidos ?? '' }}
+                                        {{ $reserva->cliente->nombre }} {{ $reserva->cliente->apellido1 ?? '' }} {{ $reserva->cliente->apellido2 ?? '' }}
                                     @else
                                         <span class="text-muted">Sin cliente</span>
                                     @endif

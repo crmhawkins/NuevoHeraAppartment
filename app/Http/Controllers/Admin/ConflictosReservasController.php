@@ -48,7 +48,7 @@ class ConflictosReservasController extends Controller
         })->unique()->filter();
         $reservas = Reserva::whereIn('id', $reservaIds)
             ->select('id', 'fecha_entrada', 'fecha_salida', 'cliente_id', 'apartamento_id')
-            ->with('cliente:id,nombre,apellidos')
+            ->with('cliente:id,nombre,apellido1,apellido2,alias')
             ->get()
             ->keyBy('id');
 

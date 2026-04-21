@@ -328,6 +328,23 @@
                                         <li><a class="dropdown-item" href="{{ route('admin.conflictos-reservas.index') }}">
                                             <i class="fas fa-exclamation-triangle me-2"></i>Conflictos Reservas
                                         </a></li>
+                                        @php
+                                            $_revisionPendientes = \App\Models\Reserva::where('mir_estado', 'error_validacion')
+                                                ->where('estado_id', '!=', 4)
+                                                ->where('dni_entregado', true)
+                                                ->count();
+                                        @endphp
+                                        <li><a class="dropdown-item {{ $_revisionPendientes > 0 ? 'text-danger fw-bold' : '' }}"
+                                               href="{{ route('admin.reservas-revision-manual.index') }}">
+                                            <i class="fas fa-wrench me-2"></i>Revisar validacion MIR
+                                            @if ($_revisionPendientes > 0)
+                                                <span class="badge bg-danger ms-1">{{ $_revisionPendientes }}</span>
+                                            @endif
+                                        </a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><a class="dropdown-item" href="{{ route('admin.clientes-vetados.index') }}">
+                                            <i class="fas fa-ban me-2"></i>Clientes vetados
+                                        </a></li>
                                     </ul>
                                 </li>
 
