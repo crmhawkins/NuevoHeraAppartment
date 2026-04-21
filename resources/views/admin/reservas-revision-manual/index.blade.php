@@ -97,16 +97,26 @@
                                                     <small class="text-muted d-block mb-1">Cliente:</small>
                                                     <div class="d-flex gap-1 flex-wrap">
                                                         @foreach ($fotosCli as $foto)
-                                                            <a href="#"
-                                                               data-bs-toggle="modal"
-                                                               data-bs-target="#modalFoto"
-                                                               data-src="{{ route('admin.reservas-revision-manual.foto', $foto->id) }}"
-                                                               data-titulo="Cliente — {{ in_array($foto->photo_categoria_id, [13, 15]) ? 'Frontal' : 'Trasera' }}"
-                                                               title="{{ in_array($foto->photo_categoria_id, [13, 15]) ? 'Documento Frontal' : 'Documento Trasera' }}">
-                                                                <img src="{{ route('admin.reservas-revision-manual.foto', $foto->id) }}"
-                                                                     alt="DNI"
-                                                                     style="width:56px;height:56px;object-fit:cover;border-radius:4px;border:1px solid #ccc;">
-                                                            </a>
+                                                            @php $lado = in_array($foto->photo_categoria_id, [13, 15]) ? 'Frontal' : 'Trasera'; @endphp
+                                                            @if (!empty($foto->_archivo_existe))
+                                                                <a href="#"
+                                                                   data-bs-toggle="modal"
+                                                                   data-bs-target="#modalFoto"
+                                                                   data-src="{{ route('admin.reservas-revision-manual.foto', $foto->id) }}"
+                                                                   data-titulo="Cliente — {{ $lado }}"
+                                                                   title="Documento {{ $lado }}">
+                                                                    <img src="{{ route('admin.reservas-revision-manual.foto', $foto->id) }}"
+                                                                         alt="Doc {{ $lado }}"
+                                                                         style="width:56px;height:56px;object-fit:cover;border-radius:4px;border:1px solid #ccc;">
+                                                                </a>
+                                                            @else
+                                                                <div class="text-center d-flex flex-column align-items-center justify-content-center"
+                                                                     style="width:56px;height:56px;border-radius:4px;border:1px dashed #dc3545;background:#fff5f5;"
+                                                                     title="La foto {{ $lado }} ya no está disponible (perdida en un deploy anterior del servidor)">
+                                                                    <i class="fas fa-image text-danger" style="font-size:14px;"></i>
+                                                                    <small class="text-danger" style="font-size:8px;line-height:1;">perdida</small>
+                                                                </div>
+                                                            @endif
                                                         @endforeach
                                                     </div>
                                                 </div>
@@ -116,15 +126,26 @@
                                                     <small class="text-muted d-block mb-1">Huésped #{{ $huespedId }}:</small>
                                                     <div class="d-flex gap-1 flex-wrap">
                                                         @foreach ($fotos as $foto)
-                                                            <a href="#"
-                                                               data-bs-toggle="modal"
-                                                               data-bs-target="#modalFoto"
-                                                               data-src="{{ route('admin.reservas-revision-manual.foto', $foto->id) }}"
-                                                               data-titulo="Huésped #{{ $huespedId }} — {{ in_array($foto->photo_categoria_id, [13, 15]) ? 'Frontal' : 'Trasera' }}">
-                                                                <img src="{{ route('admin.reservas-revision-manual.foto', $foto->id) }}"
-                                                                     alt="DNI"
-                                                                     style="width:56px;height:56px;object-fit:cover;border-radius:4px;border:1px solid #ccc;">
-                                                            </a>
+                                                            @php $lado = in_array($foto->photo_categoria_id, [13, 15]) ? 'Frontal' : 'Trasera'; @endphp
+                                                            @if (!empty($foto->_archivo_existe))
+                                                                <a href="#"
+                                                                   data-bs-toggle="modal"
+                                                                   data-bs-target="#modalFoto"
+                                                                   data-src="{{ route('admin.reservas-revision-manual.foto', $foto->id) }}"
+                                                                   data-titulo="Huésped #{{ $huespedId }} — {{ $lado }}"
+                                                                   title="Documento {{ $lado }}">
+                                                                    <img src="{{ route('admin.reservas-revision-manual.foto', $foto->id) }}"
+                                                                         alt="Doc {{ $lado }}"
+                                                                         style="width:56px;height:56px;object-fit:cover;border-radius:4px;border:1px solid #ccc;">
+                                                                </a>
+                                                            @else
+                                                                <div class="text-center d-flex flex-column align-items-center justify-content-center"
+                                                                     style="width:56px;height:56px;border-radius:4px;border:1px dashed #dc3545;background:#fff5f5;"
+                                                                     title="La foto {{ $lado }} ya no está disponible (perdida en un deploy anterior del servidor)">
+                                                                    <i class="fas fa-image text-danger" style="font-size:14px;"></i>
+                                                                    <small class="text-danger" style="font-size:8px;line-height:1;">perdida</small>
+                                                                </div>
+                                                            @endif
                                                         @endforeach
                                                     </div>
                                                 </div>

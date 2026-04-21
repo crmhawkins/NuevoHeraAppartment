@@ -96,8 +96,15 @@ class ReservaRevisionManualController extends Controller
             ->orderBy('photo_categoria_id')
             ->get();
 
+        // [2026-04-21] Marcar cada foto con si el archivo existe fisicamente
+        // en disco. Asi la vista sabe si mostrar thumbnail o un placeholder
+        // "archivo no disponible" (suele pasar con reservas de hace meses
+        // cuyas fotos se perdieron en un deploy antiguo).
         $out = ['cliente' => [], 'huespedes' => []];
         foreach ($fotos as $f) {
+            $rel = preg_replace('~^private/~', '', (string) $f->url);
+            $f->_archivo_existe = is_file(storage_path('app/' . $rel));
+
             if ($f->cliente_id) {
                 $out['cliente'][] = $f;
             } elseif ($f->huespedes_id) {
