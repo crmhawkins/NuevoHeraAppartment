@@ -48,6 +48,7 @@
                                 <th>Cliente</th>
                                 <th>Apartamento</th>
                                 <th>Entrada</th>
+                                <th>Fotos DNI</th>
                                 <th>Problemas detectados</th>
                                 <th>Acciones</th>
                             </tr>
@@ -79,6 +80,56 @@
                                         <small class="d-block text-muted">
                                             {{ \Carbon\Carbon::parse($r->fecha_entrada)->diffForHumans() }}
                                         </small>
+                                    </td>
+                                    <td style="min-width: 180px;">
+                                        @php
+                                            $fotosCli = $r->_fotos_dni['cliente'] ?? [];
+                                            $fotosHue = $r->_fotos_dni['huespedes'] ?? [];
+                                            $sinFotos = empty($fotosCli) && empty($fotosHue);
+                                        @endphp
+                                        @if ($sinFotos)
+                                            <span class="text-muted small">
+                                                <i class="fas fa-image-slash"></i> Sin fotos
+                                            </span>
+                                        @else
+                                            @if (!empty($fotosCli))
+                                                <div class="mb-2">
+                                                    <small class="text-muted d-block mb-1">Cliente:</small>
+                                                    <div class="d-flex gap-1 flex-wrap">
+                                                        @foreach ($fotosCli as $foto)
+                                                            <a href="#"
+                                                               data-bs-toggle="modal"
+                                                               data-bs-target="#modalFoto"
+                                                               data-src="{{ route('admin.reservas-revision-manual.foto', $foto->id) }}"
+                                                               data-titulo="Cliente — {{ $foto->photo_categoria_id == 13 ? 'Frontal' : 'Trasera' }}"
+                                                               title="{{ $foto->photo_categoria_id == 13 ? 'DNI Frontal' : 'DNI Trasera' }}">
+                                                                <img src="{{ route('admin.reservas-revision-manual.foto', $foto->id) }}"
+                                                                     alt="DNI"
+                                                                     style="width:56px;height:56px;object-fit:cover;border-radius:4px;border:1px solid #ccc;">
+                                                            </a>
+                                                        @endforeach
+                                                    </div>
+                                                </div>
+                                            @endif
+                                            @foreach ($fotosHue as $huespedId => $fotos)
+                                                <div class="mb-1">
+                                                    <small class="text-muted d-block mb-1">Huésped #{{ $huespedId }}:</small>
+                                                    <div class="d-flex gap-1 flex-wrap">
+                                                        @foreach ($fotos as $foto)
+                                                            <a href="#"
+                                                               data-bs-toggle="modal"
+                                                               data-bs-target="#modalFoto"
+                                                               data-src="{{ route('admin.reservas-revision-manual.foto', $foto->id) }}"
+                                                               data-titulo="Huésped #{{ $huespedId }} — {{ $foto->photo_categoria_id == 13 ? 'Frontal' : 'Trasera' }}">
+                                                                <img src="{{ route('admin.reservas-revision-manual.foto', $foto->id) }}"
+                                                                     alt="DNI"
+                                                                     style="width:56px;height:56px;object-fit:cover;border-radius:4px;border:1px solid #ccc;">
+                                                            </a>
+                                                        @endforeach
+                                                    </div>
+                                                </div>
+                                            @endforeach
+                                        @endif
                                     </td>
                                     <td style="max-width: 400px;">
                                         @forelse ($r->_issues_parsed as $issue)
@@ -145,4 +196,39 @@
         </div>
     </div>
 </div>
+
+{{-- Modal para ver la foto del DNI a tamaño completo --}}
+<div class="modal fade" id="modalFoto" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalFotoTitulo">Foto DNI</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+                <img id="modalFotoImg" src="" alt="" style="max-width:100%;max-height:75vh;">
+            </div>
+            <div class="modal-footer">
+                <a id="modalFotoAbrir" href="#" target="_blank" class="btn btn-outline-primary btn-sm">
+                    <i class="fas fa-external-link-alt me-1"></i>Abrir en pestaña nueva
+                </a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const modal = document.getElementById('modalFoto');
+    modal.addEventListener('show.bs.modal', function (e) {
+        const trigger = e.relatedTarget;
+        const src = trigger.getAttribute('data-src');
+        const titulo = trigger.getAttribute('data-titulo') || 'Foto DNI';
+        document.getElementById('modalFotoImg').src = src;
+        document.getElementById('modalFotoTitulo').textContent = titulo;
+        document.getElementById('modalFotoAbrir').href = src;
+    });
+});
+</script>
 @endsection

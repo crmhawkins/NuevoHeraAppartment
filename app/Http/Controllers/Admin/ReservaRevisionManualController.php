@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Photo;
 use App\Models\Reserva;
 use App\Services\MIRService;
 use App\Services\MirPreflightValidator;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * [2026-04-20] Panel de reservas que requieren revision manual por fallo
@@ -37,10 +40,67 @@ class ReservaRevisionManualController extends Controller
             ->get()
             ->map(function ($r) {
                 $r->_issues_parsed = $this->parseIssues($r->mir_respuesta);
+                $r->_fotos_dni = $this->getFotosDni($r->id);
                 return $r;
             });
 
         return view('admin.reservas-revision-manual.index', compact('reservas'));
+    }
+
+    /**
+     * Sirve una foto privada del DNI subida por el cliente. Solo accesible
+     * desde el panel admin (protegido por el middleware role:ADMIN de la ruta).
+     *
+     * Las fotos viven en storage/app/photos/dni/ (fuera de public/) y la
+     * columna Photo.url guarda 'private/photos/dni/xxxxx.jpg'. Aqui hacemos
+     * el strip de 'private/' y servimos desde storage_path.
+     */
+    public function verFoto(int $photoId): BinaryFileResponse|\Illuminate\Http\Response
+    {
+        $photo = Photo::find($photoId);
+        if (!$photo) {
+            abort(404);
+        }
+
+        $relUrl = (string) $photo->url;
+        // Solo permitimos servir fotos de DNI (no otras photo categorias)
+        if (!in_array($photo->photo_categoria_id, [13, 14], true)) {
+            abort(403, 'Solo fotos de DNI');
+        }
+
+        // Mapeo 'private/photos/dni/xxx.jpg' -> storage_path('app/photos/dni/xxx.jpg')
+        $rel = preg_replace('~^private/~', '', $relUrl);
+        $full = storage_path('app/' . $rel);
+
+        if (!is_file($full)) {
+            abort(404, 'Fichero no encontrado');
+        }
+
+        return response()->file($full);
+    }
+
+    /**
+     * Devuelve fotos de DNI (frontal=13, trasera=14) asociadas a una reserva,
+     * separadas por persona (cliente / huesped).
+     *
+     * @return array<string, array<int, \App\Models\Photo>> con claves 'cliente' y 'huespedes'
+     */
+    private function getFotosDni(int $reservaId): array
+    {
+        $fotos = Photo::where('reserva_id', $reservaId)
+            ->whereIn('photo_categoria_id', [13, 14])
+            ->orderBy('photo_categoria_id')
+            ->get();
+
+        $out = ['cliente' => [], 'huespedes' => []];
+        foreach ($fotos as $f) {
+            if ($f->cliente_id) {
+                $out['cliente'][] = $f;
+            } elseif ($f->huespedes_id) {
+                $out['huespedes'][$f->huespedes_id][] = $f;
+            }
+        }
+        return $out;
     }
 
     public function revalidar(Request $request, int $id)

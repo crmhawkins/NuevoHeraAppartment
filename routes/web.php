@@ -1453,6 +1453,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:ADMIN'])->grou
         ->name('reservas-revision-manual.revalidar');
     Route::post('/reservas-revision-manual/{id}/ignorar', [\App\Http\Controllers\Admin\ReservaRevisionManualController::class, 'ignorar'])
         ->name('reservas-revision-manual.ignorar');
+    Route::get('/reservas-revision-manual/foto/{photoId}', [\App\Http\Controllers\Admin\ReservaRevisionManualController::class, 'verFoto'])
+        ->name('reservas-revision-manual.foto');
 });
 
 // ============================================
