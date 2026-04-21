@@ -133,6 +133,17 @@
                                     </td>
                                     <td style="max-width: 400px;">
                                         @php
+                                            // [2026-04-21] Detectar huespedes que son la misma persona que el
+                                            // cliente (comparten DNI). Para avisar visualmente en cada issue.
+                                            $huespedesMismaPersona = [];
+                                            if ($r->cliente && $r->cliente->num_identificacion) {
+                                                $dniCli = (string) $r->cliente->num_identificacion;
+                                                $hs = \App\Models\Huesped::where('reserva_id', $r->id)
+                                                    ->where('numero_identificacion', $dniCli)
+                                                    ->pluck('id')->all();
+                                                $huespedesMismaPersona = $hs;
+                                            }
+
                                             // Traer el valor actual del campo para mostrarlo en el modal
                                             $valoresActuales = [];
                                             if ($r->cliente) {
@@ -172,12 +183,23 @@
                                                     }
                                                 }
                                             @endphp
+                                            @php
+                                                // ¿Este issue es de una persona que aparece doble (cliente+huesped)?
+                                                $esMismaPersona = ($entidad === 'cliente' && !empty($huespedesMismaPersona))
+                                                    || ($entidad === 'huesped' && in_array((int) $entidadId, $huespedesMismaPersona, true));
+                                            @endphp
                                             <div class="mb-2 small border-bottom pb-2">
                                                 <div class="d-flex justify-content-between align-items-start gap-2">
                                                     <div class="flex-grow-1">
                                                         <span class="badge {{ $badgeClass }}">{{ strtoupper($sev) }}</span>
                                                         <strong>{{ $entidad }}{{ $entidadId ? " #$entidadId" : '' }}</strong>
                                                         <span class="text-muted">· campo:</span> <code>{{ $campo }}</code>
+                                                        @if ($esMismaPersona)
+                                                            <span class="badge bg-info-subtle text-info ms-1"
+                                                                  title="Cliente y huésped son la misma persona (mismo DNI). Al arreglar uno se actualizarán ambos.">
+                                                                <i class="fas fa-link"></i> mismo DNI
+                                                            </span>
+                                                        @endif
                                                         <div>{{ $mensaje }}</div>
                                                         <div class="text-muted mt-1">
                                                             Valor actual: <code>{{ $valorActual !== '' ? $valorActual : '(vacío)' }}</code>

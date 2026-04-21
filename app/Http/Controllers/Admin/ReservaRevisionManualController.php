@@ -205,6 +205,19 @@ class ReservaRevisionManualController extends Controller
             $persona->{$data['campo']} = $data['valor'] === '' ? null : $data['valor'];
             $persona->save();
 
+            // [2026-04-21] Auto-propagacion: el cliente principal suele
+            // aparecer tambien como huesped (es la misma persona fisica).
+            // Si se arregla un campo del cliente y hay huespedes con el
+            // mismo DNI en esta reserva, actualizamos tambien el campo
+            // equivalente del huesped. Y viceversa.
+            $propagados = $this->propagarCampo(
+                $data['entidad'],
+                $persona,
+                $data['campo'],
+                $data['valor'] === '' ? null : $data['valor'],
+                (int) $data['reserva_id']
+            );
+
             Log::info('[RevisionManual] Campo corregido', [
                 'reserva_id' => $data['reserva_id'],
                 'entidad'    => $data['entidad'],
@@ -212,6 +225,7 @@ class ReservaRevisionManualController extends Controller
                 'campo'      => $data['campo'],
                 'antes'      => $valorAntes,
                 'despues'    => $persona->{$data['campo']},
+                'propagados' => $propagados,
                 'user'       => optional(auth()->user())->id,
             ]);
 
@@ -240,6 +254,78 @@ class ReservaRevisionManualController extends Controller
             Log::error('[RevisionManual] Error en fix', ['error' => $e->getMessage(), 'data' => $data]);
             return back()->with('error', 'No se pudo guardar: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * [2026-04-21] Sincroniza el cambio entre Cliente y Huesped que son la
+     * misma persona fisica (comparten num_identificacion). El nombre de
+     * algunos campos difiere entre modelos:
+     *   cliente.num_identificacion    <-> huesped.numero_identificacion
+     *   cliente.apellido1             <-> huesped.primer_apellido
+     *   cliente.apellido2             <-> huesped.segundo_apellido
+     * El resto de campos (codigo_postal, provincia, direccion, municipio,
+     * nombre, nacionalidad, tipo_documento, numero_soporte_documento) se
+     * llaman igual en ambos modelos.
+     *
+     * @return array<int, string> IDs actualizados (para log)
+     */
+    private function propagarCampo(string $entidad, $persona, string $campo, $nuevoValor, int $reservaId): array
+    {
+        $propagados = [];
+
+        // Mapeo de nombres entre cliente y huesped
+        $mapCliente2Huesped = [
+            'num_identificacion' => 'numero_identificacion',
+            'apellido1'          => 'primer_apellido',
+            'apellido2'          => 'segundo_apellido',
+        ];
+        $mapHuesped2Cliente = array_flip($mapCliente2Huesped);
+
+        try {
+            if ($entidad === 'cliente') {
+                $dniCli = (string) ($persona->num_identificacion ?? '');
+                if ($dniCli === '') return $propagados;
+
+                $campoH = $mapCliente2Huesped[$campo] ?? $campo;
+
+                $huespedes = \App\Models\Huesped::where('reserva_id', $reservaId)
+                    ->where('numero_identificacion', $dniCli)
+                    ->get();
+
+                foreach ($huespedes as $h) {
+                    if (!array_key_exists($campoH, $h->getAttributes()) &&
+                        !property_exists($h, $campoH) &&
+                        !in_array($campoH, $h->getFillable(), true)) {
+                        continue; // el huesped no tiene ese campo
+                    }
+                    $h->{$campoH} = $nuevoValor;
+                    $h->save();
+                    $propagados[] = "huesped#{$h->id}.{$campoH}";
+                }
+            } elseif ($entidad === 'huesped') {
+                $dniHue = (string) ($persona->numero_identificacion ?? '');
+                if ($dniHue === '') return $propagados;
+
+                $campoC = $mapHuesped2Cliente[$campo] ?? $campo;
+
+                $reserva = Reserva::find($reservaId);
+                $cli = $reserva?->cliente;
+                if ($cli && (string) $cli->num_identificacion === $dniHue) {
+                    if (array_key_exists($campoC, $cli->getAttributes()) ||
+                        in_array($campoC, $cli->getFillable(), true)) {
+                        $cli->{$campoC} = $nuevoValor;
+                        $cli->save();
+                        $propagados[] = "cliente#{$cli->id}.{$campoC}";
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('[RevisionManual] Error propagando campo', [
+                'entidad' => $entidad, 'campo' => $campo, 'error' => $e->getMessage(),
+            ]);
+        }
+
+        return $propagados;
     }
 
     /**
