@@ -356,6 +356,105 @@
             </div>
             @endif
         </div>
+
+        {{-- [2026-04-21] Widget: Saldo por plataforma --}}
+        @if (!empty($saldoPlataformas['platforms']))
+            <div class="col-12 px-3 mt-2">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-euro-sign me-2 text-primary"></i>
+                            Saldo por plataforma
+                            <small class="text-muted">
+                                ({{ \Carbon\Carbon::parse($fechaInicio)->format('d/m/Y') }}
+                                — {{ \Carbon\Carbon::parse($fechaFin)->format('d/m/Y') }})
+                            </small>
+                        </h5>
+                        @if ($saldoPlataformas['totales']['saldo'] > 0)
+                            <span class="badge bg-warning text-dark">
+                                Pendiente: {{ number_format($saldoPlataformas['totales']['saldo'], 2, ',', '.') }} €
+                            </span>
+                        @else
+                            <span class="badge bg-success">Todo cobrado</span>
+                        @endif
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0 align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Plataforma</th>
+                                        <th class="text-end">Reservas</th>
+                                        <th class="text-end">Importe bruto</th>
+                                        <th class="text-end">Com.%</th>
+                                        <th class="text-end">Neto esperado</th>
+                                        <th class="text-end">Cobrado</th>
+                                        <th class="text-end">Saldo pendiente</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach ($saldoPlataformas['platforms'] as $nombre => $p)
+                                        <tr>
+                                            <td>
+                                                <strong>{{ $nombre }}</strong>
+                                                @if ($p['always_paid'])
+                                                    <small class="badge bg-success-subtle text-success ms-1"
+                                                           title="Pago garantizado (Stripe o presencial)">
+                                                        <i class="fas fa-check"></i> directo
+                                                    </small>
+                                                @endif
+                                            </td>
+                                            <td class="text-end">{{ $p['num_reservas'] }}</td>
+                                            <td class="text-end">{{ number_format($p['importe_bruto'], 2, ',', '.') }} €</td>
+                                            <td class="text-end text-muted">
+                                                @if ($p['always_paid'])—@else{{ number_format($p['comision_pct'], 1) }}%@endif
+                                            </td>
+                                            <td class="text-end">{{ number_format($p['importe_neto'], 2, ',', '.') }} €</td>
+                                            <td class="text-end text-success">{{ number_format($p['cobrado'], 2, ',', '.') }} €</td>
+                                            <td class="text-end">
+                                                @if ($p['always_paid'])
+                                                    <span class="text-muted">—</span>
+                                                @elseif ($p['saldo'] <= 0.5)
+                                                    <span class="badge bg-success-subtle text-success">0,00 €</span>
+                                                @else
+                                                    <span class="badge bg-warning text-dark">
+                                                        {{ number_format($p['saldo'], 2, ',', '.') }} €
+                                                    </span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                                <tfoot class="table-secondary fw-bold">
+                                    <tr>
+                                        <td>TOTAL</td>
+                                        <td class="text-end">{{ $saldoPlataformas['totales']['num_reservas'] }}</td>
+                                        <td class="text-end">{{ number_format($saldoPlataformas['totales']['importe_bruto'], 2, ',', '.') }} €</td>
+                                        <td></td>
+                                        <td class="text-end">{{ number_format($saldoPlataformas['totales']['importe_neto'], 2, ',', '.') }} €</td>
+                                        <td class="text-end text-success">{{ number_format($saldoPlataformas['totales']['cobrado'], 2, ',', '.') }} €</td>
+                                        <td class="text-end">
+                                            @if ($saldoPlataformas['totales']['saldo'] > 0.5)
+                                                <span class="text-warning">{{ number_format($saldoPlataformas['totales']['saldo'], 2, ',', '.') }} €</span>
+                                            @else
+                                                <span class="text-success">0,00 €</span>
+                                            @endif
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                        <small class="text-muted d-block p-2">
+                            <i class="fas fa-info-circle me-1"></i>
+                            <strong>Bruto</strong>: lo que paga el cliente. <strong>Neto esperado</strong>: lo que debería llegar al banco tras comisión de la OTA.
+                            <strong>Cobrado</strong>: ingresos bancarios + pagos Stripe vinculados.
+                            Filtrado por <em>fecha de salida</em>. Comisiones aproximadas: Booking 15%, Airbnb 3%, Agoda/Expedia 18%.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         {{-- <div class="col-md-3">
             <div class="row mx-1 bg-primero p-3 rounded-4">
                 <div class="col-9">

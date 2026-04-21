@@ -76,6 +76,11 @@ class DashboardController extends Controller
         // **Optimización: Obtener datos para filtros de forma más eficiente**
         $datosFiltros = $this->getDatosFiltrosOptimizados();
 
+        // [2026-04-21] Saldo por plataforma: teorico (precio cliente), neto
+        // esperado (tras comision OTA) y cobrado real. Util para saber
+        // cuanto nos debe Booking/Airbnb/Agoda.
+        $saldoPlataformas = $this->calculateSaldoPorPlataforma($fechaInicio, $fechaFin);
+
         // **Combinar todos los datos**
         return array_merge(
             $ocupacionData,
@@ -87,8 +92,123 @@ class DashboardController extends Controller
                 'fechaInicio' => $fechaInicio,
                 'fechaFin' => $fechaFin,
                 'reservas' => $reservas,
+                'saldoPlataformas' => $saldoPlataformas,
             ]
         );
+    }
+
+    /**
+     * [2026-04-21] Calcula, para el rango dado, el saldo por plataforma de
+     * reserva agrupado por fecha_salida (que es cuando la OTA paga). Devuelve
+     * un array con:
+     *  [
+     *    'platforms' => [
+     *       'BookingCom' => [
+     *          'num_reservas'   => 42,
+     *          'importe_bruto'  => 2850.00,   // suma precio cliente
+     *          'comision_pct'   => 15,        // % comision OTA
+     *          'importe_neto'   => 2422.50,   // lo que esperamos que nos entre
+     *          'cobrado'        => 2120.00,   // suma ingresos vinculados
+     *          'saldo'          => 302.50,    // neto - cobrado
+     *          'always_paid'    => false,     // Presencial/Web -> true
+     *       ], ...
+     *    ],
+     *    'totales' => [bruto, neto, cobrado, saldo, reservas]
+     *  ]
+     */
+    private function calculateSaldoPorPlataforma($fechaInicio, $fechaFin): array
+    {
+        // Comision tipica por canal (%). Las "always_paid" no aplican.
+        $comisiones = [
+            'bookingcom'  => 15.0,
+            'booking'     => 15.0,
+            'airbnb'      => 3.0,
+            'agoda'       => 18.0,
+            'expedia'     => 18.0,
+        ];
+        // Canales donde el cobro es instantaneo (cash / Stripe): saldo siempre 0
+        $alwaysPaid = ['web', 'directo', 'stripe', 'presencial', 'manual', 'efectivo'];
+
+        // Traer reservas del rango agrupadas por origen
+        $reservas = Reserva::where('estado_id', '!=', 4)
+            ->whereBetween('fecha_salida', [$fechaInicio, $fechaFin])
+            ->whereNotNull('origen')
+            ->get(['id', 'origen', 'precio']);
+
+        $platforms = [];
+        $totBruto = 0.0; $totNeto = 0.0; $totCobrado = 0.0; $totSaldo = 0.0; $totReservas = 0;
+
+        // Agrupar por origen tal cual esta en BD (mantener el case: BookingCom, AirBNB...)
+        $porOrigen = $reservas->groupBy(function ($r) {
+            return (string) ($r->origen ?: 'Sin canal');
+        });
+
+        foreach ($porOrigen as $origenDisplay => $grupo) {
+            $origenLower = strtolower($origenDisplay);
+            $esAlwaysPaid = in_array($origenLower, $alwaysPaid, true);
+            $comisionPct = $comisiones[$origenLower] ?? 0.0;
+
+            $bruto = 0.0;
+            $ids = [];
+            foreach ($grupo as $r) {
+                $p = (float) str_replace(',', '.', (string) $r->precio);
+                $bruto += $p;
+                $ids[] = $r->id;
+            }
+
+            // Neto esperado = bruto * (1 - comision%)
+            $neto = $esAlwaysPaid ? $bruto : round($bruto * (1 - $comisionPct / 100), 2);
+
+            // Cobrado real: suma de ingresos vinculados a estas reservas + pagos Stripe completados
+            $cobradoIngresos = 0.0;
+            if (\Illuminate\Support\Facades\Schema::hasColumn('ingresos', 'reserva_id') && !empty($ids)) {
+                $cobradoIngresos = (float) \App\Models\Ingresos::whereIn('reserva_id', $ids)->sum('quantity');
+            }
+            $cobradoStripe = 0.0;
+            if (!empty($ids)) {
+                $cobradoStripe = (float) \App\Models\Pago::whereIn('reserva_id', $ids)
+                    ->where('estado', 'completado')
+                    ->sum('monto');
+            }
+            $cobrado = $cobradoIngresos + $cobradoStripe;
+
+            // Para always_paid: asumimos cobrado = bruto (aunque no haya registro)
+            if ($esAlwaysPaid) {
+                $cobrado = max($cobrado, $bruto);
+            }
+
+            $saldo = round($neto - $cobrado, 2);
+
+            $platforms[$origenDisplay] = [
+                'num_reservas'  => $grupo->count(),
+                'importe_bruto' => round($bruto, 2),
+                'comision_pct'  => $comisionPct,
+                'importe_neto'  => round($neto, 2),
+                'cobrado'       => round($cobrado, 2),
+                'saldo'         => $saldo,
+                'always_paid'   => $esAlwaysPaid,
+            ];
+
+            $totBruto    += $bruto;
+            $totNeto     += $neto;
+            $totCobrado  += $cobrado;
+            $totSaldo    += $saldo;
+            $totReservas += $grupo->count();
+        }
+
+        // Ordenar por num_reservas desc para que los canales grandes salgan arriba
+        uasort($platforms, fn($a, $b) => $b['num_reservas'] <=> $a['num_reservas']);
+
+        return [
+            'platforms' => $platforms,
+            'totales' => [
+                'num_reservas'  => $totReservas,
+                'importe_bruto' => round($totBruto, 2),
+                'importe_neto'  => round($totNeto, 2),
+                'cobrado'       => round($totCobrado, 2),
+                'saldo'         => round($totSaldo, 2),
+            ],
+        ];
     }
 
     private function calculateOcupacionOptimizada($reservas, $apartamentos, $fechaInicio, $fechaFin) {
