@@ -155,14 +155,18 @@ class MirDataValidator
         $issues = [];
 
         $cliente = $reserva->cliente;
+        $paisClienteFallback = '';
         if ($cliente) {
             $issues = array_merge($issues, $this->validarPersona($cliente, 'cliente', $cliente->id));
+            // [2026-04-20] Nacionalidad del cliente como fallback para huespedes
+            // sin pais rellenado (caso tipico: familia viajando, misma nacionalidad).
+            $paisClienteFallback = trim((string) ($cliente->nacionalidad ?? $cliente->pais ?? ''));
         }
 
         // Huespedes
         $huespedes = Huesped::where('reserva_id', $reserva->id)->get();
         foreach ($huespedes as $h) {
-            $issues = array_merge($issues, $this->validarPersona($h, 'huesped', $h->id));
+            $issues = array_merge($issues, $this->validarPersona($h, 'huesped', $h->id, $paisClienteFallback));
         }
 
         return $issues;
@@ -172,7 +176,7 @@ class MirDataValidator
      * Valida una "persona" (Cliente o Huesped). Unifica el acceso a campos
      * porque los dos modelos usan nombres distintos (apellido1/primer_apellido).
      */
-    private function validarPersona($persona, string $entidad, int $entidadId): array
+    private function validarPersona($persona, string $entidad, int $entidadId, string $paisFallback = ''): array
     {
         $issues = [];
 
@@ -197,6 +201,12 @@ class MirDataValidator
             $campoAp1 = 'primer_apellido';
             $campoAp2 = 'segundo_apellido';
             $campoDni = 'numero_identificacion';
+        }
+
+        // [2026-04-20] Si el huesped no tiene pais rellenado, heredar del
+        // cliente principal. Es casi siempre correcto (familia viajando).
+        if (trim((string) $pais) === '' && $paisFallback !== '') {
+            $pais = $paisFallback;
         }
 
         $direccion = $persona->direccion ?? '';
@@ -308,7 +318,8 @@ class MirDataValidator
     {
         $issues = [];
 
-        // Si el pais esta informado y no es Espana, no validamos
+        // Si el pais esta informado y no es Espana, no validamos (RD 933/2021
+        // no requiere CP para viajeros extranjeros — solo dir completa, localidad, pais)
         if ($pais !== '') {
             $paisUpper = strtoupper(trim($pais));
             if (!in_array($paisUpper, $this->paisEspanaAliases, true)) {
@@ -322,6 +333,34 @@ class MirDataValidator
         if ($cp === '') {
             // Otros campos ya cazan esto; no es asunto del CP<->prov
             return $issues;
+        }
+
+        // [2026-04-20] Heuristica "probablemente extranjero" cuando no hay pais
+        // rellenado. Si el CP contiene letras o tiene formato claramente no
+        // espanol, no bloqueamos — el RD 933/2021 no exige CP para extranjeros.
+        if ($pais === '') {
+            // CP con letras (ej. 'L4n0r5' canadiense, 'SW1A 1AA' UK, etc)
+            if (!preg_match('/^\d+$/', $cp)) {
+                $issues[] = $this->issue('warning', $entidad, $id, 'codigo_postal',
+                    "Codigo postal '{$cp}' con letras (aparentemente extranjero, pais no rellenado)", null);
+                return $issues;
+            }
+            // CP numerico de 5 digitos pero con prefijo provincial inexistente
+            // (ej. '75031' checo, '90000' marroqui, '20000' tunecino)
+            if (preg_match('/^\d{5}$/', $cp)) {
+                $pref = substr($cp, 0, 2);
+                if (!isset($this->provincias[$pref])) {
+                    $issues[] = $this->issue('warning', $entidad, $id, 'codigo_postal',
+                        "Codigo postal '{$cp}' con prefijo '{$pref}' no espanol (aparentemente extranjero, pais no rellenado)", null);
+                    return $issues;
+                }
+            }
+            // Si tiene longitud distinta de 5 sin letras, tambien asumimos extranjero
+            if (!preg_match('/^\d{5}$/', $cp)) {
+                $issues[] = $this->issue('warning', $entidad, $id, 'codigo_postal',
+                    "Codigo postal '{$cp}' con longitud no espanola (aparentemente extranjero)", null);
+                return $issues;
+            }
         }
 
         if (!preg_match('/^\d{5}$/', $cp)) {
