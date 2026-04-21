@@ -132,6 +132,26 @@
                                         @endif
                                     </td>
                                     <td style="max-width: 400px;">
+                                        @php
+                                            // Traer el valor actual del campo para mostrarlo en el modal
+                                            $valoresActuales = [];
+                                            if ($r->cliente) {
+                                                $valoresActuales['cliente'] = [
+                                                    'codigo_postal' => $r->cliente->codigo_postal,
+                                                    'num_identificacion' => $r->cliente->num_identificacion,
+                                                    'provincia' => $r->cliente->provincia,
+                                                    'direccion' => $r->cliente->direccion,
+                                                    'nombre_municipio' => $r->cliente->nombre_municipio ?? null,
+                                                    'municipio' => $r->cliente->municipio ?? null,
+                                                    'nacionalidad' => $r->cliente->nacionalidad,
+                                                    'apellido1' => $r->cliente->apellido1,
+                                                    'apellido2' => $r->cliente->apellido2,
+                                                    'nombre' => $r->cliente->nombre,
+                                                    'tipo_documento' => $r->cliente->tipo_documento,
+                                                    'numero_soporte_documento' => $r->cliente->numero_soporte_documento ?? null,
+                                                ];
+                                            }
+                                        @endphp
                                         @forelse ($r->_issues_parsed as $issue)
                                             @php
                                                 $sev = $issue['severity'] ?? 'warning';
@@ -141,17 +161,48 @@
                                                 $campo = $issue['campo'] ?? '';
                                                 $mensaje = $issue['mensaje'] ?? '';
                                                 $sugerencia = $issue['sugerencia'] ?? null;
+                                                // Valor actual del campo
+                                                $valorActual = '';
+                                                if ($entidad === 'cliente') {
+                                                    $valorActual = $valoresActuales['cliente'][$campo] ?? '';
+                                                } elseif ($entidad === 'huesped' && $entidadId) {
+                                                    $huespedObj = \App\Models\Huesped::find($entidadId);
+                                                    if ($huespedObj) {
+                                                        $valorActual = $huespedObj->{$campo} ?? '';
+                                                    }
+                                                }
                                             @endphp
-                                            <div class="mb-2 small">
-                                                <span class="badge {{ $badgeClass }}">{{ strtoupper($sev) }}</span>
-                                                <strong>{{ $entidad }}{{ $entidadId ? " #$entidadId" : '' }}</strong>
-                                                <span class="text-muted">· campo:</span> <code>{{ $campo }}</code>
-                                                <div>{{ $mensaje }}</div>
-                                                @if ($sugerencia)
-                                                    <div class="text-success small">
-                                                        <i class="fas fa-lightbulb"></i> Sugerencia: <code>{{ $sugerencia }}</code>
+                                            <div class="mb-2 small border-bottom pb-2">
+                                                <div class="d-flex justify-content-between align-items-start gap-2">
+                                                    <div class="flex-grow-1">
+                                                        <span class="badge {{ $badgeClass }}">{{ strtoupper($sev) }}</span>
+                                                        <strong>{{ $entidad }}{{ $entidadId ? " #$entidadId" : '' }}</strong>
+                                                        <span class="text-muted">· campo:</span> <code>{{ $campo }}</code>
+                                                        <div>{{ $mensaje }}</div>
+                                                        <div class="text-muted mt-1">
+                                                            Valor actual: <code>{{ $valorActual !== '' ? $valorActual : '(vacío)' }}</code>
+                                                        </div>
+                                                        @if ($sugerencia)
+                                                            <div class="text-success mt-1">
+                                                                <i class="fas fa-lightbulb"></i> Sugerencia: <code>{{ $sugerencia }}</code>
+                                                            </div>
+                                                        @endif
                                                     </div>
-                                                @endif
+                                                    <button type="button"
+                                                            class="btn btn-sm btn-primary btn-fix"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#modalFix"
+                                                            data-reserva="{{ $r->id }}"
+                                                            data-entidad="{{ $entidad }}"
+                                                            data-entidad-id="{{ $entidadId }}"
+                                                            data-campo="{{ $campo }}"
+                                                            data-valor="{{ $valorActual }}"
+                                                            data-sugerencia="{{ $sugerencia }}"
+                                                            data-mensaje="{{ $mensaje }}"
+                                                            title="Corregir este campo">
+                                                        <i class="fas fa-wrench"></i> Arreglar
+                                                    </button>
+                                                </div>
                                             </div>
                                         @empty
                                             <span class="text-muted small">Sin detalle (respuesta MIR sin parsear)</span>
@@ -196,6 +247,74 @@
         </div>
     </div>
 </div>
+
+{{-- Modal para arreglar un campo concreto --}}
+<div class="modal fade" id="modalFix" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="POST" action="{{ route('admin.reservas-revision-manual.fix') }}" class="modal-content">
+            @csrf
+            <input type="hidden" name="reserva_id" id="fix_reserva">
+            <input type="hidden" name="entidad" id="fix_entidad">
+            <input type="hidden" name="entidad_id" id="fix_entidad_id">
+            <input type="hidden" name="campo" id="fix_campo">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">
+                    <i class="fas fa-wrench me-2"></i>Arreglar campo
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning small mb-3" id="fix_mensaje"></div>
+
+                <div class="mb-2 small text-muted">
+                    Editando: <strong id="fix_entidad_display"></strong> · campo: <code id="fix_campo_display"></code>
+                </div>
+
+                <label class="form-label">Nuevo valor</label>
+                <input type="text" name="valor" id="fix_valor" class="form-control" maxlength="300" autofocus>
+                <small class="text-muted d-block mt-1" id="fix_sugerencia_hint"></small>
+
+                <div class="form-check mt-3">
+                    <input class="form-check-input" type="checkbox" name="autorevalidar" id="fix_autorevalidar" value="1" checked>
+                    <label class="form-check-label" for="fix_autorevalidar">
+                        Revalidar e intentar enviar a MIR inmediatamente tras guardar
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save me-1"></i>Guardar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const modalFix = document.getElementById('modalFix');
+    modalFix.addEventListener('show.bs.modal', function (e) {
+        const t = e.relatedTarget;
+        document.getElementById('fix_reserva').value = t.getAttribute('data-reserva');
+        document.getElementById('fix_entidad').value = t.getAttribute('data-entidad');
+        document.getElementById('fix_entidad_id').value = t.getAttribute('data-entidad-id');
+        document.getElementById('fix_campo').value = t.getAttribute('data-campo');
+        document.getElementById('fix_valor').value = t.getAttribute('data-valor') || '';
+        document.getElementById('fix_entidad_display').textContent =
+            t.getAttribute('data-entidad') + ' #' + t.getAttribute('data-entidad-id');
+        document.getElementById('fix_campo_display').textContent = t.getAttribute('data-campo');
+        document.getElementById('fix_mensaje').textContent = t.getAttribute('data-mensaje') || '';
+        const sug = t.getAttribute('data-sugerencia');
+        const hint = document.getElementById('fix_sugerencia_hint');
+        if (sug && sug !== 'null' && sug.trim() !== '') {
+            hint.innerHTML = '💡 Sugerencia de la IA: <code>' + sug + '</code>';
+        } else {
+            hint.textContent = '';
+        }
+    });
+});
+</script>
 
 {{-- Modal para ver la foto del DNI a tamaño completo --}}
 <div class="modal fade" id="modalFoto" tabindex="-1" aria-hidden="true">

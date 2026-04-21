@@ -154,6 +154,95 @@ class ReservaRevisionManualController extends Controller
     }
 
     /**
+     * [2026-04-21] Corrige un campo concreto de un cliente o huesped desde
+     * el panel, sin salir de la pagina. Se usa con los botones "Arreglar"
+     * que aparecen al lado de cada issue detectado.
+     *
+     * Solo permite modificar un whitelist de campos: los que suelen fallar
+     * en el preflight MIR (codigo_postal, num_identificacion, provincia,
+     * direccion, municipio, nacionalidad, apellido1, apellido2, nombre,
+     * tipo_documento).
+     */
+    public function fix(Request $request)
+    {
+        $data = $request->validate([
+            'reserva_id' => 'required|integer|exists:reservas,id',
+            'entidad'    => 'required|in:cliente,huesped',
+            'entidad_id' => 'required|integer',
+            'campo'      => 'required|string',
+            'valor'      => 'nullable|string|max:300',
+            'autorevalidar' => 'sometimes|boolean',
+        ]);
+
+        // Whitelist de campos editables desde aqui (mapa por entidad porque
+        // el nombre del campo difiere entre Cliente y Huesped)
+        $camposClienteOk = [
+            'codigo_postal', 'num_identificacion', 'provincia', 'direccion',
+            'nombre_municipio', 'municipio', 'nacionalidad', 'apellido1',
+            'apellido2', 'nombre', 'tipo_documento', 'numero_soporte_documento',
+        ];
+        $camposHuespedOk = [
+            'codigo_postal', 'numero_identificacion', 'provincia', 'direccion',
+            'nombre_municipio', 'municipio', 'nacionalidad', 'primer_apellido',
+            'segundo_apellido', 'nombre', 'tipo_documento', 'numero_soporte_documento',
+            'pais',
+        ];
+
+        try {
+            if ($data['entidad'] === 'cliente') {
+                if (!in_array($data['campo'], $camposClienteOk, true)) {
+                    return back()->with('error', "Campo '{$data['campo']}' no editable desde este panel.");
+                }
+                $persona = \App\Models\Cliente::findOrFail($data['entidad_id']);
+            } else {
+                if (!in_array($data['campo'], $camposHuespedOk, true)) {
+                    return back()->with('error', "Campo '{$data['campo']}' no editable desde este panel.");
+                }
+                $persona = \App\Models\Huesped::findOrFail($data['entidad_id']);
+            }
+
+            $valorAntes = $persona->{$data['campo']} ?? null;
+            $persona->{$data['campo']} = $data['valor'] === '' ? null : $data['valor'];
+            $persona->save();
+
+            Log::info('[RevisionManual] Campo corregido', [
+                'reserva_id' => $data['reserva_id'],
+                'entidad'    => $data['entidad'],
+                'entidad_id' => $data['entidad_id'],
+                'campo'      => $data['campo'],
+                'antes'      => $valorAntes,
+                'despues'    => $persona->{$data['campo']},
+                'user'       => optional(auth()->user())->id,
+            ]);
+
+            // Si el admin pidio revalidar automaticamente, intentamos reenviar
+            // a MIR. Ojo: esto solo lanza el envio una vez; si sigue bloqueada
+            // la veras con los issues actualizados.
+            if ($request->boolean('autorevalidar')) {
+                $reserva = Reserva::find($data['reserva_id']);
+                if ($reserva) {
+                    try {
+                        $mir = new MIRService();
+                        $mir->enviarSiLista($reserva);
+                    } catch (\Throwable $e) {
+                        Log::error('[RevisionManual] Error revalidando tras fix', [
+                            'reserva_id' => $reserva->id,
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+            }
+
+            return redirect()
+                ->route('admin.reservas-revision-manual.index')
+                ->with('success', "Campo '{$data['campo']}' del {$data['entidad']} #{$data['entidad_id']} actualizado.");
+        } catch (\Throwable $e) {
+            Log::error('[RevisionManual] Error en fix', ['error' => $e->getMessage(), 'data' => $data]);
+            return back()->with('error', 'No se pudo guardar: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * Parsea el JSON de mir_respuesta para extraer los issues detectados
      * con el formato [['severity','campo','mensaje','entidad','entidad_id']].
      */
