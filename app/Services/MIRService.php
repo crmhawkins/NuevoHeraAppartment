@@ -1107,11 +1107,33 @@ class MIRService
         $issues = $preflight->validar($reserva);
 
         if ($preflight->hasBlockingErrors($issues)) {
+            // [2026-04-21] Separar issues "tecnicos" (IA caida) de issues
+            // "de datos" (CP mal, DNI mal). Los tecnicos NO requieren accion
+            // del admin, se reintentan solos en el siguiente cron.
+            $issuesDatos = array_filter($issues, function ($i) {
+                $campo = (string) ($i['campo'] ?? '');
+                return ($i['severity'] ?? '') === 'error' && !str_starts_with($campo, '_');
+            });
+            $issuesTecnicos = array_filter($issues, function ($i) {
+                $campo = (string) ($i['campo'] ?? '');
+                return ($i['severity'] ?? '') === 'error' && str_starts_with($campo, '_');
+            });
+
             $detalle = $preflight->formatearParaAlerta($issues);
             $cacheKey = "mir_alerta_validacion_sent:{$reserva->id}";
 
+            // Si solo son issues tecnicos (IA caida), NO spamear al admin.
+            // Reintentara solo en el proximo cron de MIR.
+            if (empty($issuesDatos) && !empty($issuesTecnicos)) {
+                Log::warning('MIR: Preflight fallo solo por problema tecnico IA, no alerto al admin', [
+                    'reserva_id' => $reserva->id,
+                    'issues' => array_values($issuesTecnicos),
+                ]);
+                return null;
+            }
+
             if (!Cache::has($cacheKey)) {
-                $this->enviarAlertaValidacionInvalida($reserva, $detalle);
+                $this->enviarAlertaValidacionInvalida($reserva, array_values($issuesDatos));
                 Cache::put($cacheKey, true, now()->addHours(24));
 
                 // Dejar constancia en la propia reserva
@@ -1282,21 +1304,42 @@ class MIRService
      * Se dispara una sola vez cada 24h por reserva (dedup via Cache en
      * enviarSiLista).
      */
-    private function enviarAlertaValidacionInvalida(Reserva $reserva, string $detalle): void
+    /**
+     * [2026-04-21] Acepta array de issues (antes string) para poder
+     * humanizar cada problema por separado. Cada issue debe tener:
+     * {severity, entidad, entidad_id, campo, mensaje, sugerencia}.
+     */
+    private function enviarAlertaValidacionInvalida(Reserva $reserva, array $issuesDatos): void
     {
         try {
             $whatsappService = app(WhatsappNotificationService::class);
-            $detalleCorto = mb_substr(trim($detalle), 0, 400);
-            $texto  = "⚠️ ALERTA MIR: Reserva #{$reserva->codigo_reserva} (ID: {$reserva->id}) NO se ha enviado a MIR — validacion pre-envio fallida.\n\n";
-            $texto .= "Problemas detectados:\n{$detalleCorto}\n\n";
-            if ($reserva->fecha_entrada) {
-                $texto .= "Entrada: " . \Carbon\Carbon::parse($reserva->fecha_entrada)->format('d/m/Y') . "\n";
+
+            $cliente = $reserva->cliente;
+            $nombreCliente = trim(($cliente->nombre ?? '') . ' ' . ($cliente->apellido1 ?? ''));
+            $entradaFmt = $reserva->fecha_entrada
+                ? \Carbon\Carbon::parse($reserva->fecha_entrada)->format('d/m/Y')
+                : 'sin fecha';
+
+            // Humanizar cada issue
+            $lineasHumanas = [];
+            foreach ($issuesDatos as $i) {
+                $lineasHumanas[] = '• ' . $this->humanizarIssue($i);
             }
-            $texto .= "Corrige los datos del cliente/huesped en el CRM y se reintentara automaticamente.";
+            $detalle = implode("\n", $lineasHumanas);
+
+            $url = config('app.url') . '/admin/reservas-revision-manual';
+
+            $texto = "⚠️ RESERVA BLOQUEADA PARA MIR\n\n"
+                . "Reserva #{$reserva->id} — {$nombreCliente}\n"
+                . "Entrada: {$entradaFmt}\n\n"
+                . "Datos que hay que corregir:\n{$detalle}\n\n"
+                . "📋 Revisar en: {$url}\n"
+                . "Usa el boton 'Arreglar' del campo en rojo. Tras corregir, marca 'Revalidar' y se envia a MIR automaticamente.";
+
             $whatsappService->sendToConfiguredRecipients($texto);
             Log::info('MIR: Alerta WhatsApp enviada por validacion pre-envio fallida', [
                 'reserva_id' => $reserva->id,
-                'detalle' => $detalleCorto,
+                'detalle' => $detalle,
             ]);
         } catch (\Exception $e) {
             Log::error('MIR: No se pudo enviar alerta WhatsApp por validacion pre-envio', [
@@ -1304,6 +1347,85 @@ class MIRService
                 'error_whatsapp' => $e->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * [2026-04-21] Convierte un issue tecnico a texto humano orientado a que
+     * el admin entienda QUE hacer. Ejemplos:
+     *  - codigo_postal con '03' no tiene 5 digitos numericos
+     *    -> "Código Postal del cliente mal: pone '03' pero tiene que ser 5 dígitos (ej: 11204). Ábrele la ficha del cliente y corrígelo."
+     *  - num_identificacion '749.748' no tiene formato DNI ni NIE
+     *    -> "El DNI '749.748' está mal: falta la letra final (ej: 00749748A)."
+     */
+    private function humanizarIssue(array $issue): string
+    {
+        $campo = (string) ($issue['campo'] ?? '');
+        $mensaje = (string) ($issue['mensaje'] ?? '');
+        $entidad = (string) ($issue['entidad'] ?? '');
+        $entidadId = $issue['entidad_id'] ?? null;
+        $sugerencia = $issue['sugerencia'] ?? null;
+
+        // Etiqueta humana para la entidad
+        $quien = $entidad === 'huesped'
+            ? "Huésped" . ($entidadId ? " #{$entidadId}" : '')
+            : "Cliente principal";
+
+        // Etiqueta humana para el campo
+        $campoHumano = match ($campo) {
+            'codigo_postal' => 'Código Postal',
+            'num_identificacion', 'numero_identificacion' => 'DNI/NIE/Pasaporte',
+            'numero_soporte_documento' => 'Número de soporte del documento',
+            'nombre' => 'Nombre',
+            'apellido1', 'primer_apellido' => 'Primer apellido',
+            'apellido2', 'segundo_apellido' => 'Segundo apellido',
+            'provincia' => 'Provincia',
+            'direccion' => 'Dirección',
+            'municipio', 'nombre_municipio' => 'Municipio',
+            'nacionalidad' => 'Nacionalidad',
+            'tipo_documento' => 'Tipo de documento',
+            default => $campo,
+        };
+
+        // Mensajes pre-compuestos para los fallos mas comunes
+        if (str_contains($mensaje, 'no tiene 5 digitos')) {
+            return "{$quien}: {$campoHumano} incorrecto ('{$this->extraerValor($mensaje)}'). Debe tener 5 dígitos.";
+        }
+        if (str_contains($mensaje, 'prefijo provincial inexistente')) {
+            return "{$quien}: {$campoHumano} con prefijo no válido en España. Revísalo.";
+        }
+        if (str_contains($mensaje, 'no tiene formato DNI') || str_contains($mensaje, 'no tiene formato')) {
+            return "{$quien}: {$campoHumano} con formato incorrecto. Un DNI son 8 dígitos + letra (ej: 00123456A). Un NIE es X/Y/Z + 7 dígitos + letra.";
+        }
+        if (str_contains($mensaje, 'letra de control')) {
+            return "{$quien}: {$campoHumano} con letra de control equivocada. " .
+                ($sugerencia ? "Debería ser '{$sugerencia}'." : 'Revisa la letra final.');
+        }
+        if (str_contains($mensaje, 'Falta el numero de soporte')) {
+            return "{$quien}: falta el número de soporte del DNI/NIE. Viene impreso en el documento (formato 'E12345678' para NIE, letra+8 dígitos para DNI).";
+        }
+        if (str_contains($mensaje, 'fuera del rango')) {
+            return "{$quien}: {$campoHumano} no existe en la provincia declarada. Verifica el CP o la provincia.";
+        }
+        if ($campoHumano === 'Código Postal' && str_contains($mensaje, 'blacklist')) {
+            return "{$quien}: {$campoHumano} rechazado por MIR anteriormente. Pide al cliente el CP correcto.";
+        }
+
+        // Fallback: mostrar el mensaje crudo pero con el quien y el campo
+        // amigables
+        $suf = $sugerencia ? " (sugerencia: {$sugerencia})" : '';
+        return "{$quien} — {$campoHumano}: {$mensaje}{$suf}";
+    }
+
+    /**
+     * Extrae un valor entre comillas simples del mensaje (lo que suelen poner
+     * los validadores: "Codigo postal '03' no ...")
+     */
+    private function extraerValor(string $msg): string
+    {
+        if (preg_match("/'([^']+)'/", $msg, $m)) {
+            return $m[1];
+        }
+        return '?';
     }
 
     /**

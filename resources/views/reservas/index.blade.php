@@ -253,7 +253,7 @@
     <div class="card-body p-0">
         @if($reservas->count() > 0)
             <div class="table-responsive">
-                <table class="table table-hover mb-0">
+                <table class="table table-hover mb-0 table-reservas">
                     <thead class="table-light">
                         <tr>
                             <th scope="col" class="border-0">
@@ -419,6 +419,30 @@
                                         <span class="fw-semibold">{{ $reserva->apartamento->titulo }}</span>
                                     </div>
                                 </td>
+                                <td style="max-width: 180px;">
+                                    {{-- [2026-04-21] Celda cliente compacta: toda la celda es clickable
+                                         para ir a la ficha. Nombre truncado con ellipsis si no cabe. --}}
+                                    @if($reserva->cliente_id)
+                                        <a href="{{ route('clientes.show', $reserva->cliente_id) }}"
+                                           class="d-flex align-items-center text-decoration-none text-reset"
+                                           title="Ver ficha de {{ $reserva->cliente->alias ?? '' }}">
+                                            <i class="fas fa-user text-success me-2 flex-shrink-0"></i>
+                                            <span class="fw-semibold text-truncate" style="min-width:0;">{{ $reserva->cliente->alias }}</span>
+                                            @if($reserva->vetada)
+                                                <span class="badge bg-danger ms-1 flex-shrink-0" title="Cliente vetado"><i class="fas fa-ban"></i></span>
+                                            @endif
+                                        </a>
+                                    @else
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-user text-success me-2 flex-shrink-0"></i>
+                                            <span class="fw-semibold text-truncate">{{ $reserva->cliente->alias ?? '-' }}</span>
+                                        </div>
+                                    @endif
+                                </td>
+                                {{-- Dummy para mantener estructura: el botón tarjeta ya no existe
+                                     porque ahora toda la celda del cliente lleva a la ficha --}}
+                                @php /* (celda inline vista por el usuario como clickable unitario) */ @endphp
+                                @if(false)
                                 <td>
                                     <div class="d-flex align-items-center">
                                         <div class="avatar-sm bg-success-subtle rounded-circle d-flex align-items-center justify-content-center me-2">
@@ -436,6 +460,7 @@
                                         @endif
                                     </div>
                                 </td>
+                                @endif
                                 <td>
                                     @php
                                         // [2026-04-21] Logica de pago mejorada
@@ -564,9 +589,9 @@
                                         <span class="badge bg-warning text-dark" title="Sin programar en cerradura">!</span>
                                     @endif
                                 </td>
-                                <td>
-                                    <span class="fw-bold fs-5 text-success">
-                                        <i class="fas fa-euro-sign me-1"></i>{{ number_format($reserva->precio, 2) }}
+                                <td class="text-nowrap">
+                                    <span class="fw-bold text-success">
+                                        {{ number_format($reserva->precio, 2, ',', '.') }}&nbsp;€
                                     </span>
                                 </td>
                                 <td>
@@ -1056,6 +1081,20 @@
 </div>
 
 <style>
+/* [2026-04-21] Filas compactas en una sola linea */
+.table-reservas tbody td {
+    white-space: nowrap;
+    vertical-align: middle;
+    padding-top: 0.4rem;
+    padding-bottom: 0.4rem;
+}
+/* Nombre del cliente: permitir truncado con elipsis si excede */
+.table-reservas tbody td .text-truncate {
+    display: inline-block;
+    max-width: 150px;
+    vertical-align: middle;
+}
+
 /* Estilos para el doble clic en filas de reservas */
 tbody tr:hover {
     background-color: rgba(220, 53, 69, 0.05) !important;
