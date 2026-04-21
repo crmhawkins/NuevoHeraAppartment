@@ -195,6 +195,14 @@ class Kernel extends ConsoleKernel
         // Se ejecuta 2 veces al día: 10:00 y 22:00
         $schedule->command('mir:enviar-pendientes')->twiceDaily(10, 22)->withoutOverlapping();
 
+        // [2026-04-21] Alerta semanal de impagos de OTAs (Booking/Airbnb/Agoda).
+        // Detecta reservas con check-out hace mas de 10 dias sin ingreso
+        // bancario vinculado. Lunes a las 09:00 para revisar con el lunes
+        // laboral. Solo crea notificacion en el CRM (no WhatsApp).
+        $schedule->command('facturacion:alertar-impagos-ota')
+            ->weeklyOn(1, '09:00') // 1 = lunes
+            ->withoutOverlapping();
+
         // Verificar que las reservas de hoy tienen todo preparado para el check-in
         $schedule->command('checkin:verificar-hoy')->dailyAt('08:00')->withoutOverlapping();
 
