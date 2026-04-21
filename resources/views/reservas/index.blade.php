@@ -95,6 +95,29 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
 
+{{-- [2026-04-20] Aviso si hay reservas bloqueadas por validacion MIR --}}
+@php
+    $reservasPendientesRevision = \App\Models\Reserva::where('mir_estado', 'error_validacion')
+        ->where('estado_id', '!=', 4)
+        ->where('dni_entregado', true)
+        ->count();
+@endphp
+@if ($reservasPendientesRevision > 0)
+    <div class="alert alert-danger d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>{{ $reservasPendientesRevision }}</strong>
+            reserva{{ $reservasPendientesRevision == 1 ? '' : 's' }}
+            bloqueada{{ $reservasPendientesRevision == 1 ? '' : 's' }}
+            para enviar a MIR por datos incorrectos (CP, DNI, etc.).
+            Revisa y corrige los datos del cliente.
+        </div>
+        <a href="{{ route('admin.reservas-revision-manual.index') }}" class="btn btn-light btn-sm">
+            <i class="fas fa-wrench me-1"></i>Revisar ahora
+        </a>
+    </div>
+@endif
+
 <!-- Page Header -->
 <div class="d-flex justify-content-between align-items-center mb-4">
     <div>
@@ -486,6 +509,16 @@
                                     @if($reserva->mir_enviado)
                                         <span class="badge bg-success-subtle text-success">
                                             <i class="fas fa-check me-1"></i>SI
+                                        </span>
+                                    @elseif($reserva->mir_estado === 'error_validacion')
+                                        <a href="{{ route('admin.reservas-revision-manual.index') }}"
+                                           class="badge bg-danger text-white text-decoration-none"
+                                           title="MIR bloqueado por validacion. Click para revisar y corregir datos.">
+                                            <i class="fas fa-exclamation-triangle me-1"></i>REVISAR
+                                        </a>
+                                    @elseif($reserva->mir_estado === 'ignorado_manual')
+                                        <span class="badge bg-secondary-subtle text-secondary" title="Ignorado manualmente">
+                                            <i class="fas fa-ban me-1"></i>IGNORADO
                                         </span>
                                     @else
                                         <span class="badge bg-warning-subtle text-warning">

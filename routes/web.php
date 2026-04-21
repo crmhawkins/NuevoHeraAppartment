@@ -1445,6 +1445,14 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:ADMIN'])->grou
         ->name('clientes-vetados.store');
     Route::post('/clientes-vetados/{id}/levantar', [\App\Http\Controllers\Admin\ClienteVetoController::class, 'levantar'])
         ->name('clientes-vetados.levantar');
+
+    // [2026-04-20] Reservas bloqueadas por validacion MIR (revision manual)
+    Route::get('/reservas-revision-manual', [\App\Http\Controllers\Admin\ReservaRevisionManualController::class, 'index'])
+        ->name('reservas-revision-manual.index');
+    Route::post('/reservas-revision-manual/{id}/revalidar', [\App\Http\Controllers\Admin\ReservaRevisionManualController::class, 'revalidar'])
+        ->name('reservas-revision-manual.revalidar');
+    Route::post('/reservas-revision-manual/{id}/ignorar', [\App\Http\Controllers\Admin\ReservaRevisionManualController::class, 'ignorar'])
+        ->name('reservas-revision-manual.ignorar');
 });
 
 // ============================================
