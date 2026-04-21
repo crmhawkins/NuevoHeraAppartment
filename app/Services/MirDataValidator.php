@@ -228,6 +228,13 @@ class MirDataValidator
         // E. DNI/NIE formato + digito de control
         $issues = array_merge($issues, $this->validarDocumento($dni, $tipoDoc, $entidad, $entidadId, $campoDni, $pais));
 
+        // E-bis. [2026-04-21] Numero de soporte obligatorio para DNI/NIE espanoles
+        // segun RD 933/2021 y el XSD del SES.Hospedajes. Si detectamos que el
+        // documento tiene formato de DNI/NIE valido, el numero de soporte
+        // debe estar rellenado; si no, MIR rechaza el envio.
+        $soporte = $persona->numero_soporte_documento ?? '';
+        $issues = array_merge($issues, $this->validarNumeroSoporte($dni, $soporte, $entidad, $entidadId, $pais));
+
         // G. Campos MIR con caracteres raros o longitud excesiva
         $issues = array_merge($issues, $this->validarCaracteresYLongitud($nombre, 'nombre', 60, $entidad, $entidadId));
         $issues = array_merge($issues, $this->validarCaracteresYLongitud($ap1, $campoAp1, 60, $entidad, $entidadId));
@@ -513,6 +520,62 @@ class MirDataValidator
         // conducir europeo, documentos extranjeros, etc.) cuando tengamos la
         // tabla completa. De momento warning para no bloquear.
         return [$this->issue('warning', $entidad, $id, $campo, "Documento '{$doc}' con formato no reconocido y tipo '{$tipo}'", null)];
+    }
+
+    /**
+     * [2026-04-21] Valida el numero de soporte del documento, obligatorio
+     * para DNI y NIE espanoles segun RD 933/2021 / SES Hospedajes.
+     *
+     * El numero de soporte es el codigo que aparece impreso en el propio
+     * documento:
+     *  - DNI: suele empezar por letra + 8 digitos (ej. "ABC123456").
+     *  - NIE: suele empezar por "E" + 8-9 digitos (ej. "E12345678").
+     *
+     * Reglas:
+     *  - Si el DNI tiene formato valido de DNI/NIE espanol Y el numero de
+     *    soporte esta vacio -> error (MIR rechaza sin el).
+     *  - Si es pasaporte o extranjero -> no aplica (MIR no pide soporte).
+     */
+    private function validarNumeroSoporte(string $dni, string $soporte, string $entidad, int $id, string $pais = ''): array
+    {
+        $issues = [];
+
+        $dni = strtoupper(trim($dni));
+        $soporte = trim($soporte);
+
+        if ($dni === '') {
+            return $issues; // otra validacion lo caza
+        }
+
+        // Si es extranjero con pasaporte / doc de su pais, no aplica soporte
+        $paisUpper = strtoupper(trim($pais));
+        $esExtranjero = $paisUpper !== '' && !in_array($paisUpper, $this->paisEspanaAliases, true);
+        if ($esExtranjero) {
+            return $issues;
+        }
+
+        // ¿Tiene formato DNI (8 digitos + letra) o NIE ([XYZ] + 7 digitos + letra)?
+        $esDNI = (bool) preg_match('/^\d{8}[A-Z]$/', $dni);
+        $esNIE = (bool) preg_match('/^[XYZ]\d{7}[A-Z]$/', $dni);
+
+        if (!$esDNI && !$esNIE) {
+            return $issues; // otros formatos ya los cazan otras validaciones
+        }
+
+        if ($soporte === '') {
+            $tipoDesc = $esNIE ? 'NIE' : 'DNI';
+            $ejemplo = $esNIE ? 'E12345678' : 'ABC123456';
+            $issues[] = $this->issue(
+                'error',
+                $entidad,
+                $id,
+                'numero_soporte_documento',
+                "Falta el numero de soporte del {$tipoDesc} (obligatorio para MIR). Viene impreso en el propio documento, formato tipo '{$ejemplo}'.",
+                null
+            );
+        }
+
+        return $issues;
     }
 
     /**

@@ -322,10 +322,16 @@ Analiza si:
 2. Los apellidos estan bien escritos y partidos (no preposiciones sueltas
    tipo "DE", "DEL", "LA" como apellido completo).
 3. El tipo de documento encaja con la nacionalidad:
-   - Para espanoles: DNI (8 digitos + letra) o NIE si es residente extranjero.
+   - Para espanoles: DNI (8 digitos + letra).
+   - Para residentes extranjeros en Espana: NIE ([XYZ] + 7 digitos + letra).
+     IMPORTANTE: si es DNI o NIE, es OBLIGATORIO tener rellenado el campo
+     "numero_soporte_documento" — es el codigo impreso en el documento
+     fisico (DNI: letra + 8 digitos; NIE: "E" + 8-9 digitos). Si falta,
+     MIR rechaza con severity="error".
    - Para extranjeros: Pasaporte o documento de identidad nacional de su
      pais. EL CAMPO "dni"/"num_identificacion" CONTIENE EL NUMERO DE SU
-     DOCUMENTO EXTRANJERO, NO debe estar vacio.
+     DOCUMENTO EXTRANJERO, NO debe estar vacio. El numero_soporte no
+     aplica para extranjeros con pasaporte.
 
 REGLA TAJANTE sobre viajeros extranjeros (nacionalidad != ES):
    Para un viajero extranjero, la UNICA razon valida para devolver un
