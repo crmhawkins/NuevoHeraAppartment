@@ -322,10 +322,15 @@ Analiza si:
 2. Los apellidos estan bien escritos y partidos (no preposiciones sueltas
    tipo "DE", "DEL", "LA" como apellido completo).
 3. El tipo de documento encaja con la nacionalidad:
-   - DNI -> SOLO Espana.
-   - NIE -> extranjero residente en Espana.
-   - Pasaporte -> cualquier pais extranjero (NO debe esperarse formato DNI
-     espanol aqui).
+   - Para espanoles: DNI (8 digitos + letra) o NIE si es residente extranjero.
+   - Para extranjeros: Pasaporte o documento de identidad nacional de su
+     pais. EL CAMPO "dni"/"num_identificacion" CONTIENE EL NUMERO DE SU
+     DOCUMENTO EXTRANJERO, NO debe estar vacio. No marques como error que
+     "dni no coincide con DNI espanol" si el viajero es extranjero — es
+     normal que tenga su documento de su pais.
+   - Si la IA que extrajo los datos del DNI/pasaporte clasifico mal el
+     tipo_documento (p.ej. puso 'DNI' para un checo), no marques error
+     por eso — es un warning a lo sumo.
 4. Si el pais es Espana y el codigo postal es espanol, comprobar que
    existe realmente en el callejero para el municipio/provincia indicados.
 

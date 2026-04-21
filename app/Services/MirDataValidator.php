@@ -226,7 +226,7 @@ class MirDataValidator
         $issues = array_merge($issues, $this->validarCodigoPostalProvincia($cp, $provincia, $pais, $entidad, $entidadId));
 
         // E. DNI/NIE formato + digito de control
-        $issues = array_merge($issues, $this->validarDocumento($dni, $tipoDoc, $entidad, $entidadId, $campoDni));
+        $issues = array_merge($issues, $this->validarDocumento($dni, $tipoDoc, $entidad, $entidadId, $campoDni, $pais));
 
         // G. Campos MIR con caracteres raros o longitud excesiva
         $issues = array_merge($issues, $this->validarCaracteresYLongitud($nombre, 'nombre', 60, $entidad, $entidadId));
@@ -435,13 +435,26 @@ class MirDataValidator
      * E. DNI/NIE formato + digito de control.
      * Si tipoDoc == pasaporte (o variantes), solo validamos que no este vacio.
      */
-    private function validarDocumento(string $doc, string $tipoDoc, string $entidad, int $id, string $campo): array
+    private function validarDocumento(string $doc, string $tipoDoc, string $entidad, int $id, string $campo, string $pais = ''): array
     {
         $doc = strtoupper(trim($doc));
         $tipo = strtoupper(trim((string) $tipoDoc));
 
         if ($doc === '') {
             return [$this->issue('error', $entidad, $id, $campo, 'Documento identificativo vacio', null)];
+        }
+
+        // [2026-04-20] Si la nacionalidad es extranjera, ignoramos el tipo
+        // declarado (la IA a veces clasifica mal los documentos extranjeros
+        // como 'DNI') y tratamos cualquier doc como pasaporte/documento
+        // extranjero — solo chequeo blando.
+        $paisUpper = strtoupper(trim($pais));
+        $esExtranjero = $paisUpper !== '' && !in_array($paisUpper, $this->paisEspanaAliases, true);
+        if ($esExtranjero) {
+            if (!preg_match('/^[A-Z0-9]{4,20}$/', $doc)) {
+                return [$this->issue('warning', $entidad, $id, $campo, "Documento extranjero con formato raro: '{$doc}'", null)];
+            }
+            return [];
         }
 
         // Detectar pasaporte por tipo o forma (no empieza por X/Y/Z ni son 8 digitos)
