@@ -195,6 +195,13 @@ class Kernel extends ConsoleKernel
         // Se ejecuta 2 veces al día: 10:00 y 22:00
         $schedule->command('mir:enviar-pendientes')->twiceDaily(10, 22)->withoutOverlapping();
 
+        // [2026-04-21] Backup horario de las fotos de DNI a ruta persistente.
+        // Red de seguridad por si Coolify recrea el contenedor y el volumen
+        // principal se reinicia: las fotos quedan tambien en storage/backups-externo/
+        $schedule->command('backup:fotos-dni')
+            ->hourly()
+            ->withoutOverlapping();
+
         // [2026-04-21] Alerta semanal de impagos de OTAs (Booking/Airbnb/Agoda).
         // Detecta reservas con check-out hace mas de 10 dias sin ingreso
         // bancario vinculado. Lunes a las 09:00 para revisar con el lunes

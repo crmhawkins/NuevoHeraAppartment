@@ -3,9 +3,15 @@
 /public/hot
 /public/storage
 /storage/*.key
-/storage/app/photos/dni
+/storage/app/photos
 /storage/app/signatures
 /storage/app/temp
+/storage/app/backups
+/storage/app/logs/bookings
+# [2026-04-21] Uploads de clientes: NUNCA en git.
+# Esto evita que un redeploy con 'rm -rf *' + git clone restaure versiones
+# antiguas O que archivos subidos se pierdan por no estar trackeados.
+/public/imagesCliente
 /storage/framework/sessions/*
 !/storage/framework/sessions/.gitignore
 /storage/framework/cache/*
