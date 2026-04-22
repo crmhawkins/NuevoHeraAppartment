@@ -220,9 +220,9 @@ class MirIaValidator
      * Ejecuta la validacion a traves del AIGatewayService con loop de tool_calls.
      *
      * @param array{bloques: array<int, array<string, mixed>>} $datos
-     * @return array<int, array<string, mixed>>
+     * @return array<int, array<string, mixed>>|null Null cuando la IA no esta disponible (validar() lo convertira en error bloqueante).
      */
-    private function ejecutarValidacionIA(array $datos): array
+    private function ejecutarValidacionIA(array $datos): ?array
     {
         $gateway = app(AIGatewayService::class);
 

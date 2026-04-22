@@ -1807,7 +1807,23 @@ INSTRUCCIONES ESPECÍFICAS:
         }
         
         $extractedData = [];
-        
+
+        // [2026-04-22] Formato Ollama /api/chat: {message:{role,content:"<json>"}}
+        // El JSON con los datos del DNI viene dentro de message.content como string.
+        if (isset($responseData['message']) && is_array($responseData['message']) && isset($responseData['message']['content'])) {
+            $content = $responseData['message']['content'];
+            if (is_string($content) && $content !== '') {
+                $decoded = json_decode($content, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    return $decoded;
+                }
+                $fromText = $this->extractJsonFromText($content);
+                if (!empty($fromText)) {
+                    return $fromText;
+                }
+            }
+        }
+
         // Formato 1: respuesta directa con JSON en 'respuesta'
         if (isset($responseData['respuesta'])) {
             $respuestaJson = $responseData['respuesta'];

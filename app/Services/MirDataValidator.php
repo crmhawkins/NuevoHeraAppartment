@@ -424,12 +424,18 @@ class MirDataValidator
         } else {
             $provNorm = $this->normalizar($prov);
             if (!in_array($provNorm, $aliases, true)) {
+                // [2026-04-22] Downgrade a warning (no bloqueante) porque es
+                // habitual que el usuario escriba la localidad (p.ej.
+                // 'Algeciras', 'Jerez', 'Gijon') en el campo provincia en vez
+                // del nombre oficial. Mientras el CP este en el rango correcto
+                // (ya validado arriba) MIR acepta la reserva; solo avisamos
+                // para que se corrija.
                 $issues[] = $this->issue(
-                    'error',
+                    'warning',
                     $entidad,
                     $id,
                     'provincia',
-                    "Provincia declarada '{$prov}' no coincide con el prefijo CP {$prefix} ({$oficial})",
+                    "Provincia declarada '{$prov}' no coincide con el prefijo CP {$prefix} ({$oficial}) — posible localidad en vez de provincia",
                     $oficial
                 );
             }
