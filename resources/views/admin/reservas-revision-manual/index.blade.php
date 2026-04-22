@@ -282,7 +282,7 @@
                                             </form>
                                             <form method="POST"
                                                   action="{{ route('admin.reservas-revision-manual.reanalizar-dni', $r->id) }}"
-                                                  onsubmit="return confirm('¿Pedir a la IA que re-analice la foto del DNI para extraer los campos que falten?\n\nSolo rellenará campos vacíos (no pisa datos ya guardados).');">
+                                                  class="form-reanalizar">
                                                 @csrf
                                                 <button type="submit" class="btn btn-sm btn-info w-100 text-white"
                                                         title="Vuelve a pasar la foto del DNI por la IA y rellena los campos que quedaron vacíos la primera vez (p.ej. número de soporte)">
@@ -398,6 +398,34 @@ document.addEventListener('DOMContentLoaded', function () {
     </div>
 </div>
 
+{{-- [2026-04-22] Modal de progreso para el re-analisis con IA. La peticion
+     HTTP tarda ~5-15 segundos (Qwen3-VL mirando la foto del DNI), asi que
+     ensenamos frases divertidas para que el admin no piense que se ha
+     colgado. Se abre al enviar el form de re-analizar y se cierra solo
+     cuando la nueva pagina se carga (redirect del POST). --}}
+<div class="modal fade" id="modalReanalizando" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center py-5">
+                <div class="mb-4" style="font-size: 3rem;">
+                    <i class="fas fa-robot" id="reanaliza-icon" style="color: #17a2b8;"></i>
+                </div>
+                <h5 class="mb-3">Analizando el DNI con la IA…</h5>
+                <p class="text-muted mb-4" id="reanaliza-frase" style="min-height: 3em;">
+                    Preparando los folios…
+                </p>
+                <div class="progress" style="height: 6px;">
+                    <div id="reanaliza-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-info"
+                         role="progressbar" style="width: 0%"></div>
+                </div>
+                <small class="text-muted d-block mt-3">
+                    <i class="fas fa-info-circle me-1"></i>Esto suele tardar entre 5 y 15 segundos.
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const modal = document.getElementById('modalFoto');
@@ -409,6 +437,78 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('modalFotoTitulo').textContent = titulo;
         document.getElementById('modalFotoAbrir').href = src;
     });
+
+    // ----- Modal de progreso "re-analizando con IA" -----
+    const FRASES = [
+        'Preparando los folios…',
+        'Sacando la lupa…',
+        'Ajustando las gafas…',
+        'Leyendo el DNI con detenimiento…',
+        'Buscando el número de soporte…',
+        'Cotejando con el archivo…',
+        'Pasándolo a limpio…',
+        'Comparando datos con el huésped…',
+        'Revisando los bordes del carné…',
+        'Descifrando el sello holográfico…',
+        'Preguntándole al Reino de España…',
+        'Desempolvando el bolígrafo de tinta azul…',
+        'Poniendo el pie derecho al escribir…',
+        'Mirando dos veces por si acaso…',
+        'Consultando con el ministerio…',
+        'Revisando por enésima vez…',
+        'Abriendo el monóculo…',
+        'Pidiendo permiso al notario…',
+        'Llamando a la fábrica de DNIs…',
+    ];
+    const ICONOS = ['fa-robot', 'fa-search', 'fa-glasses', 'fa-id-card', 'fa-magnifying-glass', 'fa-pen-nib', 'fa-file-signature'];
+
+    const formsReanalizar = document.querySelectorAll('form.form-reanalizar');
+    const modalReanaliza = document.getElementById('modalReanalizando');
+    const fraseEl = document.getElementById('reanaliza-frase');
+    const iconEl  = document.getElementById('reanaliza-icon');
+    const barEl   = document.getElementById('reanaliza-bar');
+
+    formsReanalizar.forEach(f => {
+        f.addEventListener('submit', function (e) {
+            if (!confirm('¿Pedir a la IA que re-analice la foto del DNI para extraer los campos que falten?\n\nSolo rellenará campos vacíos (no pisa datos ya guardados).')) {
+                e.preventDefault();
+                return false;
+            }
+            // Mostrar modal de progreso
+            const bsModal = new bootstrap.Modal(modalReanaliza);
+            bsModal.show();
+
+            // Rotar frases cada 1.8s
+            let idx = 0;
+            let frasesUsadas = [...FRASES].sort(() => Math.random() - 0.5);
+            fraseEl.textContent = frasesUsadas[0];
+            let iconIdx = 0;
+            setInterval(() => {
+                idx = (idx + 1) % frasesUsadas.length;
+                fraseEl.style.opacity = 0;
+                setTimeout(() => {
+                    fraseEl.textContent = frasesUsadas[idx];
+                    fraseEl.style.opacity = 1;
+                }, 180);
+                iconIdx = (iconIdx + 1) % ICONOS.length;
+                iconEl.className = 'fas ' + ICONOS[iconIdx];
+            }, 1800);
+
+            // Simular barra de progreso que sube asintóticamente hacia 90%
+            // (nunca llega al 100% hasta que el servidor responde — así si
+            // tarda mucho no parece que esté "terminado y colgado")
+            let pct = 0;
+            setInterval(() => {
+                pct = pct + (90 - pct) * 0.04;
+                barEl.style.width = pct.toFixed(1) + '%';
+            }, 200);
+
+            // No preventDefault — dejamos que el POST se envie y navegue.
+            // Al cargar la nueva pagina el modal desaparece naturalmente.
+        });
+    });
+    // Estilo para transicion suave de frases
+    if (fraseEl) fraseEl.style.transition = 'opacity 0.2s ease';
 });
 </script>
 @endsection
