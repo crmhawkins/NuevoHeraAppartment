@@ -3,6 +3,37 @@
 @section('title', 'Reservas pendientes de revisión manual')
 
 @section('content')
+<style>
+/* [2026-04-22] Botones de rotar sobre la miniatura — aparecen al hacer hover */
+.thumb-rotable .thumb-rotar-controls {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    display: flex;
+    justify-content: center;
+    gap: 2px;
+    padding: 2px;
+    background: rgba(0,0,0,0.55);
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    pointer-events: none;
+}
+.thumb-rotable:hover .thumb-rotar-controls {
+    opacity: 1;
+    pointer-events: auto;
+}
+.thumb-rotable .thumb-rotar-btn {
+    width: 18px; height: 18px;
+    line-height: 1;
+    color: #fff !important;
+    background: transparent !important;
+    border: none !important;
+}
+.thumb-rotable .thumb-rotar-btn:hover {
+    background: rgba(255,255,255,0.18) !important;
+}
+</style>
 <div class="container-fluid">
     <div class="apple-card">
         <div class="apple-card-header">
@@ -99,16 +130,7 @@
                                                         @foreach ($fotosCli as $foto)
                                                             @php $lado = in_array($foto->photo_categoria_id, [13, 15]) ? 'Frontal' : 'Trasera'; @endphp
                                                             @if (!empty($foto->_archivo_existe))
-                                                                <a href="#"
-                                                                   data-bs-toggle="modal"
-                                                                   data-bs-target="#modalFoto"
-                                                                   data-src="{{ route('admin.reservas-revision-manual.foto', $foto->id) }}"
-                                                                   data-titulo="Cliente — {{ $lado }}"
-                                                                   title="Documento {{ $lado }}">
-                                                                    <img src="{{ route('admin.reservas-revision-manual.foto', $foto->id) }}"
-                                                                         alt="Doc {{ $lado }}"
-                                                                         style="width:56px;height:56px;object-fit:cover;border-radius:4px;border:1px solid #ccc;">
-                                                                </a>
+                                                                @include('admin.reservas-revision-manual.partials.thumb-rotable', ['foto' => $foto, 'titulo' => "Cliente — {$lado}", 'alt' => "Doc {$lado}"])
                                                             @else
                                                                 <div class="text-center d-flex flex-column align-items-center justify-content-center"
                                                                      style="width:56px;height:56px;border-radius:4px;border:1px dashed #dc3545;background:#fff5f5;"
@@ -128,16 +150,7 @@
                                                         @foreach ($fotos as $foto)
                                                             @php $lado = in_array($foto->photo_categoria_id, [13, 15]) ? 'Frontal' : 'Trasera'; @endphp
                                                             @if (!empty($foto->_archivo_existe))
-                                                                <a href="#"
-                                                                   data-bs-toggle="modal"
-                                                                   data-bs-target="#modalFoto"
-                                                                   data-src="{{ route('admin.reservas-revision-manual.foto', $foto->id) }}"
-                                                                   data-titulo="Huésped #{{ $huespedId }} — {{ $lado }}"
-                                                                   title="Documento {{ $lado }}">
-                                                                    <img src="{{ route('admin.reservas-revision-manual.foto', $foto->id) }}"
-                                                                         alt="Doc {{ $lado }}"
-                                                                         style="width:56px;height:56px;object-fit:cover;border-radius:4px;border:1px solid #ccc;">
-                                                                </a>
+                                                                @include('admin.reservas-revision-manual.partials.thumb-rotable', ['foto' => $foto, 'titulo' => "Huésped #{$huespedId} — {$lado}", 'alt' => "Doc {$lado}"])
                                                             @else
                                                                 <div class="text-center d-flex flex-column align-items-center justify-content-center"
                                                                      style="width:56px;height:56px;border-radius:4px;border:1px dashed #dc3545;background:#fff5f5;"

@@ -423,6 +423,57 @@ class ReservaRevisionManualController extends Controller
     }
 
     /**
+     * [2026-04-22] Rota una foto de DNI ±90 / 180 grados in-place. Se usa
+     * desde los botones de la miniatura en el panel de revision manual para
+     * arreglar fotos que quedaron mal orientadas tras el auto-orient.
+     */
+    public function rotarFoto(Request $request, int $photoId)
+    {
+        $grados = (int) $request->input('grados', 90);
+        if (!in_array($grados, [90, -90, 180], true)) {
+            return back()->with('error', "Grados invalidos: {$grados}");
+        }
+
+        $photo = Photo::find($photoId);
+        if (!$photo || !in_array($photo->photo_categoria_id, [13, 14, 15, 16], true)) {
+            return back()->with('error', 'Foto no encontrada o categoria no DNI.');
+        }
+
+        $rel = preg_replace('~^private/~', '', (string) $photo->url);
+        $abs = storage_path('app/' . $rel);
+        if (!is_file($abs)) {
+            return back()->with('error', "El archivo de la foto ya no existe en disco.");
+        }
+
+        try {
+            $bytes = @file_get_contents($abs);
+            $img = @imagecreatefromstring($bytes);
+            if (!$img) {
+                return back()->with('error', 'La imagen no se pudo decodificar (formato no soportado).');
+            }
+            $rotado = imagerotate($img, -$grados, 0);
+            imagedestroy($img);
+            if (!$rotado) {
+                return back()->with('error', 'GD no pudo rotar la imagen.');
+            }
+            if (!imagejpeg($rotado, $abs, 90)) {
+                imagedestroy($rotado);
+                return back()->with('error', 'No se pudo guardar la imagen rotada.');
+            }
+            imagedestroy($rotado);
+
+            Log::info('[RevisionManual] Foto DNI rotada manualmente', [
+                'photo_id' => $photoId, 'grados' => $grados, 'user' => optional(auth()->user())->id,
+            ]);
+
+            return back()->with('success', "Foto #{$photoId} rotada {$grados}°.");
+        } catch (\Throwable $e) {
+            Log::error('[RevisionManual] Error rotando foto', ['photo_id' => $photoId, 'error' => $e->getMessage()]);
+            return back()->with('error', 'Error: ' . $e->getMessage());
+        }
+    }
+
+    /**
      * [2026-04-22] Re-analiza las fotos del DNI/pasaporte de la reserva con
      * la IA visual (qwen3-vl:8b) para extraer los campos que quedaron vacios
      * la primera vez. Util cuando el primer pass de OCR no vio el numero de

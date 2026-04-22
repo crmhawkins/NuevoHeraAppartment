@@ -1461,6 +1461,11 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:ADMIN'])->grou
     // que falten (p.ej. numero_soporte_documento que quedo vacio la primera vez).
     Route::post('/reservas-revision-manual/{id}/reanalizar-dni', [\App\Http\Controllers\Admin\ReservaRevisionManualController::class, 'reanalizarDni'])
         ->name('reservas-revision-manual.reanalizar-dni');
+    // [2026-04-22] Rotar manualmente una foto de DNI (para casos en los que
+    // la foto llega con el carnet ladeado dentro del frame — la auto-orient
+    // por EXIF+aspect no lo detecta).
+    Route::post('/reservas-revision-manual/foto/{photoId}/rotar', [\App\Http\Controllers\Admin\ReservaRevisionManualController::class, 'rotarFoto'])
+        ->name('reservas-revision-manual.rotar-foto');
 });
 
 // ============================================
