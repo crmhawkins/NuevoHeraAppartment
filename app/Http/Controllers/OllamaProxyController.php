@@ -14,9 +14,9 @@ class OllamaProxyController extends Controller
     public function __construct()
     {
         $this->ollamaConfig = [
-            'base_url' => config('services.ollama.base_url', 'https://192.168.1.45/chat'),
+            'base_url' => config('services.ollama.base_url', ''),
             'api_key' => config('services.ollama.api_key'),
-            'model' => config('services.ollama.model', 'qwen2.5vl:latest'),
+            'model' => config('services.ollama.model', 'qwen3-vl:8b'),
         ];
     }
 

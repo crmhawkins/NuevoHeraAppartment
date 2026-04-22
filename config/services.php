@@ -43,14 +43,21 @@ return [
         'max_tokens' => env('OPENAI_MAX_TOKENS', 500),
     ],
 
+    // [2026-04-22] Hawkins AI: servidor 5090 en LAN Hawkins accesible via
+    // tunel inverso SSH. URL tipica: http://10.0.0.1:11435/ (wrapper Python
+    // con endpoints /chat/chat para texto y /chat/analyze-image para vision)
+    // o :11434/ para API nativa Ollama /api/chat. El modelo por defecto es
+    // el visual (qwen3-vl:8b) porque la mayoria del CRM lo usa para DNI y
+    // facturas; para chat de texto (WhatsApp, email) se usa gpt-oss:120b-cloud
+    // via HAWKINS_WHATSAPP_AI o HAWKINS_AI_CHAT_MODEL.
     'hawkins_ai' => [
-        'url' => env('HAWKINS_AI_URL', 'https://aiapi.hawkins.es/chat/chat'),
+        'url' => env('HAWKINS_AI_URL', ''),
         'api_key' => env('HAWKINS_AI_API_KEY'),
-        'model' => env('HAWKINS_AI_MODEL', 'gpt-oss:120b-cloud'),
+        'model' => env('HAWKINS_AI_MODEL', 'qwen3-vl:8b'),
     ],
 
     'hawkins_whatsapp_ai' => [
-        'base_url' => env('HAWKINS_WHATSAPP_AI_URL', 'https://aiapi.hawkins.es/chat/chat'),
+        'base_url' => env('HAWKINS_WHATSAPP_AI_URL', ''),
         'api_key' => env('HAWKINS_WHATSAPP_AI_API_KEY'),
         'model' => env('HAWKINS_WHATSAPP_AI', 'gpt-oss:120b-cloud'),
     ],
@@ -67,7 +74,7 @@ return [
     ],
 
     'ai_translation' => [
-        'url' => env('AI_TRANSLATION_URL', 'https://aiapi.hawkins.es/chat/chat'),
+        'url' => env('AI_TRANSLATION_URL', ''),
         'api_key' => env('AI_TRANSLATION_API_KEY'),
         'model' => env('AI_TRANSLATION_MODEL', 'gpt-oss:120b-cloud'),
     ],
@@ -94,10 +101,13 @@ return [
         'base_url' => 'https://graph.facebook.com',
     ],
 
+    // [2026-04-22] Config legacy para OllamaProxyController (endpoint
+    // proxy de pruebas). No se usa en produccion — la integracion real
+    // va por 'hawkins_ai' / 'hawkins_whatsapp_ai'. Sin defaults vivos.
     'ollama' => [
-        'base_url' => env('OLLAMA_BASE_URL', 'https://192.168.1.45/chat'),
+        'base_url' => env('OLLAMA_BASE_URL', ''),
         'api_key' => env('OLLAMA_API_KEY'),
-        'model' => env('OLLAMA_MODEL', 'qwen2.5vl:latest'),
+        'model' => env('OLLAMA_MODEL', 'qwen3-vl:8b'),
     ],
 
     'facturas' => [

@@ -526,9 +526,9 @@ class DNIScannerController extends Controller
             ]);
             
             // Obtener información del modelo de IA para debugging
-            $model = env('HAWKINS_AI_MODEL', 'qwen2.5vl:latest');
-            $baseUrl = env('HAWKINS_AI_URL', 'https://192.168.1.45');
-            $aiUrl = rtrim($baseUrl, '/') . '/chat/analyze-image';
+            $model = env('HAWKINS_AI_MODEL', 'qwen3-vl:8b');
+            $baseUrl = env('HAWKINS_AI_URL', '');
+            $aiUrl = $baseUrl !== '' ? rtrim($baseUrl, '/') . '/api/chat' : '';
             
             return response()->json([
                 'success' => false,
@@ -1293,7 +1293,7 @@ class DNIScannerController extends Controller
             // HAWKINS_AI_URL debe ser la URL base sin /chat (ej: https://192.168.1.45)
             $baseUrl = config('services.hawkins_ai.url', env('HAWKINS_AI_URL'));
             $apiKey = config('services.hawkins_ai.api_key', env('HAWKINS_AI_API_KEY'));
-            $model = config('services.hawkins_ai.model', env('HAWKINS_AI_MODEL', 'qwen2.5vl:latest'));
+            $model = config('services.hawkins_ai.model', env('HAWKINS_AI_MODEL', 'qwen3-vl:8b'));
             
             // [2026-04-22] Apuntamos al endpoint estandar de Ollama /api/chat
             // directamente (no al wrapper /chat/analyze-image del servidor

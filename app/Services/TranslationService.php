@@ -16,7 +16,7 @@ class TranslationService
 
     public function __construct()
     {
-        $this->apiUrl = config('services.ai_translation.url', env('AI_TRANSLATION_URL', 'https://192.168.1.45/chat/chat'));
+        $this->apiUrl = config('services.ai_translation.url', env('AI_TRANSLATION_URL', ''));
         $this->apiKey = config('services.ai_translation.api_key', env('AI_TRANSLATION_API_KEY'));
         $this->model = config('services.ai_translation.model', env('AI_TRANSLATION_MODEL', 'gpt-oss:120b-cloud'));
     }
@@ -39,6 +39,15 @@ class TranslationService
         // Limpiar el texto
         $text = trim($text);
         if (empty($text)) {
+            return $text;
+        }
+
+        // [2026-04-22] Si no hay API URL configurada (env AI_TRANSLATION_URL
+        // o HAWKINS_AI_URL vacios), devolvemos el texto original sin
+        // traducir. Antes el default era '192.168.1.45' y todas las
+        // peticiones se quedaban timeout-eando.
+        if (empty($this->apiUrl) || empty($this->apiKey)) {
+            Log::warning('TranslationService: sin AI_TRANSLATION_URL/API_KEY, devolviendo texto sin traducir');
             return $text;
         }
 

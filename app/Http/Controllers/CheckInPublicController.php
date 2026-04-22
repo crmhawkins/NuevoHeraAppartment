@@ -674,7 +674,7 @@ class CheckInPublicController extends Controller
     {
         $baseUrl = config('services.hawkins_ai.url', env('HAWKINS_AI_URL'));
         $apiKey = config('services.hawkins_ai.api_key', env('HAWKINS_AI_API_KEY'));
-        $model = config('services.hawkins_ai.model', env('HAWKINS_AI_MODEL', 'qwen2.5vl:latest'));
+        $model = config('services.hawkins_ai.model', env('HAWKINS_AI_MODEL', 'qwen3-vl:8b'));
 
         if (empty($baseUrl) || empty($apiKey)) {
             Log::warning('Hawkins AI not configured: HAWKINS_AI_URL or HAWKINS_AI_API_KEY missing.');

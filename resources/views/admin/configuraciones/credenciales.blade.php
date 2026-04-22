@@ -306,7 +306,7 @@
                     <div class="row mb-4">
                         <div class="col-md-4 mb-3">
                             <label class="form-label"><i class="fas fa-globe"></i> URL</label>
-                            <input class="form-control" name="hawkins_ai_url" value="{{ $ia['hawkins']['url'] }}" placeholder="https://aiapi.hawkins.es/chat/chat">
+                            <input class="form-control" name="hawkins_ai_url" value="{{ $ia['hawkins']['url'] }}" placeholder="http://10.0.0.1:11435/">
                         </div>
                         <div class="col-md-4 mb-3">
                             <label class="form-label"><i class="fas fa-key"></i> API Key</label>
@@ -328,7 +328,7 @@
                     <div class="row mb-4">
                         <div class="col-md-4 mb-3">
                             <label class="form-label"><i class="fas fa-globe"></i> URL</label>
-                            <input class="form-control" name="ollama_url" value="{{ $ia['ollama']['url'] }}" placeholder="https://192.168.1.45/chat">
+                            <input class="form-control" name="ollama_url" value="{{ $ia['ollama']['url'] }}" placeholder="http://10.0.0.1:11434/">
                         </div>
                         <div class="col-md-4 mb-3">
                             <label class="form-label"><i class="fas fa-key"></i> API Key</label>
@@ -339,7 +339,7 @@
                         </div>
                         <div class="col-md-4 mb-3">
                             <label class="form-label"><i class="fas fa-cog"></i> Modelo</label>
-                            <input class="form-control" name="ollama_model" value="{{ $ia['ollama']['model'] }}" placeholder="qwen2.5vl:latest">
+                            <input class="form-control" name="ollama_model" value="{{ $ia['ollama']['model'] }}" placeholder="qwen3-vl:8b">
                         </div>
                     </div>
 

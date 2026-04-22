@@ -13,8 +13,10 @@ use OpenAI;
  * Gateway unificado para peticiones de chat/completion a modelos de IA.
  * Intenta primero con OpenAI (openai-php/client). Si OpenAI falla por
  * cualquier motivo (quota agotada, timeout, 5xx, red, excepcion),
- * reintenta automaticamente con Hawkins AI (aiapi.hawkins.es/chat/chat)
- * usando el modelo gpt-oss:120b-cloud o el configurado en settings.
+ * reintenta automaticamente con Hawkins AI (wrapper Python en el servidor
+ * 5090 de la LAN Hawkins, accesible por tunel inverso SSH. URL en env
+ * HAWKINS_AI_URL, endpoint /chat/chat) usando el modelo configurado en
+ * HAWKINS_AI_CHAT_MODEL (por defecto gpt-oss:120b-cloud).
  *
  * CIRCUIT BREAKER
  * ---------------
@@ -102,19 +104,19 @@ class AIGatewayService
      */
     private function hawkinsCompletion(array $params): array
     {
-        $baseUrl = config('services.hawkins_ai.url', env('HAWKINS_AI_URL', 'https://aiapi.hawkins.es/'));
+        $baseUrl = config('services.hawkins_ai.url', env('HAWKINS_AI_URL', ''));
         $apiKey  = config('services.hawkins_ai.api_key', env('HAWKINS_AI_API_KEY'));
 
         // Modelo de fallback para TEXTO (distinto del de vision que usa el
-        // resto del CRM para DNI/facturas). Usamos qwen3:latest por defecto
-        // porque es local, rapido y suficiente para clasificacion y respuesta
-        // de emails. Se puede sobrescribir via env HAWKINS_AI_CHAT_MODEL o
-        // pasando 'hawkins_model' en los parametros de la llamada.
+        // resto del CRM para DNI/facturas). Por defecto gpt-oss:120b-cloud,
+        // que es el modelo de chat disponible en el servidor 5090. Se puede
+        // sobrescribir via env HAWKINS_AI_CHAT_MODEL o pasando 'hawkins_model'
+        // en los parametros de la llamada.
         $modelo = $params['hawkins_model']
-            ?? env('HAWKINS_AI_CHAT_MODEL', 'qwen3:latest');
+            ?? env('HAWKINS_AI_CHAT_MODEL', 'gpt-oss:120b-cloud');
 
-        if (empty($apiKey)) {
-            throw new \RuntimeException('Hawkins AI no configurada (falta HAWKINS_AI_API_KEY)');
+        if (empty($baseUrl) || empty($apiKey)) {
+            throw new \RuntimeException('Hawkins AI no configurada (faltan HAWKINS_AI_URL o HAWKINS_AI_API_KEY)');
         }
 
         // Construir URL /chat/chat a partir de la base URL

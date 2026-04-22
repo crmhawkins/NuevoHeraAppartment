@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Storage;
  * FacturaScannerService
  *
  * Motor de procesamiento de facturas pendientes:
- * 1) Envia la imagen a Hawkins AI (qwen2.5vl) para extraer datos.
+ * 1) Envia la imagen a Hawkins AI (qwen3-vl) para extraer datos.
  * 2) Busca un gasto existente que matchee por importe + fecha (+-15 dias).
  * 3) Si hay exactamente 1 candidato, mueve el archivo a facturas/procesadas/
  *    y actualiza gasto.factura_foto.
@@ -32,7 +32,7 @@ class FacturaScannerService
     {
         $this->iaBaseUrl     = rtrim(config('services.hawkins_ai.url', ''), '/');
         $this->iaApiKey      = config('services.hawkins_ai.api_key');
-        $this->iaModel       = config('services.hawkins_ai.model', 'qwen2.5vl:latest');
+        $this->iaModel       = config('services.hawkins_ai.model', 'qwen3-vl:8b');
         $this->windowDays    = (int) config('services.facturas.match_date_window_days', 15);
         $this->esperaMaxDias = (int) config('services.facturas.espera_max_dias', 30);
     }
@@ -131,7 +131,7 @@ class FacturaScannerService
     }
 
     /**
-     * Llama al endpoint de Hawkins AI (qwen2.5vl) y devuelve los datos estructurados.
+     * Llama al endpoint de Hawkins AI (qwen3-vl) y devuelve los datos estructurados.
      * Formato del request copiado de DNIScannerController::sendToAI().
      *
      * @return array{importe_total: float|null, fecha: string|null, proveedor: string|null, numero_factura: string|null, concepto: string|null, confianza: float|null, _raw: array}
