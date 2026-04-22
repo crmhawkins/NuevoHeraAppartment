@@ -1095,6 +1095,28 @@ class MIRService
             ]);
         }
 
+        // [2026-04-22] Auto-correccion de provincia via IA: si el usuario puso
+        // la localidad (Algeciras) en vez de la provincia oficial (Cadiz), lo
+        // detectamos y corregimos en DB ANTES de validar, con cache por par
+        // CP+localidad. Asi el warning desaparece del panel de revision manual
+        // sin intervencion del admin.
+        try {
+            $corrector = app(\App\Services\ProvinceCorrectorService::class);
+            $n = $corrector->autocorregirReserva($reserva);
+            if ($n > 0) {
+                $reserva->refresh();
+                Log::info('[MIR] Provincia(s) auto-corregidas via IA', [
+                    'reserva_id' => $reserva->id, 'correcciones' => $n,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            // La auto-correccion es opcional; si la IA no esta accesible
+            // seguimos con la validacion normal.
+            Log::warning('[MIR] ProvinceCorrector fallo, continuando sin correccion', [
+                'reserva_id' => $reserva->id, 'error' => $e->getMessage(),
+            ]);
+        }
+
         // [VALIDACION PRE-ENVIO 2026-04-18] Validacion completa antes de enviar
         // a MIR. Combina Nivel 1 (deterministico: CP, provincia, apellidos,
         // DNI/NIE) y Nivel 3 (IA semantica con web search). Si hay CUALQUIER

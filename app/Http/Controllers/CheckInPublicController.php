@@ -695,7 +695,16 @@ class CheckInPublicController extends Controller
         $fullUrl = rtrim($directOllamaUrl, '/') . '/api/chat';
 
         if ($side === 'passport') {
-            $prompt = 'Extrae de la imagen del PASAPORTE todos los datos. Busca los datos tanto en el texto visible como en la zona MRZ (las dos lineas de caracteres en la parte inferior). Responde únicamente con un objeto JSON válido. No añadas texto adicional. Usa formato de fecha YYYY-MM-DD. Para nacionalidad usa el codigo ISO de 2 letras (ej: FR, DE, GB, IT, MA, US). Para sexo: M o F.
+            $prompt = 'Extrae de la imagen del PASAPORTE todos los datos.
+
+PRIORIDAD DE FUENTES (IMPORTANTE):
+1. Lee PRIMERO la MRZ (Machine Readable Zone): las DOS lineas de 44 caracteres cada una en la parte inferior del pasaporte, con letras, digitos y caracteres "<". La MRZ es la fuente mas fiable — contiene el numero de pasaporte, nacionalidad (codigo ISO 3 letras), fecha de nacimiento y caducidad con digitos de control.
+2. Usa la MRZ como referencia canonica: si el texto OCR del resto del pasaporte no coincide con la MRZ, prevalece la MRZ.
+3. Para nacionalidad convierte el codigo ISO 3 letras de la MRZ a codigo ISO 2 letras (ej: FRA->FR, DEU->DE, GBR->GB, ITA->IT, MAR->MA, USA->US, CHN->CN).
+4. Formato fecha: YYYY-MM-DD (la MRZ las da como YYMMDD, hay que interpretar el siglo razonablemente: 00-30 => 2000-2030, 31-99 => 1931-1999).
+5. Sexo en MRZ: M o F (a veces < para sin especificar; usa "" si es <).
+
+FORMATO SALIDA (JSON valido, nada mas):
 
 {
 "nombre": "",
@@ -707,8 +716,12 @@ class CheckInPublicController extends Controller
 "fecha_caducidad": "",
 "numero_dni_o_pasaporte": "",
 "tipo_documento": "Passport",
-"sexo": ""
-}';
+"sexo": "",
+"mrz_linea1": "",
+"mrz_linea2": ""
+}
+
+Incluye las dos lineas de MRZ completas tal cual aparecen (con "<" incluidos) en mrz_linea1 y mrz_linea2 — nos sirven para auditoria posterior.';
         } elseif ($side === 'front') {
             $prompt = 'Extrae de la imagen del DNI o pasaporte español TODOS los datos solicitados. Responde únicamente con un objeto JSON válido EXACTAMENTE en este formato. No añadas texto, explicaciones ni caracteres adicionales. Usa el formato de fecha YYYY-MM-DD. El numero_soporte es el código alfanumérico pequeño que aparece en el DNI español (suele empezar por letras como BAA, BAB, etc.).
 

@@ -1,0 +1,224 @@
+<?php
+
+namespace App\Console\Commands;
+
+use App\Services\WhatsappNotificationService;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+
+/**
+ * [2026-04-22] Health-check de los endpoints de IA que usa el CRM.
+ *
+ * Comprueba:
+ *  - Wrapper Python en :11435 (endpoint /chat/chat, usado por WhatsApp
+ *    y por el AIGatewayService como fallback de OpenAI).
+ *  - API nativa Ollama en :11434 (endpoint /api/tags, lista los modelos
+ *    cargados). Permite verificar que los modelos esperados existen.
+ *  - Inferencia real con gpt-oss:120b-cloud y qwen3-vl:8b para detectar
+ *    degradaciones silenciosas (modelo cargado pero no responde).
+ *
+ * Si algo falla, manda WhatsApp a los admins configurados en
+ * WhatsappNotificationService::sendToConfiguredRecipients. Para evitar
+ * spam cuando la IA lleva caída un rato, solo avisa UNA VEZ cada 30 min
+ * por tipo de fallo (controlado por Cache).
+ *
+ * Se ejecuta cada 5 min desde Kernel.php.
+ */
+class CheckIaHealth extends Command
+{
+    protected $signature = 'ia:healthcheck {--verbose-output : mostrar detalles de cada check}';
+    protected $description = 'Verifica que los endpoints de IA (Ollama + wrapper) y los modelos esperados respondan. Avisa por WhatsApp si algo esta caido.';
+
+    // Una alerta por tipo de fallo cada 30 min — si la IA esta caida no queremos
+    // 6 mensajes/hora al admin.
+    private const ALERT_TTL_MINUTES = 30;
+
+    // Modelos que el CRM espera encontrar en Ollama. Si falta alguno, alerta.
+    private const MODELOS_ESPERADOS = [
+        'qwen3-vl:8b',           // OCR DNI/pasaporte/facturas
+        'gpt-oss:120b-cloud',    // chat WhatsApp/Channex/emails
+    ];
+
+    public function handle(): int
+    {
+        $fallos = [];
+
+        // 1) Wrapper 11435 (texto) — lo usan WhatsappController, WebhookController
+        //    y el AIGatewayService como fallback de OpenAI.
+        $wrapperUrl = rtrim((string) config('services.hawkins_ai.url', env('HAWKINS_AI_URL', '')), '/');
+        $wrapperKey = (string) config('services.hawkins_ai.api_key', env('HAWKINS_AI_API_KEY'));
+        if ($wrapperUrl === '' || $wrapperKey === '') {
+            $fallos[] = "Config IA incompleta: HAWKINS_AI_URL o HAWKINS_AI_API_KEY vacios.";
+        } else {
+            $wrapperChatUrl = str_ends_with($wrapperUrl, '/chat/chat')
+                ? $wrapperUrl
+                : $wrapperUrl . '/chat/chat';
+            $fallo = $this->probarWrapper($wrapperChatUrl, $wrapperKey);
+            if ($fallo !== null) {
+                $fallos[] = "Wrapper IA ({$wrapperChatUrl}): {$fallo}";
+            }
+        }
+
+        // 2) API nativa Ollama :11434 — la usan DNIScannerController y
+        //    CheckInPublicController para OCR. Si :11435 esta configurado,
+        //    derivamos :11434 igual que hace el codigo de produccion.
+        $ollamaUrl = $wrapperUrl !== ''
+            ? preg_replace('/:11435(\/)?$/', ':11434$1', $wrapperUrl)
+            : '';
+        if ($ollamaUrl !== '') {
+            $modelosEncontrados = $this->listarModelosOllama($ollamaUrl);
+            if ($modelosEncontrados === null) {
+                $fallos[] = "Ollama ({$ollamaUrl}/api/tags): no responde.";
+            } else {
+                foreach (self::MODELOS_ESPERADOS as $modeloEsperado) {
+                    if (!in_array($modeloEsperado, $modelosEncontrados, true)) {
+                        $fallos[] = "Modelo IA esperado no instalado: {$modeloEsperado}. Cargados: " . implode(', ', $modelosEncontrados);
+                    }
+                }
+
+                // 3) Inferencia real end-to-end contra cada modelo esperado.
+                //    Cargado != responde. Un prompt barato detecta degradaciones.
+                foreach (self::MODELOS_ESPERADOS as $modelo) {
+                    if (!in_array($modelo, $modelosEncontrados, true)) continue;
+                    $fallo = $this->probarInferencia($ollamaUrl, $modelo);
+                    if ($fallo !== null) {
+                        $fallos[] = "Modelo {$modelo}: {$fallo}";
+                    }
+                }
+            }
+        }
+
+        // Output para el admin que corre el comando a mano
+        if ($this->option('verbose-output') || empty($fallos)) {
+            $this->info(empty($fallos) ? '✓ Todo OK' : '✗ Fallos detectados:');
+            foreach ($fallos as $f) $this->line(' - ' . $f);
+        }
+
+        if (empty($fallos)) {
+            // Si habia una alerta activa y ahora va todo, mandamos WhatsApp de
+            // "recuperado" (una sola vez) y limpiamos la cache.
+            if (Cache::has('ia_health_alert_active')) {
+                $this->notificarWhatsapp("✅ IA RECUPERADA\n\nTodos los endpoints y modelos responden correctamente.");
+                Cache::forget('ia_health_alert_active');
+                Cache::forget('ia_health_alert_last_fails');
+            }
+            return self::SUCCESS;
+        }
+
+        // Hay fallos. Consolidar y alertar con rate-limit de 30 min por tipo.
+        Log::warning('[ia:healthcheck] Fallos detectados', ['fallos' => $fallos]);
+
+        $cacheKey = 'ia_health_alert_sent_' . md5(implode('|', $fallos));
+        if (!Cache::has($cacheKey)) {
+            $texto = "⚠️ IA NO DISPONIBLE\n\n";
+            foreach ($fallos as $f) {
+                $texto .= "• {$f}\n";
+            }
+            $texto .= "\nRevisa scheduled tasks en el 5090 (OllamaServe, TunnelIA5090, AIWrapper) o el tunel autossh del VPS.";
+            $this->notificarWhatsapp($texto);
+
+            Cache::put($cacheKey, true, now()->addMinutes(self::ALERT_TTL_MINUTES));
+            Cache::put('ia_health_alert_active', true, now()->addHours(6));
+            Cache::put('ia_health_alert_last_fails', $fallos, now()->addHours(6));
+        }
+
+        return self::FAILURE;
+    }
+
+    /**
+     * Prueba el endpoint /chat/chat del wrapper con un prompt minimo.
+     * Devuelve null si OK, descripcion del fallo si KO.
+     */
+    private function probarWrapper(string $url, string $apiKey): ?string
+    {
+        try {
+            $resp = Http::withHeaders([
+                'X-API-Key'    => $apiKey,
+                'Content-Type' => 'application/json',
+            ])
+            ->timeout(15)
+            ->withoutVerifying()
+            ->post($url, [
+                'prompt' => 'ping',
+                'modelo' => 'gpt-oss:120b-cloud',
+            ]);
+
+            if (!$resp->successful()) {
+                return "HTTP {$resp->status()}: " . mb_substr($resp->body(), 0, 150);
+            }
+            $body = $resp->json();
+            $texto = $body['response'] ?? $body['respuesta'] ?? $body['message'] ?? null;
+            if (empty($texto)) {
+                return "respuesta vacia: " . mb_substr((string) $resp->body(), 0, 150);
+            }
+            return null;
+        } catch (\Throwable $e) {
+            return "excepcion: " . mb_substr($e->getMessage(), 0, 150);
+        }
+    }
+
+    /**
+     * @return array<int, string>|null Lista de nombres de modelo o null si /api/tags no responde.
+     */
+    private function listarModelosOllama(string $ollamaBaseUrl): ?array
+    {
+        try {
+            $resp = Http::timeout(10)->withoutVerifying()->get(rtrim($ollamaBaseUrl, '/') . '/api/tags');
+            if (!$resp->successful()) return null;
+            $data = $resp->json();
+            $models = $data['models'] ?? [];
+            return array_values(array_filter(array_map(
+                fn($m) => $m['name'] ?? $m['model'] ?? null,
+                is_array($models) ? $models : []
+            )));
+        } catch (\Throwable $e) {
+            return null;
+        }
+    }
+
+    /**
+     * Ejecuta un prompt minimo contra un modelo concreto via /api/chat.
+     * Devuelve null si el modelo responde con al menos 1 token, descripcion si no.
+     */
+    private function probarInferencia(string $ollamaBaseUrl, string $modelo): ?string
+    {
+        try {
+            $resp = Http::timeout(45)
+                ->withoutVerifying()
+                ->post(rtrim($ollamaBaseUrl, '/') . '/api/chat', [
+                    'model'    => $modelo,
+                    'messages' => [['role' => 'user', 'content' => 'ping']],
+                    'stream'   => false,
+                    'options'  => ['num_predict' => 5, 'temperature' => 0.1],
+                ]);
+
+            if (!$resp->successful()) {
+                return "HTTP {$resp->status()}: " . mb_substr($resp->body(), 0, 120);
+            }
+            $data = $resp->json();
+            $content = $data['message']['content'] ?? '';
+            $evalCount = $data['eval_count'] ?? 0;
+
+            // Aceptamos eval_count >= 1 aunque content este vacio (hay modelos
+            // que responden con whitespace a "ping"). Solo fallamos si no genero
+            // absolutamente nada.
+            if ($evalCount < 1 && $content === '') {
+                return "no genero tokens: " . mb_substr((string) $resp->body(), 0, 120);
+            }
+            return null;
+        } catch (\Throwable $e) {
+            return "excepcion: " . mb_substr($e->getMessage(), 0, 150);
+        }
+    }
+
+    private function notificarWhatsapp(string $texto): void
+    {
+        try {
+            app(WhatsappNotificationService::class)->sendToConfiguredRecipients($texto);
+        } catch (\Throwable $e) {
+            Log::error('[ia:healthcheck] No se pudo enviar WhatsApp: ' . $e->getMessage());
+        }
+    }
+}

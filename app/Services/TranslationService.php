@@ -51,6 +51,17 @@ class TranslationService
             return $text;
         }
 
+        // [2026-04-22] Cache: las traducciones del CRM son muy repetitivas
+        // (instrucciones de check-in, plantillas WhatsApp, alertas MIR). Un
+        // Cache::remember de 30 dias por hash texto+destino evita el 90% de
+        // llamadas a la IA sin sacrificar frescura (si cambias una plantilla
+        // tendra otro hash y se retraducira automaticamente).
+        $cacheKey = 'translation:' . $sourceLocale . ':' . $targetLocale . ':' . md5($text);
+        $cached = Cache::get($cacheKey);
+        if (is_string($cached) && $cached !== '') {
+            return $cached;
+        }
+
         try {
             $localeNames = [
                 'es' => 'ES',
@@ -202,6 +213,10 @@ class TranslationService
                         'target_length' => strlen($translated),
                         'locale' => $targetLocale
                     ]);
+
+                    // [2026-04-22] Cachear 30 dias el par (hash_texto, locale).
+                    Cache::put($cacheKey, $translated, now()->addDays(30));
+
                     return $translated;
                 }
             }

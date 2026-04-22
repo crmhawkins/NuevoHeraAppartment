@@ -1345,8 +1345,12 @@ class DNIScannerController extends Controller
 "fecha_expedicion": "",
 "fecha_caducidad": "",
 "numero_dni_o_pasaporte": "",
+"numero_soporte_documento": "",
 "tipo_documento": "",
-"sexo": ""
+"sexo": "",
+"mrz_linea1": "",
+"mrz_linea2": "",
+"mrz_linea3": ""
 }
 
 INSTRUCCIONES ESPECÍFICAS:
@@ -1355,7 +1359,17 @@ INSTRUCCIONES ESPECÍFICAS:
 3. LUGAR DE NACIMIENTO: En el REVERSO del DNI español, busca el campo "LUGAR DE NACIMIENTO". Este campo es OBLIGATORIO y aparece claramente en el reverso del documento.
 4. DIRECCIÓN COMPLETA: En el REVERSO del DNI, busca el campo "DOMICILIO". Extrae TODA la dirección completa incluyendo calle, número, piso, puerta, etc. (ej: "C. VIRGEN. DEL VALLE 2B P01 B"). No solo la ciudad.
 5. El tipo de documento debe ser "DNI", "NIE" o "Pasaporte" según el documento que estés analizando.
-6. El sexo puede aparecer como "M"/"F", "Masculino"/"Femenino", o "Hombre"/"Mujer".';
+6. El sexo puede aparecer como "M"/"F", "Masculino"/"Femenino", o "Hombre"/"Mujer".
+7. NUMERO DE SOPORTE DEL DOCUMENTO (campo numero_soporte_documento):
+   - En el DNI español aparece con la etiqueta "NUM SOPORTE" o "IDESP" (normalmente en el anverso, debajo del numero de DNI). Formato: 3 letras + 6 digitos (ej: "BAB123456", "AAA987654").
+   - En el NIE aparece como "IDESP" o "NUM SOPORTE" con formato letra + 8 digitos (ej: "E01234567").
+   - En pasaportes no existe este campo, dejalo vacio.
+   - Es un dato OBLIGATORIO para MIR, extraelo siempre que el documento lo tenga.
+8. MRZ (Machine Readable Zone, solo para PASAPORTES):
+   - En el pasaporte hay 2 lineas de 44 caracteres cada una en la parte inferior, con letras, digitos y caracteres "<".
+   - En el DNI/NIE actual hay 3 lineas de 30 caracteres en el reverso.
+   - Copia EXACTAMENTE las lineas tal cual aparecen (con los "<" incluidos). Es la fuente mas fiable para numero de documento, fechas y nacionalidad.
+   - Si el documento no tiene MRZ visible o se trata del anverso de un DNI, deja los campos vacios.';
             } else {
                 // Prompt para reverso con el mismo formato que funciona en frontal
                 // IMPORTANTE: El reverso contiene dirección Y lugar de nacimiento
@@ -2025,6 +2039,13 @@ INSTRUCCIONES ESPECÍFICAS:
                         'tipo_documento_str' => $tipoDocStr,
                         // NO marcar data_dni aquí - se validará después de actualizar
                     ];
+
+                    // [2026-04-22] Numero de soporte del documento (obligatorio para
+                    // MIR en DNI/NIE). Lo lee el OCR del anverso. Solo sobreescribimos
+                    // si el OCR lo encontro y el cliente no lo tenia ya.
+                    if (!empty($data['numero_soporte_documento']) && empty($persona->numero_soporte_documento)) {
+                        $updateData['numero_soporte_documento'] = trim((string) $data['numero_soporte_documento']);
+                    }
                     
                     // Agregar lugar de nacimiento si está disponible (puede no estar en el modelo, pero lo intentamos)
                     if (isset($data['lugar_nacimiento']) && !empty($data['lugar_nacimiento'])) {
@@ -2105,6 +2126,12 @@ INSTRUCCIONES ESPECÍFICAS:
                         'tipo_documento' => $tipoDocCode,
                         'tipo_documento_str' => $tipoDocStr
                     ];
+
+                    // [2026-04-22] Numero de soporte del documento (NUM SOPORTE / IDESP)
+                    // obligatorio para MIR. Lo extrae el OCR del anverso del DNI/NIE.
+                    if (!empty($data['numero_soporte_documento']) && empty($persona->numero_soporte_documento)) {
+                        $updateData['numero_soporte_documento'] = trim((string) $data['numero_soporte_documento']);
+                    }
                     
                     // Guardar fecha de caducidad si está disponible
                     if (isset($data['fecha_caducidad']) && !empty($data['fecha_caducidad'])) {

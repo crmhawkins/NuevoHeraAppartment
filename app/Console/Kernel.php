@@ -87,6 +87,17 @@ class Kernel extends ConsoleKernel
         // y lo asocia automaticamente. Cada 5 minutos, sin solapamiento.
         $schedule->command('facturas:procesar-pendientes')->everyFiveMinutes()->withoutOverlapping();
 
+        // [2026-04-22] Health-check de los endpoints de IA (wrapper + Ollama).
+        // Si algo falla (tunel SSH caido, modelo no cargado, degradacion),
+        // manda WhatsApp al admin. Rate-limit de 30 min por tipo de fallo.
+        $schedule->command('ia:healthcheck')->everyFiveMinutes()->withoutOverlapping();
+
+        // [2026-04-22] Reintento automatico de envio a MIR para reservas que
+        // quedaron en 'error_validacion'. Si el admin corrigio los datos
+        // desde el panel o el huesped re-subio el DNI con mejor informacion,
+        // esto las envia solas sin que nadie tenga que pulsar Revalidar.
+        $schedule->command('mir:reintentar-revalidacion')->everyTenMinutes()->withoutOverlapping();
+
         // Tarea programada de Limpieza de numero de telefono del cliente.
         $schedule->command('clean:phonenumbers')->twiceDaily(1, 13);
 
