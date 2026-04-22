@@ -479,7 +479,26 @@ class ReservaRevisionManualController extends Controller
             }
 
             $side = $foto->photo_categoria_id === 15 ? 'passport' : 'front';
+            // Primera pasada con auto-orientacion. Si no encuentra ninguno
+            // de los campos objetivo, reintenta con rotaciones adicionales
+            // (la foto puede ser ambigua: misma proporcion vertical y el
+            // EXIF puede mentir). Asi nos aseguramos de pillar el dato.
             $data = $this->invocarIaOcr($absolutePath, $side, $camposFaltantes);
+            if ($data === null || !$this->tieneCamposUtiles($data, $camposFaltantes)) {
+                foreach ([180, 90, 270] as $rot) {
+                    $tmpRotado = $this->rotarImagenA($absolutePath, $rot);
+                    if ($tmpRotado === null) continue;
+                    $dataAlt = $this->invocarIaOcr($tmpRotado, $side, $camposFaltantes);
+                    @unlink($tmpRotado);
+                    if ($dataAlt !== null && $this->tieneCamposUtiles($dataAlt, $camposFaltantes)) {
+                        Log::info('[RevisionManual] OCR encontro datos tras rotar ' . $rot . 'deg', [
+                            'reserva_id' => $reserva->id, 'photo_id' => $foto->id,
+                        ]);
+                        $data = $dataAlt;
+                        break;
+                    }
+                }
+            }
             if ($data === null) {
                 $errores[] = "photo#{$foto->id}: IA no respondio";
                 continue;
@@ -540,6 +559,59 @@ class ReservaRevisionManualController extends Controller
             ->with(empty($detalles) ? 'warning' : 'success', $mensaje);
     }
 
+    private function rotarImagenA(string $path, int $grados): ?string
+    {
+        return \App\Support\DniImageOrienter::rotarA($path, $grados);
+    }
+
+    /**
+     * ¿La respuesta de la IA contiene al menos UNO de los campos que
+     * estabamos buscando, con valor no vacio? Usado para decidir si
+     * hacen falta mas rotaciones.
+     *
+     * @param array<int, string> $camposObjetivo
+     */
+    private function tieneCamposUtiles(array $data, array $camposObjetivo): bool
+    {
+        // Mapa nombre_campo_modelo -> posibles keys en la respuesta IA
+        $keys = [
+            'numero_soporte_documento'  => ['numero_soporte_documento', 'numero_soporte', 'num_soporte'],
+            'num_identificacion'        => ['num_identificacion', 'dni', 'numero_dni_o_pasaporte'],
+            'numero_identificacion'     => ['num_identificacion', 'dni', 'numero_dni_o_pasaporte'],
+            'primer_apellido'           => ['apellido1', 'apellidos', 'primer_apellido'],
+            'segundo_apellido'          => ['apellido2', 'segundo_apellido'],
+            'apellido1'                 => ['apellido1', 'apellidos'],
+            'apellido2'                 => ['apellido2'],
+            'nombre'                    => ['nombre'],
+            'fecha_nacimiento'          => ['fecha_nacimiento'],
+            'fecha_expedicion'          => ['fecha_expedicion'],
+            'fecha_caducidad'           => ['fecha_caducidad'],
+            'fecha_expedicion_doc'      => ['fecha_expedicion'],
+            'codigo_postal'             => ['codigo_postal'],
+            'direccion'                 => ['direccion'],
+            'provincia'                 => ['provincia'],
+            'nombre_municipio'          => ['nombre_municipio', 'municipio', 'localidad'],
+        ];
+        // Si no habia campos objetivo especificos, aceptamos cualquier campo no vacio
+        if (empty($camposObjetivo)) {
+            foreach ($data as $v) {
+                if (is_string($v) && trim($v) !== '') return true;
+            }
+            return false;
+        }
+        foreach ($camposObjetivo as $c) {
+            foreach ($keys[$c] ?? [$c] as $k) {
+                if (!empty(trim((string) ($data[$k] ?? '')))) return true;
+            }
+        }
+        return false;
+    }
+
+    private function corregirOrientacionImagen(string $path): ?string
+    {
+        return \App\Support\DniImageOrienter::autoOrient($path);
+    }
+
     /**
      * Parsea el mir_respuesta actual de la reserva para saber que campos
      * faltan y poder pedirselos explicitamente a la IA.
@@ -594,8 +666,15 @@ class ReservaRevisionManualController extends Controller
                 : 'Extrae del DNI/NIE espanol: nombre, apellido1, apellido2, dni (num_identificacion), fecha_nacimiento (YYYY-MM-DD), fecha_expedicion, fecha_caducidad, sexo, nacionalidad, tipo_documento (DNI/NIE), numero_soporte_documento (campo NUM SOPORTE o IDESP del anverso, formato 3 letras + 6 digitos). Responde SOLO JSON valido.';
         }
 
-        $bytes = @file_get_contents($imagePath);
-        if ($bytes === false) return null;
+        // [2026-04-22] Corregir orientacion antes de mandar a la IA. Fotos
+        // de moviles suelen venir con metadato EXIF de rotacion que PHP no
+        // aplica automaticamente. Ademas el DNI espanol es SIEMPRE apaisado
+        // (mas ancho que alto), asi que si la foto viene en vertical la
+        // rotamos 90 grados. Qwen3-VL puede leer texto rotado pero pierde
+        // mucha fiabilidad con texto pequeno (NUM SOPORTE, fechas).
+        $bytes = $this->corregirOrientacionImagen($imagePath);
+        if ($bytes === null) $bytes = @file_get_contents($imagePath);
+        if ($bytes === false || $bytes === null) return null;
 
         try {
             $curl = curl_init();

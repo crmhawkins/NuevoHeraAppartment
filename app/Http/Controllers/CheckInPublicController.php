@@ -618,7 +618,19 @@ class CheckInPublicController extends Controller
             }
 
             $destPath = $destDir . '/' . $filename;
-            copy($tempPath, $destPath);
+
+            // [2026-04-22] Orientar la foto del DNI al guardar: fotos de movil
+            // suelen venir en vertical o con EXIF de rotacion que el navegador
+            // aplica visualmente pero el fichero sigue rotado. Al guardar ya
+            // orientado (horizontal, sin EXIF) la vemos bien en el panel, el
+            // OCR la lee mejor, y cualquier re-analisis posterior no tiene que
+            // rotarla de nuevo. Si por lo que sea la libreria falla, copy a pelo.
+            $bytesOriented = \App\Support\DniImageOrienter::autoOrient($tempPath);
+            if ($bytesOriented !== null) {
+                file_put_contents($destPath, $bytesOriented);
+            } else {
+                copy($tempPath, $destPath);
+            }
 
             $photoData = [
                 'reserva_id' => $reserva->id,
@@ -752,9 +764,12 @@ Incluye las dos lineas de MRZ completas tal cual aparecen (con "<" incluidos) en
 
         // [2026-04-22] Payload para Ollama estandar: imagen en base64 dentro del
         // mensaje, formato JSON puro (no multipart). Modelo visual por defecto
-        // qwen2.5vl:7b (ocupa ~5GB VRAM en la 5090, sobra).
-        $imgBytes = @file_get_contents($imagePath);
-        if ($imgBytes === false) {
+        // qwen3-vl:8b. Antes de mandarla, auto-orientamos la imagen (EXIF +
+        // heuristica DNI apaisado) — fotos de movil suelen venir rotadas y
+        // qwen3-vl pierde fiabilidad leyendo texto pequeno en vertical.
+        $imgBytes = \App\Support\DniImageOrienter::autoOrient($imagePath)
+            ?: @file_get_contents($imagePath);
+        if ($imgBytes === false || $imgBytes === null) {
             Log::error('[CheckIn AI] No se pudo leer la imagen', ['path' => $imagePath]);
             return ['success' => false, 'error' => 'cannot read image', 'data' => []];
         }

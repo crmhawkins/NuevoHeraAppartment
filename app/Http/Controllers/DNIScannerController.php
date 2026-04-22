@@ -1203,7 +1203,15 @@ class DNIScannerController extends Controller
             }
             
             file_put_contents($tempPath, $imageData);
-            
+
+            // [2026-04-22] Orientar la foto antes del OCR. Fotos de movil
+            // vienen con EXIF o directamente en vertical; el DNI espanol es
+            // siempre apaisado. Si GD falla, dejamos la imagen original.
+            $bytesOriented = \App\Support\DniImageOrienter::autoOrient($tempPath);
+            if ($bytesOriented !== null) {
+                file_put_contents($tempPath, $bytesOriented);
+            }
+
             // Enviar a IA para procesamiento
             $result = $this->sendToAI($tempPath, $request->side);
             
@@ -1419,7 +1427,10 @@ INSTRUCCIONES ESPECÍFICAS:
                     'messages' => [[
                         'role' => 'user',
                         'content' => $prompt,
-                        'images' => [base64_encode((string) @file_get_contents($imagePath))],
+                        // [2026-04-22] Auto-orientamos antes de mandar. Fotos
+                        // de movil pueden venir rotadas por EXIF o en vertical
+                        // aunque el DNI es apaisado -> la IA pierde fiabilidad.
+                        'images' => [base64_encode((string) (\App\Support\DniImageOrienter::autoOrient($imagePath) ?: @file_get_contents($imagePath)))],
                     ]],
                     'stream' => false,
                     'options' => ['temperature' => 0.1],
@@ -2629,8 +2640,16 @@ INSTRUCCIONES ESPECÍFICAS:
                             $destinationPath = $uploadPath . '/' . $imageName;
                         }
                         
-                        // Mover/copiar el archivo
-                        if (@copy($imagePath, $destinationPath)) {
+                        // [2026-04-22] Auto-orientar al guardar (EXIF + DNI
+                        // apaisado). Si falla la libreria caemos al copy normal.
+                        $bytesOriented = \App\Support\DniImageOrienter::autoOrient($imagePath);
+                        $ok = false;
+                        if ($bytesOriented !== null) {
+                            $ok = @file_put_contents($destinationPath, $bytesOriented) !== false;
+                        }
+                        if (!$ok) $ok = @copy($imagePath, $destinationPath);
+
+                        if ($ok) {
                             // Verificar que se copió correctamente
                             if (!file_exists($destinationPath) || filesize($destinationPath) === 0) {
                                 Log::error('Archivo copiado pero está vacío o no existe', [
