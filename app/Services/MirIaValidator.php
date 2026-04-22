@@ -405,7 +405,7 @@ Devuelve SIEMPRE un JSON valido con EXACTAMENTE este formato:
     {
       "severity": "error" | "warning",
       "entidad":  "cliente" | "huesped_{id}",
-      "campo":    "codigo_postal" | "apellido1" | "apellido2" | "direccion" | "municipio" | "provincia" | "nacionalidad" | "dni" | "tipo_documento" | "nombre",
+      "campo":    "codigo_postal" | "apellido1" | "apellido2" | "direccion" | "municipio" | "provincia" | "nacionalidad" | "num_identificacion" | "numero_soporte_documento" | "tipo_documento" | "nombre",
       "mensaje":  "descripcion clara del problema",
       "sugerencia": "valor sugerido o null"
     }

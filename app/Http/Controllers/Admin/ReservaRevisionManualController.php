@@ -124,7 +124,27 @@ class ReservaRevisionManualController extends Controller
             $reserva->refresh();
 
             if ($resultado === null) {
-                // Sigue bloqueada por validacion o datos no listos
+                // Sigue bloqueada por validacion o datos no listos. Sacamos
+                // los errores actuales del mir_respuesta para que el admin
+                // vea exactamente que le falta en vez de un mensaje vago.
+                $errores = [];
+                $resp = json_decode((string) $reserva->mir_respuesta, true);
+                if (is_array($resp) && !empty($resp['issues'])) {
+                    foreach ($resp['issues'] as $i) {
+                        if (($i['severity'] ?? '') !== 'error') continue;
+                        $campo = str_starts_with((string) ($i['campo'] ?? ''), '_') ? '(IA)' : ($i['campo'] ?? '?');
+                        $errores[] = "{$i['entidad']} · {$campo}: " . mb_substr((string) ($i['mensaje'] ?? ''), 0, 100);
+                    }
+                }
+                if (!empty($errores)) {
+                    $faltan = count($errores);
+                    $txt = "Reserva #{$reserva->id}: sigue bloqueada por {$faltan} error(es):";
+                    $txt .= "\n• " . implode("\n• ", array_slice($errores, 0, 5));
+                    if ($faltan > 5) $txt .= "\n… y " . ($faltan - 5) . ' mas';
+                    return redirect()
+                        ->route('admin.reservas-revision-manual.index')
+                        ->with('warning', $txt);
+                }
                 return redirect()
                     ->route('admin.reservas-revision-manual.index')
                     ->with('warning', "Reserva #{$reserva->id}: sigue bloqueada. Estado: " . ($reserva->mir_estado ?: 'desconocido'));
@@ -185,6 +205,35 @@ class ReservaRevisionManualController extends Controller
             'autorevalidar' => 'sometimes|boolean',
         ]);
 
+        // [2026-04-22] Traduccion de nombres de campo genericos (del validador IA
+        // o del usuario) a los nombres reales de las columnas en cliente/huesped.
+        // Antes: si la IA devolvia campo='dni' (generico) el fix fallaba silencio-
+        // samente porque cliente->dni no es una columna real (es num_identificacion).
+        $camposAlias = [
+            'cliente' => [
+                'dni' => 'num_identificacion',
+                'numero_identificacion' => 'num_identificacion', // usuario escribe plural
+                'codigo_soporte' => 'numero_soporte_documento',
+                'num_soporte' => 'numero_soporte_documento',
+                'idesp' => 'numero_soporte_documento',
+                'localidad' => 'nombre_municipio',
+            ],
+            'huesped' => [
+                'dni' => 'numero_identificacion',
+                'num_identificacion' => 'numero_identificacion',
+                'codigo_soporte' => 'numero_soporte_documento',
+                'num_soporte' => 'numero_soporte_documento',
+                'idesp' => 'numero_soporte_documento',
+                'apellido1' => 'primer_apellido',
+                'apellido2' => 'segundo_apellido',
+                'localidad' => 'nombre_municipio',
+            ],
+        ];
+        $campoNorm = strtolower(trim($data['campo']));
+        if (isset($camposAlias[$data['entidad']][$campoNorm])) {
+            $data['campo'] = $camposAlias[$data['entidad']][$campoNorm];
+        }
+
         // Whitelist de campos editables desde aqui (mapa por entidad porque
         // el nombre del campo difiere entre Cliente y Huesped)
         $camposClienteOk = [
@@ -243,12 +292,29 @@ class ReservaRevisionManualController extends Controller
             // Si el admin pidio revalidar automaticamente, intentamos reenviar
             // a MIR. Ojo: esto solo lanza el envio una vez; si sigue bloqueada
             // la veras con los issues actualizados.
+            $statusMir = null;
+            $erroresRestantes = [];
             if ($request->boolean('autorevalidar')) {
                 $reserva = Reserva::find($data['reserva_id']);
                 if ($reserva) {
                     try {
                         $mir = new MIRService();
-                        $mir->enviarSiLista($reserva);
+                        $resultado = $mir->enviarSiLista($reserva);
+                        $reserva->refresh();
+                        if ($resultado !== null && !empty($resultado['success'])) {
+                            $statusMir = 'enviado';
+                        } else {
+                            $statusMir = $reserva->mir_estado;
+                            // Extraer los errores restantes de mir_respuesta
+                            $resp = json_decode((string) $reserva->mir_respuesta, true);
+                            if (is_array($resp) && !empty($resp['issues'])) {
+                                foreach ($resp['issues'] as $i) {
+                                    if (($i['severity'] ?? '') !== 'error') continue;
+                                    $campo = str_starts_with((string) ($i['campo'] ?? ''), '_') ? '(IA)' : ($i['campo'] ?? '?');
+                                    $erroresRestantes[] = "{$i['entidad']} · {$campo}: " . mb_substr((string) ($i['mensaje'] ?? ''), 0, 100);
+                                }
+                            }
+                        }
                     } catch (\Throwable $e) {
                         Log::error('[RevisionManual] Error revalidando tras fix', [
                             'reserva_id' => $reserva->id,
@@ -258,6 +324,23 @@ class ReservaRevisionManualController extends Controller
                 }
             }
 
+            // [2026-04-22] Mensaje de vuelta mas util: antes decia solo "campo
+            // actualizado" aunque la reserva siguiera bloqueada por otros
+            // errores. Ahora decimos exactamente que falta.
+            if ($statusMir === 'enviado') {
+                return redirect()
+                    ->route('admin.reservas-revision-manual.index')
+                    ->with('success', "Campo '{$data['campo']}' actualizado. Reserva #{$data['reserva_id']} ENVIADA A MIR correctamente.");
+            }
+            if (!empty($erroresRestantes)) {
+                $faltan = count($erroresRestantes);
+                $txt = "Campo '{$data['campo']}' guardado, pero la reserva sigue bloqueada por {$faltan} error(es):";
+                $txt .= "\n• " . implode("\n• ", array_slice($erroresRestantes, 0, 5));
+                if ($faltan > 5) $txt .= "\n… y " . ($faltan - 5) . ' mas';
+                return redirect()
+                    ->route('admin.reservas-revision-manual.index')
+                    ->with('warning', $txt);
+            }
             return redirect()
                 ->route('admin.reservas-revision-manual.index')
                 ->with('success', "Campo '{$data['campo']}' del {$data['entidad']} #{$data['entidad_id']} actualizado.");
@@ -337,6 +420,233 @@ class ReservaRevisionManualController extends Controller
         }
 
         return $propagados;
+    }
+
+    /**
+     * [2026-04-22] Re-analiza las fotos del DNI/pasaporte de la reserva con
+     * la IA visual (qwen3-vl:8b) para extraer los campos que quedaron vacios
+     * la primera vez. Util cuando el primer pass de OCR no vio el numero de
+     * soporte o algun otro campo pequeno del documento.
+     *
+     * Solo sobreescribe campos vacios del cliente/huesped — no pisa datos
+     * ya rellenados (por el admin a mano, por un OCR anterior, etc.).
+     */
+    public function reanalizarDni(Request $request, int $id)
+    {
+        $reserva = Reserva::with(['cliente'])->findOrFail($id);
+
+        // Localizar fotos DNI (frontales) asociadas a la reserva
+        $fotos = Photo::where('reserva_id', $reserva->id)
+            ->whereIn('photo_categoria_id', [13, 15]) // 13=DNI Frontal, 15=Pasaporte Frontal
+            ->get();
+
+        if ($fotos->isEmpty()) {
+            return redirect()
+                ->route('admin.reservas-revision-manual.index')
+                ->with('error', "Reserva #{$id}: no hay foto del DNI/pasaporte para re-analizar.");
+        }
+
+        $actualizadosCli = [];
+        $actualizadosHue = [];
+        $errores = [];
+
+        foreach ($fotos as $foto) {
+            // Resolver ruta fisica
+            $rel = preg_replace('~^private/~', '', (string) $foto->url);
+            $absolutePath = storage_path('app/' . $rel);
+            if (!is_file($absolutePath)) {
+                $errores[] = "photo#{$foto->id}: archivo no encontrado en disco";
+                continue;
+            }
+
+            // Identificar titular: cliente o huesped
+            $persona = null;
+            $esCliente = false;
+            if ($foto->cliente_id && $reserva->cliente && $reserva->cliente->id === (int) $foto->cliente_id) {
+                $persona = $reserva->cliente;
+                $esCliente = true;
+            } elseif ($foto->huespedes_id) {
+                $persona = \App\Models\Huesped::find($foto->huespedes_id);
+            }
+            if (!$persona) {
+                $errores[] = "photo#{$foto->id}: sin cliente/huesped asociado";
+                continue;
+            }
+
+            $data = $this->invocarIaOcr($absolutePath, $foto->photo_categoria_id === 15 ? 'passport' : 'front');
+            if ($data === null) {
+                $errores[] = "photo#{$foto->id}: IA no respondio";
+                continue;
+            }
+
+            // Actualizar solo los campos VACIOS del cliente/huesped
+            $updates = $this->aplicarCamposVacios($persona, $data, $esCliente);
+            if (!empty($updates)) {
+                if ($esCliente) {
+                    $actualizadosCli[$persona->id] = array_merge($actualizadosCli[$persona->id] ?? [], $updates);
+                } else {
+                    $actualizadosHue[$persona->id] = array_merge($actualizadosHue[$persona->id] ?? [], $updates);
+                }
+            }
+        }
+
+        // Tras re-analizar, lanzar revalidacion MIR automaticamente
+        $mensaje = "Reserva #{$id}: re-analisis completado.";
+        $detalles = [];
+        foreach ($actualizadosCli as $pid => $fields) $detalles[] = "cliente#{$pid}: " . implode(', ', $fields);
+        foreach ($actualizadosHue as $pid => $fields) $detalles[] = "huesped#{$pid}: " . implode(', ', $fields);
+        if (!empty($detalles)) {
+            $mensaje .= ' Actualizados: ' . implode(' · ', $detalles);
+        } else {
+            $mensaje .= ' La IA no encontro campos nuevos que rellenar.';
+        }
+        if (!empty($errores)) {
+            $mensaje .= ' (Avisos: ' . implode(', ', $errores) . ')';
+        }
+
+        try {
+            $mir = new MIRService();
+            $mir->enviarSiLista($reserva);
+        } catch (\Throwable $e) {
+            Log::warning('[RevisionManual] Revalidacion tras reanalisis fallo', [
+                'reserva_id' => $id, 'error' => $e->getMessage(),
+            ]);
+        }
+
+        return redirect()
+            ->route('admin.reservas-revision-manual.index')
+            ->with(empty($detalles) ? 'warning' : 'success', $mensaje);
+    }
+
+    /**
+     * Llama directamente a /api/chat de Ollama con la foto en base64 y el
+     * mismo prompt que usa CheckInPublicController. Devuelve el array de
+     * datos extraidos o null si algo fallo.
+     */
+    private function invocarIaOcr(string $imagePath, string $side): ?array
+    {
+        $baseUrl = config('services.hawkins_ai.url', env('HAWKINS_AI_URL'));
+        $apiKey  = config('services.hawkins_ai.api_key', env('HAWKINS_AI_API_KEY'));
+        $model   = config('services.hawkins_ai.model', env('HAWKINS_AI_MODEL', 'qwen3-vl:8b'));
+        if (empty($baseUrl)) return null;
+
+        $directOllamaUrl = preg_replace('/:11435(\/)?$/', ':11434$1', rtrim($baseUrl, '/'));
+        $fullUrl = rtrim($directOllamaUrl, '/') . '/api/chat';
+
+        $prompt = $side === 'passport'
+            ? 'Extrae del pasaporte usando la MRZ como fuente principal. Responde JSON con keys: nombre, apellidos, fecha_nacimiento (YYYY-MM-DD), nacionalidad (ISO2), numero_dni_o_pasaporte, fecha_caducidad, fecha_expedicion, sexo (M/F), tipo_documento="Passport", mrz_linea1, mrz_linea2. Solo JSON.'
+            : 'Extrae del DNI/NIE espanol: nombre, apellido1, apellido2, dni (num_identificacion), fecha_nacimiento (YYYY-MM-DD), fecha_expedicion, fecha_caducidad, sexo, nacionalidad, tipo_documento (DNI/NIE), numero_soporte_documento (campo NUM SOPORTE o IDESP del anverso, formato 3 letras + 6 digitos). Responde SOLO JSON valido.';
+
+        $bytes = @file_get_contents($imagePath);
+        if ($bytes === false) return null;
+
+        try {
+            $curl = curl_init();
+            curl_setopt_array($curl, [
+                CURLOPT_URL            => $fullUrl,
+                CURLOPT_POST           => true,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT        => 180,
+                CURLOPT_POSTFIELDS     => json_encode([
+                    'model'    => $model,
+                    'messages' => [[
+                        'role'    => 'user',
+                        'content' => $prompt,
+                        'images'  => [base64_encode($bytes)],
+                    ]],
+                    'stream'  => false,
+                    'options' => ['temperature' => 0.1],
+                ]),
+                CURLOPT_HTTPHEADER => [
+                    'Content-Type: application/json',
+                    'X-API-Key: ' . $apiKey,
+                ],
+                CURLOPT_SSL_VERIFYPEER => false,
+                CURLOPT_SSL_VERIFYHOST => 0,
+            ]);
+            $resp = curl_exec($curl);
+            $code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+            curl_close($curl);
+            if ($code !== 200 || !$resp) return null;
+
+            $data = json_decode((string) $resp, true);
+            $content = $data['message']['content'] ?? '';
+            if (!is_string($content) || $content === '') return null;
+
+            $json = json_decode($content, true);
+            if (is_array($json)) return $json;
+
+            // Fallback: extraer JSON de texto
+            if (preg_match('/\{.*\}/s', $content, $m)) {
+                $json = json_decode($m[0], true);
+                if (is_array($json)) return $json;
+            }
+            return null;
+        } catch (\Throwable $e) {
+            Log::warning('[RevisionManual] invocarIaOcr excepcion', ['error' => $e->getMessage()]);
+            return null;
+        }
+    }
+
+    /**
+     * Aplica al cliente/huesped solo los campos que vengan rellenos del OCR
+     * y que el modelo destino tenga actualmente vacios. Devuelve la lista
+     * de campos actualizados (para mostrar al admin).
+     *
+     * @return array<int,string>
+     */
+    private function aplicarCamposVacios($persona, array $data, bool $esCliente): array
+    {
+        // Mapa campo_ai -> campo_modelo (distinto cliente/huesped)
+        $mapCliente = [
+            'nombre'                    => 'nombre',
+            'apellido1'                 => 'apellido1',
+            'apellido2'                 => 'apellido2',
+            'dni'                       => 'num_identificacion',
+            'numero_dni_o_pasaporte'    => 'num_identificacion',
+            'fecha_nacimiento'          => 'fecha_nacimiento',
+            'fecha_expedicion'          => 'fecha_expedicion_doc',
+            'sexo'                      => 'sexo',
+            'nacionalidad'              => 'nacionalidadStr',
+            'numero_soporte_documento'  => 'numero_soporte_documento',
+            'numero_soporte'            => 'numero_soporte_documento',
+        ];
+        $mapHuesped = [
+            'nombre'                    => 'nombre',
+            'apellido1'                 => 'primer_apellido',
+            'apellido2'                 => 'segundo_apellido',
+            'dni'                       => 'numero_identificacion',
+            'numero_dni_o_pasaporte'    => 'numero_identificacion',
+            'fecha_nacimiento'          => 'fecha_nacimiento',
+            'fecha_expedicion'          => 'fecha_expedicion',
+            'fecha_caducidad'           => 'fecha_caducidad',
+            'sexo'                      => 'sexo',
+            'nacionalidad'              => 'nacionalidadStr',
+            'numero_soporte_documento'  => 'numero_soporte_documento',
+            'numero_soporte'            => 'numero_soporte_documento',
+        ];
+        $map = $esCliente ? $mapCliente : $mapHuesped;
+
+        $actualizados = [];
+        foreach ($map as $campoAi => $campoModelo) {
+            if (empty($data[$campoAi])) continue;
+            // Solo rellenamos campos que estuvieran vacios en el modelo
+            $valorActual = $persona->{$campoModelo} ?? null;
+            if (!empty($valorActual)) continue;
+
+            $persona->{$campoModelo} = trim((string) $data[$campoAi]);
+            $actualizados[] = $campoModelo;
+        }
+
+        if (!empty($actualizados)) {
+            $persona->save();
+            Log::info('[RevisionManual] Campos rellenados via re-analisis IA', [
+                'entidad'   => $esCliente ? 'cliente' : 'huesped',
+                'id'        => $persona->id,
+                'campos'    => $actualizados,
+            ]);
+        }
+        return $actualizados;
     }
 
     /**

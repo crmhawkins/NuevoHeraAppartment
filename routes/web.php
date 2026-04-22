@@ -1457,6 +1457,10 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'role:ADMIN'])->grou
         ->name('reservas-revision-manual.foto');
     Route::post('/reservas-revision-manual/fix', [\App\Http\Controllers\Admin\ReservaRevisionManualController::class, 'fix'])
         ->name('reservas-revision-manual.fix');
+    // [2026-04-22] Re-analiza la foto del DNI con IA para extraer los campos
+    // que falten (p.ej. numero_soporte_documento que quedo vacio la primera vez).
+    Route::post('/reservas-revision-manual/{id}/reanalizar-dni', [\App\Http\Controllers\Admin\ReservaRevisionManualController::class, 'reanalizarDni'])
+        ->name('reservas-revision-manual.reanalizar-dni');
 });
 
 // ============================================

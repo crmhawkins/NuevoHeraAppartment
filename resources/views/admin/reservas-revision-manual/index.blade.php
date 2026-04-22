@@ -19,13 +19,13 @@
         <div class="apple-card-body">
 
             @if (session('success'))
-                <div class="alert alert-success">{{ session('success') }}</div>
+                <div class="alert alert-success" style="white-space: pre-line;">{{ session('success') }}</div>
             @endif
             @if (session('warning'))
-                <div class="alert alert-warning">{{ session('warning') }}</div>
+                <div class="alert alert-warning" style="white-space: pre-line;">{{ session('warning') }}</div>
             @endif
             @if (session('error'))
-                <div class="alert alert-danger">{{ session('error') }}</div>
+                <div class="alert alert-danger" style="white-space: pre-line;">{{ session('error') }}</div>
             @endif
 
             @if ($reservas->isEmpty())
@@ -278,6 +278,15 @@
                                                 @csrf
                                                 <button type="submit" class="btn btn-sm btn-success w-100">
                                                     <i class="fas fa-redo me-1"></i>Revalidar
+                                                </button>
+                                            </form>
+                                            <form method="POST"
+                                                  action="{{ route('admin.reservas-revision-manual.reanalizar-dni', $r->id) }}"
+                                                  onsubmit="return confirm('¿Pedir a la IA que re-analice la foto del DNI para extraer los campos que falten?\n\nSolo rellenará campos vacíos (no pisa datos ya guardados).');">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-info w-100 text-white"
+                                                        title="Vuelve a pasar la foto del DNI por la IA y rellena los campos que quedaron vacíos la primera vez (p.ej. número de soporte)">
+                                                    <i class="fas fa-robot me-1"></i>Re-analizar DNI con IA
                                                 </button>
                                             </form>
                                             <form method="POST"
