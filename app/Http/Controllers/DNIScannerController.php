@@ -1295,8 +1295,12 @@ class DNIScannerController extends Controller
             $apiKey = config('services.hawkins_ai.api_key', env('HAWKINS_AI_API_KEY'));
             $model = config('services.hawkins_ai.model', env('HAWKINS_AI_MODEL', 'qwen2.5vl:latest'));
             
-            // Construir la URL completa: baseUrl/chat/analyze-image
-            $aiEndpoint = rtrim($baseUrl, '/') . '/chat/analyze-image';
+            // [2026-04-22] Apuntamos al endpoint estandar de Ollama /api/chat
+            // directamente (no al wrapper /chat/analyze-image del servidor
+            // viejo). HAWKINS_AI_URL puede apuntar al wrapper (11435) o a
+            // Ollama (11434). Si acaba en 11435 lo redirigimos a 11434.
+            $directBase = preg_replace('/:11435(\/)?$/', ':11434$1', rtrim($baseUrl, '/'));
+            $aiEndpoint = rtrim($directBase, '/') . '/api/chat';
             
             Log::info('Configuración IA Hawkins', [
                 'base_url' => $baseUrl,
@@ -1374,7 +1378,7 @@ INSTRUCCIONES ESPECÍFICAS:
             }
             
             // URL completa de la API: baseUrl/chat/analyze-image
-            $fullUrl = rtrim($baseUrl, '/') . '/chat/analyze-image';
+            $fullUrl = rtrim(preg_replace('/:11435(\/)?$/', ':11434$1', rtrim($baseUrl, '/')), '/') . '/api/chat';
             
             Log::info('Llamando a IA Hawkins', [
                 'url' => $fullUrl,
@@ -1396,13 +1400,19 @@ INSTRUCCIONES ESPECÍFICAS:
                 CURLOPT_FOLLOWLOCATION => true,
                 CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
                 CURLOPT_CUSTOMREQUEST => 'POST',
-                CURLOPT_POSTFIELDS => [
-                    'image' => new \CURLFile($imagePath, 'image/jpeg', 'dni_' . $side . '.jpg'),
-                    'prompt' => $prompt,
-                    'modelo' => $model
-                ],
+                CURLOPT_POSTFIELDS => json_encode([
+                    'model' => $model,
+                    'messages' => [[
+                        'role' => 'user',
+                        'content' => $prompt,
+                        'images' => [base64_encode((string) @file_get_contents($imagePath))],
+                    ]],
+                    'stream' => false,
+                    'options' => ['temperature' => 0.1],
+                ]),
                 CURLOPT_HTTPHEADER => [
-                    'X-API-Key: ' . $apiKey
+                    'Content-Type: application/json',
+                    'X-API-Key: ' . $apiKey,
                 ],
                 CURLOPT_SSL_VERIFYPEER => app()->environment('production'),
                 CURLOPT_SSL_VERIFYHOST => app()->environment('production') ? 2 : 0

@@ -681,7 +681,18 @@ class CheckInPublicController extends Controller
             return ['success' => false, 'error' => 'AI not configured', 'data' => []];
         }
 
-        $fullUrl = rtrim($baseUrl, '/') . '/chat/analyze-image';
+        // [2026-04-22] Llamar directamente al endpoint estandar de Ollama
+        // /api/chat con images base64, en vez de al wrapper custom
+        // /chat/analyze-image. El wrapper se uso historicamente cuando la
+        // IA estaba en aiapi.hawkins.es con un endpoint propio. Ahora
+        // conectamos directo con Ollama -> menos dependencias, menos
+        // latencia.
+        //
+        // El env HAWKINS_AI_URL puede apuntar al wrapper (11435) o a Ollama
+        // (11434). Si termina en :11435 lo cambiamos a 11434 para usar
+        // Ollama standard.
+        $directOllamaUrl = preg_replace('/:11435(\/)?$/', ':11434$1', rtrim($baseUrl, '/'));
+        $fullUrl = rtrim($directOllamaUrl, '/') . '/api/chat';
 
         if ($side === 'passport') {
             $prompt = 'Extrae de la imagen del PASAPORTE todos los datos. Busca los datos tanto en el texto visible como en la zona MRZ (las dos lineas de caracteres en la parte inferior). Responde únicamente con un objeto JSON válido. No añadas texto adicional. Usa formato de fecha YYYY-MM-DD. Para nacionalidad usa el codigo ISO de 2 letras (ej: FR, DE, GB, IT, MA, US). Para sexo: M o F.
@@ -726,23 +737,41 @@ class CheckInPublicController extends Controller
 }';
         }
 
+        // [2026-04-22] Payload para Ollama estandar: imagen en base64 dentro del
+        // mensaje, formato JSON puro (no multipart). Modelo visual por defecto
+        // qwen2.5vl:7b (ocupa ~5GB VRAM en la 5090, sobra).
+        $imgBytes = @file_get_contents($imagePath);
+        if ($imgBytes === false) {
+            Log::error('[CheckIn AI] No se pudo leer la imagen', ['path' => $imagePath]);
+            return ['success' => false, 'error' => 'cannot read image', 'data' => []];
+        }
+        $imgB64 = base64_encode($imgBytes);
+
+        $payload = [
+            'model' => $model,
+            'messages' => [[
+                'role' => 'user',
+                'content' => $prompt,
+                'images' => [$imgB64],
+            ]],
+            'stream' => false,
+            'options' => ['temperature' => 0.1],
+        ];
+
         $curl = curl_init();
         curl_setopt_array($curl, [
             CURLOPT_URL => $fullUrl,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 120,
+            CURLOPT_TIMEOUT => 180,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => [
-                'image' => new \CURLFile($imagePath, 'image/jpeg', 'dni_' . $side . '.jpg'),
-                'prompt' => $prompt,
-                'modelo' => $model,
+            CURLOPT_POSTFIELDS => json_encode($payload),
+            CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
+                // Ollama local no requiere auth, pero mantenemos header por compatibilidad
+                'X-API-Key: ' . $apiKey,
             ],
-            CURLOPT_HTTPHEADER => ['X-API-Key: ' . $apiKey],
-            // SSL verify desactivado: aiapi.hawkins.es es dominio propio y el
-            // certificado (FNMT) puede caducar sin aviso. Ya rompio el chatbot
-            // de WhatsApp y el checkin de DNI el 15/04/2026.
             CURLOPT_SSL_VERIFYPEER => false,
             CURLOPT_SSL_VERIFYHOST => 0,
         ]);
@@ -757,13 +786,24 @@ class CheckInPublicController extends Controller
                 'url' => $fullUrl,
                 'http_code' => $httpCode,
                 'curl_error' => $curlError,
+                'response_preview' => substr((string) $response, 0, 300),
             ]);
             return ['success' => false, 'error' => $curlError ?: "HTTP $httpCode", 'data' => []];
         }
 
-        // Parse response - try multiple strategies
-        $data = $this->parseAIResponse($response);
+        // Respuesta Ollama estandar: {"message": {"content": "..."}, ...}
+        // El content suele ser el JSON de datos extraidos del DNI. Lo
+        // extraemos y lo pasamos al parser.
+        $ollamaResp = json_decode((string) $response, true);
+        $content = ($ollamaResp['message']['content'] ?? null)
+                ?? ($ollamaResp['response'] ?? null)
+                ?? '';
 
+        Log::debug('[CheckIn AI] Ollama respondio', [
+            'content_preview' => substr($content, 0, 300),
+        ]);
+
+        $data = $this->parseAIResponse($content);
         return ['success' => !empty($data), 'data' => $data];
     }
 
