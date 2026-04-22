@@ -96,15 +96,14 @@ class GastosController extends Controller
         if ($request->hasFile('factura_foto')) {
             if ($request->file('factura_foto')->isValid()) {
                 $file = $request->file('factura_foto');
-                // [2026-04-22] Sanear nombre original: quitar caracteres de control,
-                // soft-hyphens (U+00AD) y cualquier cosa que Flysystem considere
-                // path corrupto. Reemplazar todo lo no ASCII-seguro por '_'.
-                $ext = strtolower($file->getClientOriginalExtension() ?: 'pdf');
-                $base = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-                $base = preg_replace('/[^A-Za-z0-9._-]+/', '_', (string) $base);
-                $base = substr(trim($base, '_.'), 0, 80);
-                if ($base === '') $base = 'file';
-                $filename = time() . '_' . $base . '.' . $ext;
+                // [2026-04-22] Sanear nombre conservando cualquier caracter
+                // legitimo (acentos, eñes, etc.) y eliminando solo los invisibles
+                // / de control que rompen Flysystem (ver App\Support\SafeFilename).
+                $safeName = \App\Support\SafeFilename::make(
+                    $file->getClientOriginalName(),
+                    $file->getClientOriginalExtension() ?: 'pdf'
+                );
+                $filename = time() . '_' . $safeName;
                 $path = $file->storeAs('public/facturas', $filename);
 
                 // Actualizar la instancia de gasto con la ruta de la foto
@@ -186,15 +185,14 @@ class GastosController extends Controller
                 }
 
                 $file = $request->file('factura_foto');
-                // [2026-04-22] Sanear nombre original: quitar caracteres de control,
-                // soft-hyphens (U+00AD) y cualquier cosa que Flysystem considere
-                // path corrupto. Reemplazar todo lo no ASCII-seguro por '_'.
-                $ext = strtolower($file->getClientOriginalExtension() ?: 'pdf');
-                $base = pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME);
-                $base = preg_replace('/[^A-Za-z0-9._-]+/', '_', (string) $base);
-                $base = substr(trim($base, '_.'), 0, 80);
-                if ($base === '') $base = 'file';
-                $filename = time() . '_' . $base . '.' . $ext;
+                // [2026-04-22] Sanear nombre conservando cualquier caracter
+                // legitimo (acentos, eñes, etc.) y eliminando solo los invisibles
+                // / de control que rompen Flysystem (ver App\Support\SafeFilename).
+                $safeName = \App\Support\SafeFilename::make(
+                    $file->getClientOriginalName(),
+                    $file->getClientOriginalExtension() ?: 'pdf'
+                );
+                $filename = time() . '_' . $safeName;
                 $path = $file->storeAs('public/facturas', $filename);
 
                 // Actualizar la instancia de gasto con la ruta de la foto
