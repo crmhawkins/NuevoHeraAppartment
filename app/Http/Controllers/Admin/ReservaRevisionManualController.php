@@ -446,6 +446,11 @@ class ReservaRevisionManualController extends Controller
                 ->with('error', "Reserva #{$id}: no hay foto del DNI/pasaporte para re-analizar.");
         }
 
+        // [2026-04-22] Construir prompt ENFOCADO segun los campos que faltan
+        // (parseados del mir_respuesta). Asi la IA se centra en lo que
+        // realmente necesitamos en vez de volver a leer todo el DNI entero.
+        $camposFaltantes = $this->detectarCamposFaltantes($reserva);
+
         $actualizadosCli = [];
         $actualizadosHue = [];
         $errores = [];
@@ -473,7 +478,8 @@ class ReservaRevisionManualController extends Controller
                 continue;
             }
 
-            $data = $this->invocarIaOcr($absolutePath, $foto->photo_categoria_id === 15 ? 'passport' : 'front');
+            $side = $foto->photo_categoria_id === 15 ? 'passport' : 'front';
+            $data = $this->invocarIaOcr($absolutePath, $side, $camposFaltantes);
             if ($data === null) {
                 $errores[] = "photo#{$foto->id}: IA no respondio";
                 continue;
@@ -481,11 +487,27 @@ class ReservaRevisionManualController extends Controller
 
             // Actualizar solo los campos VACIOS del cliente/huesped
             $updates = $this->aplicarCamposVacios($persona, $data, $esCliente);
+
+            // [2026-04-22] Propagacion: si cliente y huesped son la misma
+            // persona (mismo DNI), lo que leyo el OCR del cliente vale
+            // tambien para el huesped. Asi rellenamos numero_soporte del
+            // huesped 2597 aunque la foto sea del cliente 5903.
+            $propagados = $this->propagarAGemelos($persona, $data, $esCliente, $reserva->id);
+
             if (!empty($updates)) {
                 if ($esCliente) {
                     $actualizadosCli[$persona->id] = array_merge($actualizadosCli[$persona->id] ?? [], $updates);
                 } else {
                     $actualizadosHue[$persona->id] = array_merge($actualizadosHue[$persona->id] ?? [], $updates);
+                }
+            }
+            foreach ($propagados as $tipo => $porPersona) {
+                foreach ($porPersona as $pid => $campos) {
+                    if ($tipo === 'cliente') {
+                        $actualizadosCli[$pid] = array_merge($actualizadosCli[$pid] ?? [], $campos);
+                    } else {
+                        $actualizadosHue[$pid] = array_merge($actualizadosHue[$pid] ?? [], $campos);
+                    }
                 }
             }
         }
@@ -519,11 +541,40 @@ class ReservaRevisionManualController extends Controller
     }
 
     /**
-     * Llama directamente a /api/chat de Ollama con la foto en base64 y el
-     * mismo prompt que usa CheckInPublicController. Devuelve el array de
-     * datos extraidos o null si algo fallo.
+     * Parsea el mir_respuesta actual de la reserva para saber que campos
+     * faltan y poder pedirselos explicitamente a la IA.
+     *
+     * @return array<int, string> Lista de nombres de campo (sin duplicados).
      */
-    private function invocarIaOcr(string $imagePath, string $side): ?array
+    private function detectarCamposFaltantes(Reserva $reserva): array
+    {
+        $respuesta = json_decode((string) $reserva->mir_respuesta, true);
+        $issues = is_array($respuesta) ? ($respuesta['issues'] ?? []) : [];
+        $campos = [];
+        foreach ((array) $issues as $i) {
+            if (($i['severity'] ?? '') !== 'error') continue;
+            $campo = (string) ($i['campo'] ?? '');
+            if ($campo === '' || str_starts_with($campo, '_')) continue;
+            // Normalizar alias genericos de la IA al nombre real
+            $alias = [
+                'dni'                   => 'numero_identificacion',
+                'codigo_soporte'        => 'numero_soporte_documento',
+                'num_soporte'           => 'numero_soporte_documento',
+                'idesp'                 => 'numero_soporte_documento',
+                'localidad'             => 'nombre_municipio',
+            ];
+            $campo = $alias[strtolower($campo)] ?? $campo;
+            $campos[$campo] = true;
+        }
+        return array_keys($campos);
+    }
+
+    /**
+     * Llama directamente a /api/chat de Ollama con la foto en base64. Si se
+     * pasa $camposObjetivo, el prompt es ENFOCADO en esos campos (la IA
+     * mira puntos concretos del DNI en vez de extraer todo de nuevo).
+     */
+    private function invocarIaOcr(string $imagePath, string $side, array $camposObjetivo = []): ?array
     {
         $baseUrl = config('services.hawkins_ai.url', env('HAWKINS_AI_URL'));
         $apiKey  = config('services.hawkins_ai.api_key', env('HAWKINS_AI_API_KEY'));
@@ -533,9 +584,15 @@ class ReservaRevisionManualController extends Controller
         $directOllamaUrl = preg_replace('/:11435(\/)?$/', ':11434$1', rtrim($baseUrl, '/'));
         $fullUrl = rtrim($directOllamaUrl, '/') . '/api/chat';
 
-        $prompt = $side === 'passport'
-            ? 'Extrae del pasaporte usando la MRZ como fuente principal. Responde JSON con keys: nombre, apellidos, fecha_nacimiento (YYYY-MM-DD), nacionalidad (ISO2), numero_dni_o_pasaporte, fecha_caducidad, fecha_expedicion, sexo (M/F), tipo_documento="Passport", mrz_linea1, mrz_linea2. Solo JSON.'
-            : 'Extrae del DNI/NIE espanol: nombre, apellido1, apellido2, dni (num_identificacion), fecha_nacimiento (YYYY-MM-DD), fecha_expedicion, fecha_caducidad, sexo, nacionalidad, tipo_documento (DNI/NIE), numero_soporte_documento (campo NUM SOPORTE o IDESP del anverso, formato 3 letras + 6 digitos). Responde SOLO JSON valido.';
+        // Construir prompt enfocado segun campos objetivo (si hay). Si no,
+        // caer al prompt general.
+        if (!empty($camposObjetivo)) {
+            $prompt = $this->construirPromptEnfocado($side, $camposObjetivo);
+        } else {
+            $prompt = $side === 'passport'
+                ? 'Extrae del pasaporte usando la MRZ como fuente principal. Responde JSON con keys: nombre, apellidos, fecha_nacimiento (YYYY-MM-DD), nacionalidad (ISO2), numero_dni_o_pasaporte, fecha_caducidad, fecha_expedicion, sexo (M/F), tipo_documento="Passport", mrz_linea1, mrz_linea2. Solo JSON.'
+                : 'Extrae del DNI/NIE espanol: nombre, apellido1, apellido2, dni (num_identificacion), fecha_nacimiento (YYYY-MM-DD), fecha_expedicion, fecha_caducidad, sexo, nacionalidad, tipo_documento (DNI/NIE), numero_soporte_documento (campo NUM SOPORTE o IDESP del anverso, formato 3 letras + 6 digitos). Responde SOLO JSON valido.';
+        }
 
         $bytes = @file_get_contents($imagePath);
         if ($bytes === false) return null;
@@ -586,6 +643,111 @@ class ReservaRevisionManualController extends Controller
             Log::warning('[RevisionManual] invocarIaOcr excepcion', ['error' => $e->getMessage()]);
             return null;
         }
+    }
+
+    /**
+     * Construye un prompt enfocado pidiendo a la IA solo los campos que
+     * faltan. Incluye pistas visuales concretas para que se centre en la
+     * zona correcta del documento (el NUM SOPORTE esta en un sitio fijo
+     * del DNI, por ejemplo).
+     *
+     * @param array<int, string> $campos Nombres reales de columna que faltan.
+     */
+    private function construirPromptEnfocado(string $side, array $campos): string
+    {
+        // Pistas visuales por campo — le decimos a la IA donde mirar.
+        $pistas = [
+            'numero_soporte_documento' =>
+                'NUM SOPORTE / IDESP: busca la etiqueta "NUM SOPORTE" (DNI) o "IDESP" en el anverso del documento, DEBAJO de los datos personales (justo encima de la firma). Es un codigo de 3 LETRAS + 6 DIGITOS para DNI (ej: CCA145235, BAB123456). Para NIE es LETRA + 8 digitos (ej: E01234567). Es un texto PEQUENO pero perfectamente legible.',
+            'num_identificacion' =>
+                'NUMERO DE DNI/NIE: aparece en la parte superior con la etiqueta "DNI" o "NIE". Formato: 8 digitos + 1 letra para DNI (ej: 77018157N); 1 letra + 7 digitos + 1 letra para NIE (ej: X1234567L).',
+            'numero_identificacion' =>
+                'NUMERO DE DNI/NIE: aparece en la parte superior con la etiqueta "DNI" o "NIE". Formato: 8 digitos + 1 letra para DNI (ej: 77018157N); 1 letra + 7 digitos + 1 letra para NIE (ej: X1234567L).',
+            'fecha_nacimiento' =>
+                'FECHA NACIMIENTO: busca la etiqueta "NACIMIENTO" en el anverso. Formato DD MM YYYY en el DNI. Convertir a YYYY-MM-DD.',
+            'fecha_expedicion' =>
+                'FECHA EXPEDICION / EMISION: busca la etiqueta "EMISION" en el anverso. Formato DD MM YYYY. Convertir a YYYY-MM-DD.',
+            'fecha_caducidad' =>
+                'FECHA CADUCIDAD / VALIDEZ: busca la etiqueta "VALIDEZ" en el anverso. Formato DD MM YYYY. Convertir a YYYY-MM-DD. Siempre POSTERIOR a la emision.',
+            'apellido1' => 'PRIMER APELLIDO: primera palabra o primera linea bajo la etiqueta "APELLIDOS".',
+            'apellido2' => 'SEGUNDO APELLIDO: segunda palabra o segunda linea bajo la etiqueta "APELLIDOS".',
+            'primer_apellido' => 'PRIMER APELLIDO: primera palabra o primera linea bajo la etiqueta "APELLIDOS".',
+            'segundo_apellido' => 'SEGUNDO APELLIDO: segunda palabra o segunda linea bajo la etiqueta "APELLIDOS".',
+            'nombre' => 'NOMBRE: bajo la etiqueta "NOMBRE".',
+            'sexo' => 'SEXO: bajo la etiqueta "SEXO". Valor M o F.',
+            'nacionalidad' => 'NACIONALIDAD: bajo la etiqueta "NACIONALIDAD". Codigo 3 letras (ESP, FRA, GBR, etc.).',
+            'codigo_postal' => 'CODIGO POSTAL: 5 digitos en la linea del DOMICILIO (reverso del DNI).',
+            'direccion' => 'DOMICILIO: direccion completa en el reverso del DNI.',
+            'nombre_municipio' => 'LOCALIDAD / MUNICIPIO: bajo el DOMICILIO en el reverso.',
+            'provincia' => 'PROVINCIA: bajo la LOCALIDAD en el reverso.',
+            'tipo_documento' => 'TIPO DE DOCUMENTO: DNI, NIE o Pasaporte segun la cabecera.',
+        ];
+
+        // Mapeo nombres de BD a nombres de clave en el JSON de salida.
+        // El cliente y el huesped usan nombres distintos; usamos los del
+        // cliente en el JSON y la propagacion se encargara del mapeo.
+        $keyMap = [
+            'num_identificacion'       => 'num_identificacion',
+            'numero_identificacion'    => 'num_identificacion',
+            'primer_apellido'          => 'apellido1',
+            'segundo_apellido'         => 'apellido2',
+        ];
+
+        $listado = [];
+        foreach ($campos as $c) {
+            $key = $keyMap[$c] ?? $c;
+            $pista = $pistas[$c] ?? $pistas[$key] ?? 'Extrae este campo si esta visible en el documento.';
+            $listado[] = "- \"{$key}\": {$pista}";
+        }
+
+        $sideDesc = $side === 'passport' ? 'PASAPORTE' : 'DNI/NIE espanol';
+
+        return
+            "Analiza esta foto de {$sideDesc} y extrae UNICAMENTE los siguientes campos. "
+            . "Mira cuidadosamente las zonas indicadas — los campos son perfectamente legibles aunque sean pequenos.\n\n"
+            . "CAMPOS A EXTRAER:\n"
+            . implode("\n", $listado)
+            . "\n\nFORMATO DE RESPUESTA: JSON valido con las keys listadas arriba. Si un campo no se puede leer con certeza, devuelve cadena vacia. Ninguna explicacion, solo el JSON.";
+    }
+
+    /**
+     * Si el cliente y algun huesped son la misma persona (mismo DNI), los
+     * datos leidos del OCR del cliente valen tambien para el huesped, y
+     * viceversa. Propaga solo los campos que tenga el destino VACIOS.
+     *
+     * @return array{cliente: array<int, array<int, string>>, huesped: array<int, array<int, string>>}
+     *         Campos efectivamente actualizados por cada entidad propagada.
+     */
+    private function propagarAGemelos($persona, array $data, bool $esCliente, int $reservaId): array
+    {
+        $out = ['cliente' => [], 'huesped' => []];
+
+        $dni = $esCliente
+            ? (string) ($persona->num_identificacion ?? '')
+            : (string) ($persona->numero_identificacion ?? '');
+        if ($dni === '') {
+            return $out;
+        }
+
+        if ($esCliente) {
+            // Cliente -> huespedes con mismo DNI en esta reserva
+            $huespedes = \App\Models\Huesped::where('reserva_id', $reservaId)
+                ->where('numero_identificacion', $dni)
+                ->get();
+            foreach ($huespedes as $h) {
+                $updates = $this->aplicarCamposVacios($h, $data, false);
+                if (!empty($updates)) $out['huesped'][$h->id] = $updates;
+            }
+        } else {
+            // Huesped -> cliente de la reserva si mismo DNI
+            $reserva = Reserva::find($reservaId);
+            $cli = $reserva?->cliente;
+            if ($cli && (string) $cli->num_identificacion === $dni) {
+                $updates = $this->aplicarCamposVacios($cli, $data, true);
+                if (!empty($updates)) $out['cliente'][$cli->id] = $updates;
+            }
+        }
+        return $out;
     }
 
     /**

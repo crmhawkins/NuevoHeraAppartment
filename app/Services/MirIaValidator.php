@@ -178,8 +178,11 @@ class MirIaValidator
                 // [FIX 2026-04-18] El modelo Cliente no tiene campo 'dni': el DNI
                 // se guarda en num_identificacion. Misma historia con municipio:
                 // no hay 'nombre_municipio', el campo real es 'municipio' (o 'localidad').
-                'dni'            => $cliente->num_identificacion ?? null,
-                'tipo_documento' => $cliente->tipo_documento_str ?? $cliente->tipo_documento ?? null,
+                'dni'                      => $cliente->num_identificacion ?? null,
+                'tipo_documento'           => $cliente->tipo_documento_str ?? $cliente->tipo_documento ?? null,
+                // [FIX 2026-04-22] Si no enviamos el numero_soporte_documento,
+                // la IA siempre reporta que falta aunque este rellenado.
+                'numero_soporte_documento' => $cliente->numero_soporte_documento ?? null,
                 'nacionalidad'   => $cliente->nacionalidadStr ?? $cliente->nacionalidad ?? null,
                 'direccion'      => $cliente->direccion ?? null,
                 'municipio'      => $cliente->municipio ?? $cliente->localidad ?? null,
@@ -199,8 +202,9 @@ class MirIaValidator
                 'apellido1'      => $h->primer_apellido ?? $h->apellido1 ?? null,
                 'apellido2'      => $h->segundo_apellido ?? $h->apellido2 ?? null,
                 // [FIX 2026-04-18] Huesped usa 'numero_identificacion', no 'dni'
-                'dni'            => $h->numero_identificacion ?? null,
-                'tipo_documento' => $h->tipo_documento_str ?? $h->tipo_documento ?? null,
+                'dni'                      => $h->numero_identificacion ?? null,
+                'tipo_documento'           => $h->tipo_documento_str ?? $h->tipo_documento ?? null,
+                'numero_soporte_documento' => $h->numero_soporte_documento ?? null,
                 'nacionalidad'   => $h->nacionalidadStr ?? $h->nacionalidad ?? null,
                 'direccion'      => $h->direccion ?? null,
                 'municipio'      => $h->municipio ?? $h->localidad ?? null,
