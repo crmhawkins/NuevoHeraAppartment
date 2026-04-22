@@ -39,7 +39,7 @@ class ReservaRevisionManualController extends Controller
             ->orderBy('fecha_entrada')
             ->get()
             ->map(function ($r) {
-                $r->_issues_parsed = $this->parseIssues($r->mir_respuesta);
+                $r->_issues_parsed = $this->parseIssues($r->mir_respuesta, $r);
                 $r->_fotos_dni = $this->getFotosDni($r->id);
                 return $r;
             });
@@ -942,10 +942,16 @@ class ReservaRevisionManualController extends Controller
     }
 
     /**
-     * Parsea el JSON de mir_respuesta para extraer los issues detectados
-     * con el formato [['severity','campo','mensaje','entidad','entidad_id']].
+     * Parsea el JSON de mir_respuesta para extraer los issues detectados.
+     *
+     * [2026-04-22] Ademas de dedup por entidad+campo+mensaje, fusiona issues
+     * de cliente y huesped cuando ambos son la misma persona fisica (mismo
+     * DNI). Asi en vez de mostrar "cliente: falta X" + "huesped: falta X"
+     * (confuso) mostramos un unico issue con badge "cliente + huesped" y un
+     * solo boton Arreglar — el metodo fix() ya propaga al gemelo del mismo
+     * DNI automaticamente.
      */
-    private function parseIssues(?string $raw): array
+    private function parseIssues(?string $raw, $reserva = null): array
     {
         if (empty($raw)) return [];
         try {
@@ -953,18 +959,106 @@ class ReservaRevisionManualController extends Controller
             if (!is_array($data)) return [];
             $issues = $data['issues'] ?? [];
             if (!is_array($issues)) return [];
-            // Deduplicar por campo+mensaje
+
+            // [2026-04-22] Normalizar formato: MirIaValidator usa
+            // entidad='huesped_2595' (con ID pegado) mientras MirDataValidator
+            // usa entidad='huesped' + entidad_id=2595. Unificamos a lo segundo.
+            foreach ($issues as &$i) {
+                $e = (string) ($i['entidad'] ?? '');
+                if (preg_match('/^huesped_(\d+)$/', $e, $m)) {
+                    $i['entidad'] = 'huesped';
+                    $i['entidad_id'] = (int) $m[1];
+                }
+            }
+            unset($i);
+
+            // Deduplicar por entidad+entidad_id+campo+mensaje (issues identicos)
             $seen = [];
-            $out = [];
+            $uniq = [];
             foreach ($issues as $i) {
-                $key = ($i['entidad'] ?? '') . '|' . ($i['campo'] ?? '') . '|' . ($i['mensaje'] ?? '');
+                $key = ($i['entidad'] ?? '') . '|' . ($i['entidad_id'] ?? '') . '|' . ($i['campo'] ?? '') . '|' . ($i['mensaje'] ?? '');
                 if (isset($seen[$key])) continue;
                 $seen[$key] = true;
-                $out[] = $i;
+                $uniq[] = $i;
             }
-            return $out;
+
+            // Fusionar issues de cliente vs huesped que son la misma persona
+            // fisica (mismo DNI). La propagacion del fix() se encarga del
+            // resto automaticamente.
+            if ($reserva) {
+                $uniq = $this->fusionarIssuesGemelos($uniq, $reserva);
+            }
+
+            return $uniq;
         } catch (\Throwable $e) {
             return [];
         }
+    }
+
+    /**
+     * Agrupa issues de cliente + huesped con mismo DNI bajo una unica
+     * entrada con las dos entidades anotadas (para que la vista muestre
+     * "cliente + huesped #N" en el badge).
+     *
+     * @param array<int, array<string, mixed>> $issues
+     * @return array<int, array<string, mixed>>
+     */
+    private function fusionarIssuesGemelos(array $issues, $reserva): array
+    {
+        // Mapa: dni -> lista de entidades que comparten ese DNI
+        $cliente = $reserva->cliente;
+        if (!$cliente) return $issues;
+
+        $dniCliente = (string) ($cliente->num_identificacion ?? '');
+        if ($dniCliente === '') return $issues;
+
+        $idsGemelos = \App\Models\Huesped::where('reserva_id', $reserva->id)
+            ->where('numero_identificacion', $dniCliente)
+            ->pluck('id')
+            ->map(fn($i) => (int) $i)
+            ->toArray();
+
+        // Si no hay huespedes con mismo DNI, nada que fusionar
+        if (empty($idsGemelos)) return $issues;
+
+        // Agrupar por (campo + mensaje normalizado). Si el grupo tiene un
+        // issue de 'cliente' y otro de 'huesped_X' donde X es gemelo,
+        // fusionamos.
+        $grupos = [];
+        foreach ($issues as $idx => $i) {
+            $campo = (string) ($i['campo'] ?? '');
+            $mensajeNorm = preg_replace('/\s+/', ' ', trim((string) ($i['mensaje'] ?? '')));
+            $k = $campo . '||' . $mensajeNorm;
+            $grupos[$k][] = $idx;
+        }
+
+        $fusionados = [];
+        $yaUsados = [];
+        foreach ($grupos as $indices) {
+            if (count($indices) < 2) continue;
+
+            // Buscar dentro del grupo uno "cliente" y uno "huesped" gemelo
+            $idxCli = null; $idxHue = null;
+            foreach ($indices as $idx) {
+                $e = (string) ($issues[$idx]['entidad'] ?? '');
+                $eid = (int) ($issues[$idx]['entidad_id'] ?? 0);
+                if ($e === 'cliente') $idxCli = $idx;
+                if ($e === 'huesped' && in_array($eid, $idsGemelos, true)) $idxHue = $idx;
+            }
+
+            if ($idxCli !== null && $idxHue !== null) {
+                // Fusionar: nos quedamos con el issue del cliente pero
+                // anotamos que incluye tambien al huesped.
+                $issues[$idxCli]['_incluye_huesped'] = true;
+                $yaUsados[$idxHue] = true;
+            }
+        }
+
+        // Reconstruir la lista sin los huespedes gemelos fusionados
+        foreach ($issues as $idx => $i) {
+            if (isset($yaUsados[$idx])) continue;
+            $fusionados[] = $i;
+        }
+        return $fusionados;
     }
 }

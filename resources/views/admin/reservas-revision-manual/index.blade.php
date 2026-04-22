@@ -222,18 +222,29 @@
                                                 $esMismaPersona = ($entidad === 'cliente' && !empty($huespedesMismaPersona))
                                                     || ($entidad === 'huesped' && in_array((int) $entidadId, $huespedesMismaPersona, true));
                                             @endphp
+                                            @php
+                                                $incluyeHuesped = !empty($issue['_incluye_huesped']);
+                                            @endphp
                                             <div class="mb-2 small border-bottom pb-2">
                                                 <div class="d-flex justify-content-between align-items-start gap-2">
                                                     <div class="flex-grow-1">
                                                         <span class="badge {{ $badgeClass }}">{{ strtoupper($sev) }}</span>
-                                                        <strong>{{ $entidad }}{{ $entidadId ? " #$entidadId" : '' }}</strong>
-                                                        <span class="text-muted">· campo:</span> <code>{{ $campo }}</code>
-                                                        @if ($esMismaPersona)
+                                                        @if ($incluyeHuesped)
+                                                            <strong>cliente + huésped</strong>
                                                             <span class="badge bg-info-subtle text-info ms-1"
-                                                                  title="Cliente y huésped son la misma persona (mismo DNI). Al arreglar uno se actualizarán ambos.">
-                                                                <i class="fas fa-link"></i> mismo DNI
+                                                                  title="Cliente y huésped son la misma persona (mismo DNI). Un solo Arreglar corrige ambos.">
+                                                                <i class="fas fa-link"></i> misma persona
                                                             </span>
+                                                        @else
+                                                            <strong>{{ $entidad }}{{ $entidadId ? " #$entidadId" : '' }}</strong>
+                                                            @if ($esMismaPersona)
+                                                                <span class="badge bg-info-subtle text-info ms-1"
+                                                                      title="Cliente y huésped son la misma persona (mismo DNI). Al arreglar uno se actualizarán ambos.">
+                                                                    <i class="fas fa-link"></i> mismo DNI
+                                                                </span>
+                                                            @endif
                                                         @endif
+                                                        <span class="text-muted">· campo:</span> <code>{{ $campo }}</code>
                                                         <div>{{ $mensaje }}</div>
                                                         <div class="text-muted mt-1">
                                                             Valor actual: <code>{{ $valorActual !== '' ? $valorActual : '(vacío)' }}</code>
