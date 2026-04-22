@@ -1132,25 +1132,31 @@ class MIRService
                 return null;
             }
 
+            // [2026-04-22] SIEMPRE refrescar mir_estado + mir_respuesta en la
+            // reserva para que el panel de revision manual muestre los issues
+            // actuales tras cada revalidacion (antes se quedaba con el snapshot
+            // inicial porque el bloque de abajo estaba dentro del !Cache::has,
+            // y el admin veia issues ya arreglados o los mismos de siempre).
+            // La cache solo debe evitar el spam de WhatsApp.
+            $reserva->mir_estado = 'error_validacion';
+            $reserva->mir_respuesta = json_encode([
+                'error' => 'validacion_fallida',
+                'issues' => $issues,
+                'detectado_en' => now()->toDateTimeString(),
+            ], JSON_UNESCAPED_UNICODE);
+            $reserva->save();
+
+            Log::warning('MIR: Envio cancelado por validacion pre-envio fallida', [
+                'reserva_id' => $reserva->id,
+                'issues_count' => count($issues),
+                'errores' => count(array_filter($issues, fn($i) => ($i['severity'] ?? '') === 'error')),
+                'detalle' => $detalle,
+            ]);
+
+            // Alerta WhatsApp: solo la primera vez en 24h para no spamear.
             if (!Cache::has($cacheKey)) {
                 $this->enviarAlertaValidacionInvalida($reserva, array_values($issuesDatos));
                 Cache::put($cacheKey, true, now()->addHours(24));
-
-                // Dejar constancia en la propia reserva
-                $reserva->mir_estado = 'error_validacion';
-                $reserva->mir_respuesta = json_encode([
-                    'error' => 'validacion_fallida',
-                    'issues' => $issues,
-                    'detectado_en' => now()->toDateTimeString(),
-                ], JSON_UNESCAPED_UNICODE);
-                $reserva->save();
-
-                Log::warning('MIR: Envio cancelado por validacion pre-envio fallida', [
-                    'reserva_id' => $reserva->id,
-                    'issues_count' => count($issues),
-                    'errores' => count(array_filter($issues, fn($i) => ($i['severity'] ?? '') === 'error')),
-                    'detalle' => $detalle,
-                ]);
             }
             return null;
         }
