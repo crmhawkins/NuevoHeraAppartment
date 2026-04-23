@@ -104,11 +104,25 @@ class CheckIaHealth extends Command
                 Cache::forget('ia_health_alert_active');
                 Cache::forget('ia_health_alert_last_fails');
             }
+            // Limpia contador de fallos consecutivos
+            Cache::forget('ia_health_consecutive_fails');
             return self::SUCCESS;
         }
 
-        // Hay fallos. Consolidar y alertar con rate-limit de 30 min por tipo.
+        // Hay fallos. Consolidar y alertar, PERO ahora con grace period de
+        // 2 ciclos: el autoheal del VPS + watchdog del 5090 suelen recuperar
+        // en <2 min, asi que el primer fallo puede ser ruido.
         Log::warning('[ia:healthcheck] Fallos detectados', ['fallos' => $fallos]);
+
+        $consecutivos = (int) (Cache::get('ia_health_consecutive_fails', 0)) + 1;
+        Cache::put('ia_health_consecutive_fails', $consecutivos, now()->addHours(6));
+
+        if ($consecutivos < 2) {
+            Log::info('[ia:healthcheck] Primer fallo — dando margen al autoheal antes de alertar', [
+                'consecutivos' => $consecutivos,
+            ]);
+            return self::FAILURE;
+        }
 
         $cacheKey = 'ia_health_alert_sent_' . md5(implode('|', $fallos));
         if (!Cache::has($cacheKey)) {
