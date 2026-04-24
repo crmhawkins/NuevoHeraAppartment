@@ -1646,6 +1646,83 @@ class Kernel extends ConsoleKernel
      * @param string|null $messageIdMeta ID del mensaje devuelto por WhatsApp Cloud API
      * @param array  $metadata      Payload original enviado a Meta (para auditoria)
      */
+    /**
+     * [2026-04-24] Renderiza un template de WhatsApp al texto real que recibe
+     * el cliente, sustituyendo los {{1}}, {{2}}... por las variables. Se usa
+     * para que el panel de conversaciones muestre el contenido real del
+     * mensaje en vez de un resumen opaco tipo "Despedida enviada a X".
+     *
+     * Lee la plantilla de whatsapp_templates (el mismo contenido que Meta
+     * tiene aprobado). Si no la encuentra, devuelve null y el caller
+     * muestra el texto de fallback.
+     */
+    private function renderizarTemplate(string $templateName, string $idioma, array $variables): ?string
+    {
+        try {
+            $tmpl = \App\Models\WhatsappTemplate::where('name', $templateName)
+                ->where('language', $idioma)
+                ->first();
+            if (!$tmpl) {
+                // Fallback a cualquier idioma si no hay match exacto (es_ES / es, etc.)
+                $tmpl = \App\Models\WhatsappTemplate::where('name', $templateName)
+                    ->orderByRaw("CASE language WHEN 'es' THEN 0 WHEN 'en' THEN 1 ELSE 2 END")
+                    ->first();
+            }
+            if (!$tmpl) return null;
+
+            $components = $tmpl->components;
+            if (is_string($components)) $components = json_decode($components, true);
+            if (!is_array($components)) return null;
+
+            $partes = [];
+            foreach ($components as $c) {
+                $tipo = strtoupper($c['type'] ?? '');
+                $texto = (string) ($c['text'] ?? '');
+                if ($texto === '') continue;
+                // Sustituir {{1}}, {{2}}, ...
+                foreach (array_values($variables) as $i => $val) {
+                    $texto = str_replace('{{' . ($i + 1) . '}}', (string) $val, $texto);
+                }
+                if ($tipo === 'HEADER')      $partes[] = "*{$texto}*";
+                elseif ($tipo === 'FOOTER')  $partes[] = "_{$texto}_";
+                else                         $partes[] = $texto;
+            }
+            return trim(implode("\n\n", $partes));
+        } catch (\Throwable $e) {
+            Log::warning('renderizarTemplate fallo', [
+                'template' => $templateName, 'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * [2026-04-24] Extrae del payload que mandamos a Meta el nombre del
+     * template, idioma y variables, y renderiza el texto final. Devuelve
+     * null si el payload no es un template o no se pudo renderizar — el
+     * caller usa entonces el texto de fallback.
+     */
+    private function renderizarDesdeMetadata(array $metadata): ?string
+    {
+        $tmpl = $metadata['template'] ?? null;
+        if (!is_array($tmpl)) return null;
+        $name = $tmpl['name'] ?? null;
+        $lang = $tmpl['language']['code'] ?? 'es';
+        if (!$name) return null;
+
+        // Extraer las variables del body (hay templates con header/buttons
+        // tambien pero para el texto visible nos basta con BODY)
+        $vars = [];
+        foreach ((array) ($tmpl['components'] ?? []) as $c) {
+            if (strtolower((string) ($c['type'] ?? '')) !== 'body') continue;
+            foreach ((array) ($c['parameters'] ?? []) as $p) {
+                $vars[] = (string) ($p['text'] ?? '');
+            }
+            break;
+        }
+        return $this->renderizarTemplate($name, $lang, $vars);
+    }
+
     private function registrarWhatsappAutomatico(
         string $telefono,
         string $textoLegible,
@@ -1653,6 +1730,14 @@ class Kernel extends ConsoleKernel
         ?string $messageIdMeta,
         array $metadata = []
     ): void {
+        // [2026-04-24] Si el metadata contiene un template, intentamos
+        // renderizar el texto REAL (con variables sustituidas) en vez del
+        // resumen opaco. Asi el panel de WhatsApp del admin muestra lo que
+        // el cliente ve, no un "Despedida enviada a X tras su estancia".
+        $textoReal = $this->renderizarDesdeMetadata($metadata);
+        if (is_string($textoReal) && $textoReal !== '') {
+            $textoLegible = $textoReal;
+        }
         try {
             // 1) Registro detallado del mensaje saliente (un registro por mensaje
             //    individual, con el id de Meta para tracking de estados/entregas)
@@ -2240,9 +2325,11 @@ class Kernel extends ConsoleKernel
         // Registrar en conversaciones del CRM si el envio fue OK
         $responseJson = json_decode($response, true);
         if (is_array($responseJson) && isset($responseJson['messages'][0]['id'])) {
+            $textoReal = $this->renderizarTemplate('despedida', $idioma, [$nombre])
+                ?? "👋 Despedida enviada a {$nombre} tras su estancia";
             $this->registrarWhatsappAutomatico(
                 $telefono,
-                "👋 Despedida enviada a {$nombre} tras su estancia",
+                $textoReal,
                 'despedida',
                 $responseJson['messages'][0]['id'],
                 $mensajePersonalizado
