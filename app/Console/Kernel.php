@@ -153,12 +153,22 @@ class Kernel extends ConsoleKernel
                         $phoneCliente = !empty($telefono) ? $this->limpiarNumeroTelefono($telefono) : null;
 
                         // 1. Enviar recordatorio al HUÉSPED por WhatsApp (si tiene token para el enlace)
+                        //    [2026-04-24] En el dia de la entrada preferimos el template
+                        //    'dni_dia_entrada' (tono mas urgente: avisa que se incumple
+                        //    la legislacion espanola). Si no esta APPROVED todavia en
+                        //    el idioma del cliente, caemos al 'dni' original.
                         if (!empty($reserva->token)) {
                             if (!empty($phoneCliente)) {
-                                $this->mensajesAutomaticosBoton('dni', $reserva->token, $phoneCliente, $idiomaCliente);
+                                $tmplDia = \App\Models\WhatsappTemplate::where('name', 'dni_dia_entrada')
+                                    ->where('language', $idiomaCliente)
+                                    ->where('status', 'APPROVED')
+                                    ->exists();
+                                $templateNombre = $tmplDia ? 'dni_dia_entrada' : 'dni';
+                                $this->mensajesAutomaticosBoton($templateNombre, $reserva->token, $phoneCliente, $idiomaCliente);
                                 Log::info('Recordatorio DNI enviado al huésped', [
                                     'reserva_id' => $reserva->id,
                                     'telefono' => $phoneCliente,
+                                    'template' => $templateNombre,
                                 ]);
                             } else {
                                 Log::warning('Recordatorio DNI: Reserva sin teléfono de contacto, se omite WhatsApp al huésped', ['reserva_id' => $reserva->id]);
