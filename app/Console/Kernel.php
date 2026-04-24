@@ -48,6 +48,7 @@ class Kernel extends ConsoleKernel
         \App\Console\Commands\EnviarMIRPendientes::class,
         \App\Console\Commands\ProgramarCerradurasProximas::class,
         \App\Console\Commands\VerificarCheckinHoy::class,
+        \App\Console\Commands\WhatsappSyncTemplates::class,
         \App\Console\Commands\ImportarMovimientosBanco::class,
         \App\Console\Commands\DetectOrphanedReservations::class,
     ];
@@ -97,6 +98,12 @@ class Kernel extends ConsoleKernel
         // desde el panel o el huesped re-subio el DNI con mejor informacion,
         // esto las envia solas sin que nadie tenga que pulsar Revalidar.
         $schedule->command('mir:reintentar-revalidacion')->everyTenMinutes()->withoutOverlapping();
+
+        // [2026-04-24] Sincroniza el estado de los templates WhatsApp desde
+        // Meta Business API. Cuando Meta aprueba un template nuevo (p.ej.
+        // dni_dia_entrada), este cron actualiza el status en BD y el codigo
+        // empieza a usarlo automaticamente en el siguiente envio.
+        $schedule->command('whatsapp:sync-templates')->everyFifteenMinutes()->withoutOverlapping();
 
         // Tarea programada de Limpieza de numero de telefono del cliente.
         $schedule->command('clean:phonenumbers')->twiceDaily(1, 13);
