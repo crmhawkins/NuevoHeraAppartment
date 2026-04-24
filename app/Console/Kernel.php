@@ -1656,13 +1656,19 @@ class Kernel extends ConsoleKernel
         try {
             // 1) Registro detallado del mensaje saliente (un registro por mensaje
             //    individual, con el id de Meta para tracking de estados/entregas)
+            //    [FIX 2026-04-24] La columna remitente es NOT NULL; antes poniamos
+            //    null y el INSERT fallaba siempre, de modo que los webhooks de
+            //    status de Meta no podian actualizar nada. Usamos 'SYSTEM' como
+            //    marca de mensaje auto-saliente.
             WhatsappMensaje::create([
                 'mensaje_id' => $messageIdMeta,
                 'tipo' => 'template',
                 'contenido' => $textoLegible,
-                'remitente' => null, // null = saliente (enviado por nosotros)
+                'remitente' => 'SYSTEM',
+                'recipient_id' => $messageIdMeta,
                 'fecha_mensaje' => now(),
                 'metadata' => is_array($metadata) ? $metadata : [],
+                'estado' => 'accepted',
             ]);
 
             // 2) Registro en la tabla de conversacion. La vista "whatsapp" del CRM

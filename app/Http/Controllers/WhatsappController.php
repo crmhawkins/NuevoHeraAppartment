@@ -129,7 +129,19 @@ class WhatsappController extends Controller
             ]);
             return response()->json(['status' => 'ok', 'mensaje' => $mensaje]);
         } else {
-            Log::warning("⚠️ No se encontró mensaje con recipient_id = {$status['id']} para guardar estado.");
+            // [2026-04-24] Ampliado: log completo del status para poder ver
+            // si Meta dice delivered/failed/read y con qué errors venia, aunque
+            // la fila original no este en BD (mensaje enviado desde sendText que
+            // antes no se persistia).
+            Log::warning('⚠️ Webhook status huérfano (mensaje no en BD)', [
+                'recipient_id'  => $status['id']          ?? null,
+                'status'        => $status['status']      ?? null,
+                'to'            => $status['recipient_id']?? null,
+                'timestamp'     => $status['timestamp']   ?? null,
+                'errors'        => $status['errors']      ?? null,
+                'conversation'  => $status['conversation']?? null,
+                'pricing'       => $status['pricing']     ?? null,
+            ]);
         }
         return response()->json(['status' => 'faile']);
 
@@ -2583,7 +2595,7 @@ class WhatsappController extends Controller
         $config = [
             'base_url' => config('services.hawkins_whatsapp_ai.base_url', env('HAWKINS_WHATSAPP_AI_URL')),
             'api_key' => config('services.hawkins_whatsapp_ai.api_key', env('HAWKINS_WHATSAPP_AI_API_KEY')),
-            'model' => config('services.hawkins_whatsapp_ai.model', 'qwen3:latest'),
+            'model' => config('services.hawkins_whatsapp_ai.model', 'gpt-oss:120b-cloud'),
         ];
 
         $endpoint = $config['base_url'];

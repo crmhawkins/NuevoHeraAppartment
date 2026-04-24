@@ -146,7 +146,13 @@ class FacturaScannerService
             throw new \RuntimeException("Imagen no encontrada: {$imagePath}");
         }
 
-        $endpoint = $this->iaBaseUrl . '/chat/analyze-image';
+        // [2026-04-24] Migrado del wrapper legacy /chat/analyze-image (multipart
+        // con 'image' como CURLFile) al endpoint estandar /api/chat de Ollama
+        // (JSON con imagen en base64). Si HAWKINS_AI_URL acaba en :11435 (wrapper)
+        // lo redirigimos a :11434 (Ollama nativo). Tambien auto-orientamos la
+        // imagen antes de mandar, igual que para DNIs.
+        $directBase = rtrim(preg_replace('/:11435(\/)?$/', ':11434$1', rtrim($this->iaBaseUrl, '/')), '/');
+        $endpoint = $directBase . '/api/chat';
 
         $prompt = <<<'PROMPT'
 Eres un OCR especializado en facturas y tickets. Analiza la imagen adjunta y extrae los datos.
@@ -173,27 +179,42 @@ INSTRUCCIONES:
 Si algun campo no se puede leer, usa cadena vacia para strings y 0 para numeros, pero intenta siempre sacar al menos el importe y la fecha.
 PROMPT;
 
-        // Copiado del patron cURL de DNIScannerController que ya funciona en produccion
+        // Auto-orientar (EXIF + heuristica) antes de pasar a la IA visual.
+        $bytes = \App\Support\DniImageOrienter::autoOrient($imagePath)
+            ?: @file_get_contents($imagePath);
+        if ($bytes === false || $bytes === null) {
+            throw new \RuntimeException('No se pudo leer la imagen para OCR');
+        }
+        $b64 = base64_encode($bytes);
+
+        $payload = [
+            'model'    => $this->iaModel,
+            'messages' => [[
+                'role'    => 'user',
+                'content' => $prompt,
+                'images'  => [$b64],
+            ]],
+            'stream'  => false,
+            'options' => ['temperature' => 0.1],
+        ];
+
         $curl = curl_init();
         curl_setopt_array($curl, [
             CURLOPT_URL => $endpoint,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_ENCODING => '',
             CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 120,
+            CURLOPT_TIMEOUT => 180,
             CURLOPT_FOLLOWLOCATION => true,
             CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
             CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => [
-                'image'  => new \CURLFile($imagePath, $this->detectarMime($imagePath), 'factura.jpg'),
-                'prompt' => $prompt,
-                'modelo' => $this->iaModel,
-            ],
+            CURLOPT_POSTFIELDS => json_encode($payload),
             CURLOPT_HTTPHEADER => [
+                'Content-Type: application/json',
                 'X-API-Key: ' . $this->iaApiKey,
             ],
-            CURLOPT_SSL_VERIFYPEER => app()->environment('production'),
-            CURLOPT_SSL_VERIFYHOST => app()->environment('production') ? 2 : 0,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
         ]);
 
         $response = curl_exec($curl);
@@ -346,6 +367,19 @@ PROMPT;
         // Caso 1: el endpoint ya devuelve directamente el objeto factura
         if (array_key_exists('importe_total', $data) && array_key_exists('fecha', $data)) {
             return $data;
+        }
+
+        // [2026-04-24] Caso Ollama /api/chat: {message: {role, content: "<json>"}}
+        if (isset($data['message']) && is_array($data['message']) && isset($data['message']['content'])) {
+            $content = (string) $data['message']['content'];
+            if ($content !== '') {
+                $inner = json_decode($content, true);
+                if (is_array($inner) && array_key_exists('importe_total', $inner)) return $inner;
+                if (preg_match('/\{[\s\S]*\}/', $content, $m)) {
+                    $inner = json_decode($m[0], true);
+                    if (is_array($inner) && array_key_exists('importe_total', $inner)) return $inner;
+                }
+            }
         }
 
         // Caso 2: envuelto en { data: {...} } o { respuesta: "<json string>" }

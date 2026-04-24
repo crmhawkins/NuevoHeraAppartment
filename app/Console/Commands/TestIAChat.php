@@ -16,7 +16,7 @@ class TestIAChat extends Command
     private $remitente = '34600000000';
     private $endpoint;
     private $apiKey;
-    private $modelo = 'qwen3:latest';
+    private $modelo = 'gpt-oss:120b-cloud';
 
     public function __construct()
     {
