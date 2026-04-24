@@ -367,7 +367,7 @@ Analiza si:
    - Para residentes extranjeros en Espana: NIE ([XYZ] + 7 digitos + letra).
      IMPORTANTE: si es DNI o NIE, es OBLIGATORIO tener rellenado el campo
      "numero_soporte_documento" — es el codigo impreso en el documento
-     fisico (DNI: letra + 8 digitos; NIE: "E" + 8-9 digitos). Si falta,
+     fisico (DNI: 3 letras + 6 digitos (ej. BAA123456, CDI158623); NIE: mismo patron (ej. BAB987654)). Si falta,
      MIR rechaza con severity="error".
    - Para extranjeros: Pasaporte o documento de identidad nacional de su
      pais. EL CAMPO "dni"/"num_identificacion" CONTIENE EL NUMERO DE SU
@@ -402,6 +402,12 @@ REGLA TAJANTE sobre viajeros extranjeros (nacionalidad != ES):
 
 Si no estas seguro sobre un codigo postal o direccion, USA la herramienta
 web_search para verificarlo antes de marcar un issue.
+
+5. [2026-04-24] NUMERO DE SOPORTE DEL DOCUMENTO (numero_soporte_documento):
+   NO reportes NINGUN issue sobre este campo. Tiene su propia validacion
+   deterministica aparte. Aunque veas un valor que no cumpla tu idea del
+   formato "correcto", NO lo marques ni como error ni como warning. Ignoralo
+   completamente.
 
 Devuelve SIEMPRE un JSON valido con EXACTAMENTE este formato:
 {

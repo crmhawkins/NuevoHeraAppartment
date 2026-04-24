@@ -533,13 +533,16 @@ class MirDataValidator
      * para DNI y NIE espanoles segun RD 933/2021 / SES Hospedajes.
      *
      * El numero de soporte es el codigo que aparece impreso en el propio
-     * documento:
-     *  - DNI: suele empezar por letra + 8 digitos (ej. "ABC123456").
-     *  - NIE: suele empezar por "E" + 8-9 digitos (ej. "E12345678").
+     * documento (etiqueta NUM SOPORTE o IDESP):
+     *  - DNI espanol actual: 3 letras + 6 digitos (ej. "BAA123456", "CDI158623").
+     *  - NIE actual: mismo patron 3 letras + 6 digitos (ej. "BAB987654").
+     *  - Algunos DNI antiguos pueden llevar otro patron (letra + numeros, 9 chars);
+     *    MIR los sigue aceptando, asi que solo avisamos con warning si no cumple
+     *    el patron canonico 3L+6D.
      *
      * Reglas:
-     *  - Si el DNI tiene formato valido de DNI/NIE espanol Y el numero de
-     *    soporte esta vacio -> error (MIR rechaza sin el).
+     *  - Si el DNI tiene formato valido Y el numero de soporte esta vacio -> error.
+     *  - Si el numero de soporte no cumple 3L+6D -> warning (no bloquea envio).
      *  - Si es pasaporte o extranjero -> no aplica (MIR no pide soporte).
      */
     private function validarNumeroSoporte(string $dni, string $soporte, string $entidad, int $id, string $pais = ''): array
@@ -547,7 +550,7 @@ class MirDataValidator
         $issues = [];
 
         $dni = strtoupper(trim($dni));
-        $soporte = trim($soporte);
+        $soporte = strtoupper(trim($soporte));
 
         if ($dni === '') {
             return $issues; // otra validacion lo caza
@@ -560,23 +563,52 @@ class MirDataValidator
             return $issues;
         }
 
-        // ¿Tiene formato DNI (8 digitos + letra) o NIE ([XYZ] + 7 digitos + letra)?
         $esDNI = (bool) preg_match('/^\d{8}[A-Z]$/', $dni);
         $esNIE = (bool) preg_match('/^[XYZ]\d{7}[A-Z]$/', $dni);
 
         if (!$esDNI && !$esNIE) {
-            return $issues; // otros formatos ya los cazan otras validaciones
+            return $issues;
         }
 
         if ($soporte === '') {
             $tipoDesc = $esNIE ? 'NIE' : 'DNI';
-            $ejemplo = $esNIE ? 'E12345678' : 'ABC123456';
             $issues[] = $this->issue(
                 'error',
                 $entidad,
                 $id,
                 'numero_soporte_documento',
-                "Falta el numero de soporte del {$tipoDesc} (obligatorio para MIR). Viene impreso en el propio documento, formato tipo '{$ejemplo}'.",
+                "Falta el numero de soporte del {$tipoDesc} (obligatorio para MIR). Viene impreso en el anverso del documento (etiqueta NUM SOPORTE o IDESP), formato 3 letras + 6 digitos (ej. BAA123456).",
+                null
+            );
+            return $issues;
+        }
+
+        // [2026-04-24] Caso tipico de error: el admin copio el DNI en el campo
+        // soporte (confusion facil porque en el DNI fisico aparecen ambos).
+        // Lo detectamos: si el soporte es EXACTAMENTE igual al DNI -> error.
+        if ($soporte === $dni) {
+            $issues[] = $this->issue(
+                'error',
+                $entidad,
+                $id,
+                'numero_soporte_documento',
+                "El numero de soporte '{$soporte}' es igual al numero del DNI — parece que se copio el campo equivocado. El numero de soporte es distinto: viene con la etiqueta NUM SOPORTE o IDESP en el anverso del DNI, formato 3 letras + 6 digitos (ej. BAA123456).",
+                null
+            );
+            return $issues;
+        }
+
+        // [2026-04-24] Validacion de formato. Canonico del DNI/NIE actual:
+        // 3 letras + 6 digitos. MIR acepta formatos antiguos, asi que si el
+        // valor no cumple pero TAMPOCO parece ser el DNI -> warning (no
+        // bloquea, solo avisa).
+        if (!preg_match('/^[A-Z]{3}\d{6}$/', $soporte)) {
+            $issues[] = $this->issue(
+                'warning',
+                $entidad,
+                $id,
+                'numero_soporte_documento',
+                "El numero de soporte '{$soporte}' no cumple el formato canonico del DNI espanol (3 letras + 6 digitos, ej. BAA123456). Puede ser un formato antiguo valido, pero conviene revisar la foto del anverso (etiqueta NUM SOPORTE / IDESP).",
                 null
             );
         }
