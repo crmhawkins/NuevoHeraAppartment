@@ -14,22 +14,29 @@
             {{ __('Tus datos han sido registrados correctamente.') }}
         </p>
 
-        @if($codigosAcceso && !empty($codigosAcceso['codigo_acceso']))
+        @if($codigosAcceso && (!empty($codigosAcceso['codigo_portal']) || !empty($codigosAcceso['codigo_apartamento'])))
         {{-- Access codes card --}}
         <div id="access-card" style="background: #f0f9ff; border: 2px solid #0ea5e9; border-radius: 16px; padding: 24px; margin-bottom: 24px; text-align: left;">
             <p style="font-size: 0.875rem; font-weight: 600; color: #0369a1; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 16px;">
                 {{ __('Tus códigos de acceso') }}
             </p>
 
-            @if(!empty($codigosAcceso['clave_edificio']))
+            {{-- [2026-04-25] Puerta principal del edificio: muestra el PIN unico
+                 dinamico programado para esta reserva (codigo_portal). En modo
+                 fallback, este puede ser el codigo de emergencia del portal. --}}
+            @if(!empty($codigosAcceso['codigo_portal']))
             <div style="margin-bottom: 16px;">
                 <p style="color: #6b7280; font-size: 0.875rem; margin: 0 0 4px;">{{ __('Puerta principal del edificio') }}</p>
                 <div style="font-size: 2.5rem; font-weight: 800; color: #0c4a6e; letter-spacing: 0.2em; font-family: monospace;">
-                    {{ $codigosAcceso['clave_edificio'] }}
+                    {{ $codigosAcceso['codigo_portal'] }}
                 </div>
             </div>
             @endif
 
+            {{-- [2026-04-25] Puerta del apartamento: SIEMPRE la clave fija del
+                 apartamento (apartamentos.claves), no se mezcla con el PIN del
+                 portal aunque el modo fallback este activo. --}}
+            @if(!empty($codigosAcceso['codigo_apartamento']))
             <div style="margin-bottom: 16px;">
                 <p style="color: #6b7280; font-size: 0.875rem; margin: 0 0 4px;">
                     {{ __('Puerta de tu apartamento') }}
@@ -38,9 +45,10 @@
                     @endif
                 </p>
                 <div style="font-size: 3rem; font-weight: 900; color: #0c4a6e; letter-spacing: 0.3em; font-family: monospace; background: white; border-radius: 12px; padding: 16px; text-align: center; border: 2px dashed #0ea5e9;">
-                    {{ $codigosAcceso['codigo_acceso'] }}
+                    {{ $codigosAcceso['codigo_apartamento'] }}
                 </div>
             </div>
+            @endif
 
             @if(!empty($reserva) && ($reserva->fecha_entrada || $reserva->fecha_salida))
             <div style="background: #e0f2fe; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; font-size: 0.8125rem; color: #0369a1;">

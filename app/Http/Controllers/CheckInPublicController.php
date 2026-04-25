@@ -414,14 +414,29 @@ class CheckInPublicController extends Controller
             $this->setAppLocale($cliente);
         }
 
+        // [2026-04-25] Fix critico: distinguir entre el PIN unico del portal
+        // (reserva.codigo_acceso, dinamico por reserva — formato '000XXXX')
+        // y la clave FIJA del apartamento (apartamento.claves — formato 'CXXXX').
+        // Antes la vista mostraba codigo_acceso etiquetado como "Puerta de tu
+        // apartamento", lo cual mezclaba ambos significados y, en modo fallback,
+        // hacia que el codigo de emergencia del portal apareciese como clave
+        // del apartamento — el huesped se quedaba fuera al intentar abrir la
+        // puerta del piso con un PIN del portal.
         $codigosAcceso = null;
-        if ($reserva->codigo_acceso) {
+        $apartamento = $reserva->apartamento;
+        $claveApartamento = $apartamento ? trim((string) $apartamento->claves) : '';
+        if (!empty($reserva->codigo_acceso) || $claveApartamento !== '') {
             $codigosAcceso = [
-                'codigo_acceso' => $reserva->codigo_acceso,
-                'apartamento_titulo' => $reserva->apartamento ? $reserva->apartamento->titulo : null,
-                'clave_edificio' => $reserva->apartamento && $reserva->apartamento->edificio
-                    ? $reserva->apartamento->edificio->clave
-                    : null,
+                // PIN unico/dinamico programado en la cerradura del portal
+                'codigo_portal' => $reserva->codigo_acceso ?: null,
+                // Clave FIJA del apartamento (no cambia con el modo fallback)
+                'codigo_apartamento' => $claveApartamento !== '' ? $claveApartamento : null,
+                'apartamento_titulo' => $apartamento ? $apartamento->titulo : null,
+                // Compat retro: la vista vieja usaba estas keys; las dejamos
+                // mapeadas para que cualquier otra vista que las consuma siga
+                // funcionando.
+                'codigo_acceso'  => $claveApartamento !== '' ? $claveApartamento : ($reserva->codigo_acceso ?: null),
+                'clave_edificio' => $reserva->codigo_acceso ?: ($apartamento && $apartamento->edificio ? $apartamento->edificio->clave : null),
             ];
         }
 
