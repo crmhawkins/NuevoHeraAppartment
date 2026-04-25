@@ -49,6 +49,7 @@ class Kernel extends ConsoleKernel
         \App\Console\Commands\ProgramarCerradurasProximas::class,
         \App\Console\Commands\VerificarCheckinHoy::class,
         \App\Console\Commands\WhatsappSyncTemplates::class,
+        \App\Console\Commands\AccesoReenviarCorreccion::class,
         \App\Console\Commands\ImportarMovimientosBanco::class,
         \App\Console\Commands\DetectOrphanedReservations::class,
     ];
