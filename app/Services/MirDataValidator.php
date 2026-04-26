@@ -220,7 +220,7 @@ class MirDataValidator
         $issues = array_merge($issues, $this->validarApellidoNoVacio($ap1, $entidad, $entidadId, $campoAp1));
 
         // A. Apellidos: preposiciones solas + primer apellido muy corto con ap2 con espacios
-        $issues = array_merge($issues, $this->validarApellidoPreposicion($ap1, $ap2, $entidad, $entidadId, $campoAp1, $campoAp2));
+        $issues = array_merge($issues, $this->validarApellidoPreposicion($ap1, $ap2, $entidad, $entidadId, $campoAp1, $campoAp2, $pais));
 
         // B. CP <-> provincia coherente + C. CP dentro de rango
         $issues = array_merge($issues, $this->validarCodigoPostalProvincia($cp, $provincia, $pais, $entidad, $entidadId));
@@ -273,12 +273,24 @@ class MirDataValidator
      * (<= 2 chars no-prep) y ap2 contiene espacios, probablemente el partido
      * fue mal (p.ej. "DEL" "OLMO CABEZUDO" -> deberia ser "DEL OLMO" "CABEZUDO").
      */
-    private function validarApellidoPreposicion(string $ap1, string $ap2, string $entidad, int $id, string $campoAp1, string $campoAp2): array
+    private function validarApellidoPreposicion(string $ap1, string $ap2, string $entidad, int $id, string $campoAp1, string $campoAp2, string $pais = ''): array
     {
         $issues = [];
         $norm = $this->normalizar($ap1);
         if ($norm === '') {
             return $issues; // ya lo cazo validarApellidoNoVacio
+        }
+
+        // [2026-04-26] Para huespedes NO espanoles, no aplicamos la regla de
+        // "preposicion sola" porque hay culturas donde palabras como "EL"
+        // (arabe), "VAN" / "VAN DER" (holandes), "DEL" / "DELLA" (italiano),
+        // "DE LOS" (lat-am) son apellidos validos por si mismos. La regla solo
+        // tiene sentido cuando esperamos un apellido espanol bien partido.
+        if ($pais !== '') {
+            $paisUpper = strtoupper(trim($pais));
+            if (!in_array($paisUpper, $this->paisEspanaAliases, true)) {
+                return $issues; // extranjero: no aplica
+            }
         }
 
         if (in_array($norm, array_map([$this, 'normalizar'], $this->preposicionesApellido), true)) {

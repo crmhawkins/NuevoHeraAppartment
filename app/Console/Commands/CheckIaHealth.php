@@ -36,9 +36,15 @@ class CheckIaHealth extends Command
     private const ALERT_TTL_MINUTES = 30;
 
     // Modelos que el CRM espera encontrar en Ollama. Si falta alguno, alerta.
+    // [2026-04-26] Anadido qwen3-vl:235b-cloud — fallback de OCR cuando el
+    // modelo local no extrae bien el numero_soporte_documento del DNI.
+    // Si este modelo cae o el plan Ollama Cloud se queda sin cuota, las
+    // reservas con DNI espanol se quedaran sin numero de soporte y bloqueadas
+    // para MIR. Es critico vigilarlo.
     private const MODELOS_ESPERADOS = [
-        'qwen3-vl:8b',           // OCR DNI/pasaporte/facturas
-        'gpt-oss:120b-cloud',    // chat WhatsApp/Channex/emails
+        'qwen3-vl:8b',           // OCR DNI/pasaporte/facturas (local)
+        'gpt-oss:120b-cloud',    // chat WhatsApp/Channex/emails + lookup CP
+        'qwen3-vl:235b-cloud',   // fallback OCR DNI (numero_soporte_documento)
     ];
 
     public function handle(): int
@@ -78,9 +84,20 @@ class CheckIaHealth extends Command
                     }
                 }
 
-                // 3) Inferencia real end-to-end contra cada modelo esperado.
-                //    Cargado != responde. Un prompt barato detecta degradaciones.
-                foreach (self::MODELOS_ESPERADOS as $modelo) {
+                // 3) Inferencia real end-to-end. Cargado != responde. Un
+                //    prompt barato detecta degradaciones del runtime o el
+                //    tunel a Ollama Cloud (cuota agotada, red, etc).
+                //    [2026-04-26] qwen3-vl:235b-cloud queda fuera de la
+                //    inferencia recurrente porque al ser modelo de vision
+                //    consume mucho mas tokens por llamada. Verificamos su
+                //    presencia en /api/tags (suficiente para detectar caida
+                //    del tunel o del plan cloud) y confiamos en que el
+                //    healthcheck de gpt-oss:120b-cloud detecte la salud
+                //    general de Ollama Cloud.
+                $modelosConInferencia = array_diff(self::MODELOS_ESPERADOS, [
+                    'qwen3-vl:235b-cloud',
+                ]);
+                foreach ($modelosConInferencia as $modelo) {
                     if (!in_array($modelo, $modelosEncontrados, true)) continue;
                     $fallo = $this->probarInferencia($ollamaUrl, $modelo);
                     if ($fallo !== null) {

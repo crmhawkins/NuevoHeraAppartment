@@ -275,6 +275,16 @@ class CheckinLinkController extends Controller
                             $edificioObj = $reserva->apartamento->edificioName ?? null;
                             $claveEdificio = $edificioObj ? $edificioObj->clave : '';
 
+                            // [2026-04-26] Tras refactor codigo_acceso: priorizar
+                            // codigo_portal/codigo_apartamento (canonicos nuevos)
+                            // sobre las claves estaticas. Esto asegura que lo
+                            // que se envia por WhatsApp/Email coincide con lo
+                            // que la web muestra al hacer check-in, incluso si
+                            // el modo fallback de cerraduras esta activo.
+                            $codPortalEnv = $reserva->codigo_portal ?: ($claveEdificio ?: '');
+                            $codAptoEnv = $reserva->codigo_apartamento
+                                ?: ($reserva->apartamento->claves ?? '');
+
                             // Enviar claves por WhatsApp
                             if (!empty($phoneCliente)) {
                                 $edificioId = $apartamentoReservado->edificio_id ?? null;
@@ -286,8 +296,8 @@ class CheckinLinkController extends Controller
                                     $kernel->clavesMensajeAtico(
                                         $reserva->cliente->nombre,
                                         $reserva->apartamento->titulo,
-                                        $claveEdificio,
-                                        $reserva->apartamento->claves,
+                                        $codPortalEnv,
+                                        $codAptoEnv,
                                         $phoneCliente,
                                         $idiomaCliente,
                                         $idiomaCliente == 'pt_PT' ? 'codigo_atico_por' : 'codigos_atico',
@@ -298,8 +308,8 @@ class CheckinLinkController extends Controller
                                     $kernel->clavesMensaje(
                                         $reserva->cliente->nombre == null ? $reserva->cliente->alias : $reserva->cliente->nombre,
                                         $reserva->apartamento->titulo,
-                                        $claveEdificio,
-                                        $reserva->apartamento->claves,
+                                        $codPortalEnv,
+                                        $codAptoEnv,
                                         $phoneCliente,
                                         $idiomaCliente,
                                         $enlace
@@ -319,16 +329,16 @@ class CheckinLinkController extends Controller
                                     $idiomaCliente,
                                     $reserva->cliente->nombre,
                                     $reserva->apartamento->titulo,
-                                    $claveEdificio,
-                                    $reserva->apartamento->claves
+                                    $codPortalEnv,
+                                    $codAptoEnv
                                 );
                             } else {
                                 $mensajeEmail = $kernel->clavesEmail(
                                     $idiomaCliente,
                                     $reserva->cliente->nombre,
                                     $reserva->apartamento->titulo,
-                                    $claveEdificio,
-                                    $reserva->apartamento->claves,
+                                    $codPortalEnv,
+                                    $codAptoEnv,
                                     $edificio
                                 );
                             }

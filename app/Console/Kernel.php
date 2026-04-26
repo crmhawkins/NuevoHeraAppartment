@@ -106,6 +106,24 @@ class Kernel extends ConsoleKernel
         // empieza a usarlo automaticamente en el siguiente envio.
         $schedule->command('whatsapp:sync-templates')->everyFifteenMinutes()->withoutOverlapping();
 
+        // [2026-04-26] Resumen DIARIO unico de reservas bloqueadas para MIR.
+        // Sustituye al spam anterior (un mensaje WhatsApp por cada reserva
+        // que fallaba la validacion). Ahora se manda 1 mensaje a las 09:30
+        // con la lista de TODAS las reservas pendientes de corregir.
+        $schedule->command('mir:resumen-pendientes')
+            ->dailyAt('09:30')
+            ->timezone('Europe/Madrid')
+            ->withoutOverlapping();
+
+        // [2026-04-26] Auto-rescate de reservas bloqueadas para MIR. Aplica
+        // fallbacks (Ollama Cloud Vision para soporte/numero documento,
+        // Nominatim+LLM para codigo postal) sobre los issues registrados.
+        // Tras corregir resetea mir_estado para que el cron normal de MIR
+        // las envie en el siguiente ciclo. Cada 30 min.
+        $schedule->command('mir:auto-rescate')
+            ->everyThirtyMinutes()
+            ->withoutOverlapping();
+
         // Tarea programada de Limpieza de numero de telefono del cliente.
         $schedule->command('clean:phonenumbers')->twiceDaily(1, 13);
 
@@ -784,11 +802,24 @@ class Kernel extends ConsoleKernel
                             'es_atico' => $reserva->apartamento_id === 1
                         ]);
 
+                        // [2026-04-26] Tras refactor codigo_acceso: priorizar
+                        // codigo_portal/codigo_apartamento (canonicos nuevos)
+                        // sobre las claves estaticas del edificio/apartamento.
+                        // Si el fallback esta activo, codigo_portal contiene
+                        // el PIN dinamico que SI corresponde con lo que se ha
+                        // programado en la cerradura. Las claves estaticas
+                        // quedan como fallback ultimo.
+                        $codPortalEnv = $reserva->codigo_portal
+                            ?: ($reserva->apartamento->edificioName->clave ?? null);
+                        $codAptoEnv = $reserva->codigo_apartamento
+                            ?: ($reserva->apartamento->claves ?? null);
+
                         if ($reserva->apartamento_id === 1) {
                             $data = $this->clavesMensajeAtico(
                                 $reserva->cliente->nombre,
-                                $reserva->apartamento->titulo, $reserva->apartamento->edificioName->clave,
-                                $reserva->apartamento->claves,
+                                $reserva->apartamento->titulo,
+                                $codPortalEnv,
+                                $codAptoEnv,
                                 $phoneCliente,
                                 $idiomaCliente,
                                 $idiomaCliente == 'pt_PT' ? 'codigo_atico_por' : 'codigos_atico',
@@ -797,9 +828,10 @@ class Kernel extends ConsoleKernel
                             );
                         } else {
                             $data = $this->clavesMensaje(
-                                $reserva->cliente->nombre == null ? $reserva->cliente->alias : $reserva->cliente->nombre, $reserva->apartamento->titulo,
-                                $reserva->apartamento->edificioName->clave,
-                                $reserva->apartamento->claves,
+                                $reserva->cliente->nombre == null ? $reserva->cliente->alias : $reserva->cliente->nombre,
+                                $reserva->apartamento->titulo,
+                                $codPortalEnv,
+                                $codAptoEnv,
                                 $phoneCliente,
                                 $idiomaCliente,
                                 $enlace

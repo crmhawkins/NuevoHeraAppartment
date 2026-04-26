@@ -414,29 +414,28 @@ class CheckInPublicController extends Controller
             $this->setAppLocale($cliente);
         }
 
-        // [2026-04-25] Fix critico: distinguir entre el PIN unico del portal
-        // (reserva.codigo_acceso, dinamico por reserva — formato '000XXXX')
-        // y la clave FIJA del apartamento (apartamento.claves — formato 'CXXXX').
-        // Antes la vista mostraba codigo_acceso etiquetado como "Puerta de tu
-        // apartamento", lo cual mezclaba ambos significados y, en modo fallback,
-        // hacia que el codigo de emergencia del portal apareciese como clave
-        // del apartamento — el huesped se quedaba fuera al intentar abrir la
-        // puerta del piso con un PIN del portal.
+        // [2026-04-26] Tras el refactor de AccessCodeService, los campos
+        // canonicos son `codigo_portal` (PIN del edificio) y `codigo_apartamento`
+        // (clave del piso). Caemos a los antiguos como fallback durante la
+        // transicion (reservas creadas antes de la migracion).
         $codigosAcceso = null;
         $apartamento = $reserva->apartamento;
-        $claveApartamento = $apartamento ? trim((string) $apartamento->claves) : '';
-        if (!empty($reserva->codigo_acceso) || $claveApartamento !== '') {
+        $claveAptFija = $apartamento ? trim((string) $apartamento->claves) : '';
+        $claveEdifFija = ($apartamento && $apartamento->edificio) ? trim((string) $apartamento->edificio->clave) : '';
+
+        $codigoPortal = $reserva->codigo_portal
+            ?: ($reserva->codigo_acceso ?: ($claveEdifFija ?: null));
+        $codigoApto = $reserva->codigo_apartamento
+            ?: ($claveAptFija ?: null);
+
+        if ($codigoPortal || $codigoApto) {
             $codigosAcceso = [
-                // PIN unico/dinamico programado en la cerradura del portal
-                'codigo_portal' => $reserva->codigo_acceso ?: null,
-                // Clave FIJA del apartamento (no cambia con el modo fallback)
-                'codigo_apartamento' => $claveApartamento !== '' ? $claveApartamento : null,
+                'codigo_portal' => $codigoPortal,
+                'codigo_apartamento' => $codigoApto,
                 'apartamento_titulo' => $apartamento ? $apartamento->titulo : null,
-                // Compat retro: la vista vieja usaba estas keys; las dejamos
-                // mapeadas para que cualquier otra vista que las consuma siga
-                // funcionando.
-                'codigo_acceso'  => $claveApartamento !== '' ? $claveApartamento : ($reserva->codigo_acceso ?: null),
-                'clave_edificio' => $reserva->codigo_acceso ?: ($apartamento && $apartamento->edificio ? $apartamento->edificio->clave : null),
+                // Compat retro: vistas/integraciones antiguas
+                'codigo_acceso'  => $codigoApto ?: $codigoPortal,
+                'clave_edificio' => $codigoPortal,
             ];
         }
 

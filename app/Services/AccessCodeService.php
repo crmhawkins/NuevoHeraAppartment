@@ -67,8 +67,12 @@ class AccessCodeService
             return null;
         }
 
+        // [2026-04-26] Cerradura manual: el codigo es la clave del apartamento.
+        // Lo guardamos en codigo_apartamento (canonico nuevo) y en codigo_acceso
+        // (legacy, por compat con lectores antiguos).
         $reserva->update([
-            'codigo_acceso' => $codigo,
+            'codigo_acceso'            => $codigo,
+            'codigo_apartamento'       => $codigo,
             'codigo_enviado_cerradura' => 1, // Manual = siempre "programada"
         ]);
 
@@ -110,11 +114,34 @@ class AccessCodeService
         if ($edificio && $fallbackSvc->estaEnFallback($edificio, $proveedor)) {
             $codigoEmerg = $edificio->codigo_emergencia_portal;
             if ($codigoEmerg) {
-                $reserva->update([
-                    'codigo_acceso' => $codigoEmerg,
-                    'codigo_enviado_cerradura' => 1, // asumido porque es codigo estatico ya programado
-                ]);
-                Log::info("[Fallback] Reserva {$reserva->id}: asignado codigo emergencia {$codigoEmerg} (modo fallback activo en edificio {$edificio->id} proveedor {$proveedor})");
+                // [2026-04-26 BUG-FIX HISTORICO] El codigo de emergencia ES
+                // del PORTAL del edificio, NO del apartamento. Antes lo
+                // metiamos en `codigo_acceso` (campo unico) y la vista lo
+                // mostraba como "clave del apartamento" -> 28 huespedes
+                // recibieron el codigo del portal etiquetado como clave de
+                // su apartamento, no podian entrar a su piso, costo dia y
+                // medio limpiarlo.
+                //
+                // Ahora separamos: el codigo de emergencia va SOLO a
+                // `codigo_portal`. El `codigo_apartamento` se queda con la
+                // clave fija del piso (si la hay). El campo `codigo_acceso`
+                // legacy NO se contamina con el codigo del portal — solo se
+                // pobla si NO hay clave de apartamento (para que apps
+                // antiguas sigan funcionando minimamente).
+                $claveApt = $apartamento->claves ?? null;
+                $update = [
+                    'codigo_portal'            => $codigoEmerg,
+                    'codigo_apartamento'       => $claveApt ?: null,
+                    'codigo_enviado_cerradura' => 1,
+                ];
+                // codigo_acceso legacy: ya no le metemos el codigo del portal.
+                // Si hay clave de apartamento, la usamos. Si no, dejamos lo
+                // que ya hubiera (no contaminamos con datos del portal).
+                if ($claveApt) {
+                    $update['codigo_acceso'] = $claveApt;
+                }
+                $reserva->update($update);
+                Log::info("[Fallback] Reserva {$reserva->id}: codigo_portal={$codigoEmerg}, codigo_apartamento=" . ($claveApt ?: '(sin clave fija)') . " (fallback edificio {$edificio->id} proveedor {$proveedor})");
                 return $codigoEmerg;
             }
             Log::warning("[Fallback] Edificio {$edificio->id} en modo fallback pero sin codigo_emergencia_portal configurado");
@@ -122,7 +149,7 @@ class AccessCodeService
 
         if (!$lockId) {
             $codigo = $this->generarCodigoUnico();
-            $reserva->update(['codigo_acceso' => $codigo, 'codigo_enviado_cerradura' => 0]);
+            $this->guardarPinGenerado($reserva, $apartamento, $codigo, $esPortal, false);
             Log::warning("AccessCodeService: apartamento {$apartamento->id} tipo '{$tipoCerradura}' sin lock_id.");
             $this->notificarError($reserva, "Apartamento {$apartamento->titulo} tiene cerradura {$tipoCerradura} pero no tiene lock_id configurado.");
             return $codigo;
@@ -135,13 +162,13 @@ class AccessCodeService
         // Validación: reservas de un solo día
         if (Carbon::parse($reserva->fecha_entrada)->isSameDay(Carbon::parse($reserva->fecha_salida))) {
             Log::warning('AccessCode: Reserva de un solo día, no se puede programar cerradura', ['reserva_id' => $reserva->id]);
-            $reserva->update(['codigo_acceso' => $codigo, 'codigo_enviado_cerradura' => 0]);
+            $this->guardarPinGenerado($reserva, $apartamento, $codigo, $esPortal, false);
             return $codigo;
         }
 
         $tuyaAppUrl = config('services.tuya_app.url');
         if (empty($tuyaAppUrl)) {
-            $reserva->update(['codigo_acceso' => $codigo, 'codigo_enviado_cerradura' => 0]);
+            $this->guardarPinGenerado($reserva, $apartamento, $codigo, $esPortal, false);
             Log::warning("AccessCodeService: TUYA_APP_URL no configurada.");
             $this->notificarError($reserva, "TUYA_APP_URL no configurada. Código generado pero no enviado a cerradura.");
             return $codigo;
@@ -158,13 +185,55 @@ class AccessCodeService
         $ventanaDias = ($tipoCerradura === 'tuya') ? 7 : 150;
         $diasHastaEntrada = Carbon::now()->diffInDays(Carbon::parse($reserva->fecha_entrada), false);
         if ($diasHastaEntrada > $ventanaDias) {
-            $reserva->update(['codigo_acceso' => $codigo, 'codigo_enviado_cerradura' => 0]);
+            $this->guardarPinGenerado($reserva, $apartamento, $codigo, $esPortal, false);
             Log::info("AccessCodeService: código para reserva {$reserva->id} diferido ({$diasHastaEntrada} días, ventana {$ventanaDias}d para {$tipoCerradura}).");
             return $codigo;
         }
 
         // Enviar a Tuyalaravel
-        return $this->enviarATuyalaravel($reserva, $lockId, $codigo);
+        return $this->enviarATuyalaravel($reserva, $lockId, $codigo, $esPortal);
+    }
+
+    /**
+     * [2026-04-26] Helper canonico para guardar un PIN generado en la reserva.
+     *
+     * Reglas:
+     *  - Si el PIN es del PORTAL (cerradura compartida entre apartamentos),
+     *    va al campo `codigo_portal`. La clave del apartamento (si hay)
+     *    sigue intacta en `codigo_apartamento`.
+     *  - Si el PIN es de la PUERTA del apartamento (cerradura individual),
+     *    va a `codigo_apartamento`. Se mantiene la clave del portal en
+     *    `codigo_portal` (si el edificio tiene `clave` configurada).
+     *  - El campo legacy `codigo_acceso` se rellena con el PIN dinamico
+     *    para no romper lectores antiguos. Pero ya NUNCA se contamina con
+     *    el codigo de emergencia (eso vive solo en `codigo_portal`).
+     */
+    private function guardarPinGenerado(Reserva $reserva, $apartamento, string $codigo, bool $esPortal, bool $confirmado): void
+    {
+        $update = [
+            'codigo_acceso'            => $codigo,  // legacy: lo seguimos rellenando
+            'codigo_enviado_cerradura' => $confirmado ? 1 : 0,
+        ];
+
+        if ($esPortal) {
+            $update['codigo_portal'] = $codigo;
+            // codigo_apartamento se queda con apartamento->claves si existe
+            if (!empty($apartamento->claves) && empty($reserva->codigo_apartamento)) {
+                $update['codigo_apartamento'] = $apartamento->claves;
+            }
+        } else {
+            $update['codigo_apartamento'] = $codigo;
+            // codigo_portal se queda con la clave estatica del edificio si la hay
+            $edif = $apartamento->edificioName ?? $apartamento->edificioRel ?? null;
+            if (!$edif && !empty($apartamento->edificio_id)) {
+                $edif = \App\Models\Edificio::find($apartamento->edificio_id);
+            }
+            if ($edif && !empty($edif->clave) && empty($reserva->codigo_portal)) {
+                $update['codigo_portal'] = $edif->clave;
+            }
+        }
+
+        $reserva->update($update);
     }
 
     /**
@@ -173,11 +242,12 @@ class AccessCodeService
      * Si falla, guarda el código pero con codigo_enviado_cerradura = 0.
      * Tuyalaravel puede devolver un PIN diferente (modo offline TTLock) — usamos el que devuelve.
      */
-    private function enviarATuyalaravel(Reserva $reserva, $lockId, string $codigo): ?string
+    private function enviarATuyalaravel(Reserva $reserva, $lockId, string $codigo, bool $esPortal = false): ?string
     {
         $tuyaAppUrl = config('services.tuya_app.url');
         $efectivo = Carbon::parse($reserva->fecha_entrada)->setTime(15, 0, 0);
         $invalido = Carbon::parse($reserva->fecha_salida)->setTime(11, 0, 0);
+        $apartamento = $reserva->apartamento;
 
         try {
             $response = Http::timeout(30)
@@ -196,11 +266,8 @@ class AccessCodeService
                 // Usar el PIN que devuelve Tuyalaravel (puede ser diferente en modo offline)
                 $pinReal = $response->json('data.pin') ?? $codigo;
 
-                $reserva->update([
-                    'codigo_acceso'            => $pinReal,
-                    'ttlock_pin_id'            => $pinId,
-                    'codigo_enviado_cerradura' => 1,
-                ]);
+                $this->guardarPinGenerado($reserva, $apartamento, $pinReal, $esPortal, true);
+                $reserva->update(['ttlock_pin_id' => $pinId]);
 
                 Log::info("AccessCodeService: PIN programado en cerradura para reserva {$reserva->id}.", [
                     'provider_code_id' => $pinId,
@@ -211,7 +278,7 @@ class AccessCodeService
 
                 return $pinReal;
             } else {
-                $reserva->update(['codigo_acceso' => $codigo, 'codigo_enviado_cerradura' => 0]);
+                $this->guardarPinGenerado($reserva, $apartamento, $codigo, $esPortal, false);
                 Log::error("AccessCodeService: error HTTP {$response->status()} al programar cerradura.", [
                     'reserva_id' => $reserva->id,
                     'response' => $response->body(),
@@ -220,7 +287,7 @@ class AccessCodeService
                 $this->notificarResultadoAlFallback($reserva, false, "HTTP {$response->status()}: " . mb_substr($response->body(), 0, 200));
             }
         } catch (\Exception $e) {
-            $reserva->update(['codigo_acceso' => $codigo, 'codigo_enviado_cerradura' => 0]);
+            $this->guardarPinGenerado($reserva, $apartamento, $codigo, $esPortal, false);
             Log::error("AccessCodeService: excepción al llamar a Tuyalaravel: " . $e->getMessage());
             $this->notificarError($reserva, "Error al conectar con Tuyalaravel: {$e->getMessage()}\nApartamento: {$reserva->apartamento->titulo}");
             $this->notificarResultadoAlFallback($reserva, false, 'Exception: ' . $e->getMessage());
