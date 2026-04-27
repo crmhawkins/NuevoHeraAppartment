@@ -2277,17 +2277,14 @@
                                        title="Ver información de la limpieza">
                                         <i class="fas fa-eye"></i>
                                     </a>
-<<<<<<< Updated upstream
-=======
                                     @if(isset($reservaLimpieza->status_id) && $reservaLimpieza->status_id == 3)
-                                        <button type="button" 
-                                                class="action-button warning-btn cambiar-estado-gestion-btn" 
+                                        <button type="button"
+                                                class="action-button warning-btn cambiar-estado-gestion-btn"
                                                 title="Volver a En Limpieza"
                                                 data-limpieza-id="{{ $reservaLimpieza->id }}">
                                             <i class="fas fa-redo"></i>
                                         </button>
                                     @endif
->>>>>>> Stashed changes
                                     <div class="apple-list-icon">
                                         <i class="fa-solid fa-check"></i>
                                     </div>
