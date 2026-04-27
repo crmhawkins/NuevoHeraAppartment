@@ -124,6 +124,14 @@ class Kernel extends ConsoleKernel
             ->everyThirtyMinutes()
             ->withoutOverlapping();
 
+        // [2026-04-27] Auto-desactivacion segura del modo fallback de
+        // cerraduras. Cada hora prueba si Tuya/TTLock recupero. Tras 3
+        // exitos consecutivos auto-desactiva el fallback. Conservador:
+        // si la API responde mal aunque sea una vez, resetea contador.
+        $schedule->command('cerraduras:probar-recuperacion')
+            ->hourly()
+            ->withoutOverlapping();
+
         // Tarea programada de Limpieza de numero de telefono del cliente.
         $schedule->command('clean:phonenumbers')->twiceDaily(1, 13);
 
