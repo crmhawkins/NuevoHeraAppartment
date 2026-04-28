@@ -54,16 +54,21 @@ class CerraduraSlotManager
     public function asegurarSlotLibre(int $lockId): bool
     {
         try {
-            // 1. Listar reservas con PIN activo en este lock
-            $reservasConPin = Reserva::whereNotNull('ttlock_pin_id')
-                ->where('codigo_enviado_cerradura', 1)
-                ->whereDate('fecha_salida', '>=', now()->subDay()->toDateString())
-                ->whereNotIn('estado_id', [4, 9])
-                ->whereHas('apartamento', function ($q) use ($lockId) {
-                    $q->where('tuyalaravel_lock_id', $lockId)
-                      ->orWhere('ttlock_lock_id', $lockId);
-                })
-                ->count();
+            // [2026-04-28] Conteo REAL desde Tuyalaravel (preferido). Si falla
+            // o no responde, caemos al conteo por BD del CRM.
+            $reservasConPin = $this->contarPinsRealEnLock($lockId);
+            if ($reservasConPin === null) {
+                $reservasConPin = Reserva::whereNotNull('ttlock_pin_id')
+                    ->where('codigo_enviado_cerradura', 1)
+                    ->whereDate('fecha_salida', '>=', now()->subDay()->toDateString())
+                    ->whereNotIn('estado_id', [4, 9])
+                    ->whereHas('apartamento', function ($q) use ($lockId) {
+                        $q->where('tuyalaravel_lock_id', $lockId)
+                          ->orWhere('ttlock_lock_id', $lockId);
+                    })
+                    ->count();
+                Log::info("[SlotManager] Conteo Tuyalaravel fallido, usando BD: {$reservasConPin}");
+            }
 
             if ($reservasConPin < self::SLOTS_LIMITE) {
                 return true; // hay sitio
@@ -219,6 +224,28 @@ class CerraduraSlotManager
         } catch (\Throwable $e) {
             Log::warning('[SlotManager] Excepcion en programarSiguientesDelLock: ' . $e->getMessage());
             return 0;
+        }
+    }
+
+    /**
+     * [2026-04-28] Pregunta a Tuyalaravel cuantos PINs activos AHORA hay
+     * en el lock. Devuelve null si Tuyalaravel no responde (caller debera
+     * caer al conteo por BD).
+     */
+    private function contarPinsRealEnLock(int $lockId): ?int
+    {
+        $url = config('services.tuya_app.url');
+        $key = config('services.tuya_app.api_key');
+        if (empty($url) || empty($key)) return null;
+
+        try {
+            $resp = Http::withHeaders(['X-API-Key' => $key])->timeout(8)
+                ->get(rtrim($url, '/') . "/api/locks/{$lockId}/pins-count");
+            if (!$resp->successful()) return null;
+            $active = $resp->json('data.active_now');
+            return is_int($active) ? $active : null;
+        } catch (\Throwable $e) {
+            return null;
         }
     }
 

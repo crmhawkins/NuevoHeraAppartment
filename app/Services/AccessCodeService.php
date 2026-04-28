@@ -148,11 +148,37 @@ class AccessCodeService
         }
 
         if (!$lockId) {
-            $codigo = $this->generarCodigoUnico();
-            $this->guardarPinGenerado($reserva, $apartamento, $codigo, $esPortal, false);
-            Log::warning("AccessCodeService: apartamento {$apartamento->id} tipo '{$tipoCerradura}' sin lock_id.");
-            $this->notificarError($reserva, "Apartamento {$apartamento->titulo} tiene cerradura {$tipoCerradura} pero no tiene lock_id configurado.");
-            return $codigo;
+            // [2026-04-28 FIX #11] Si el apartamento tiene tipo_cerradura digital
+            // (tuya/ttlock) pero no tiene lock_id configurado, NO generamos un
+            // PIN unico que nunca se programara. En su lugar:
+            //   1. Si el apartamento tiene una clave manual fija configurada
+            //      (`apartamento->claves`), la usamos como fallback. El huesped
+            //      la recibira por el flujo normal.
+            //   2. Si tampoco tiene clave manual, alertamos al admin pero
+            //      registramos codigo_acceso en blanco (no inventamos un PIN
+            //      que llevaria al huesped a chocarse con una puerta cerrada).
+            $claveManual = trim((string) ($apartamento->claves ?? ''));
+            if ($claveManual !== '') {
+                $reserva->update([
+                    'codigo_acceso'            => $claveManual,
+                    'codigo_apartamento'       => $claveManual,
+                    'codigo_enviado_cerradura' => 1, // clave manual = siempre programada
+                ]);
+                Log::warning("AccessCodeService: apartamento {$apartamento->id} tipo '{$tipoCerradura}' sin lock_id, usando clave manual como fallback", [
+                    'reserva_id' => $reserva->id, 'clave' => $claveManual,
+                ]);
+                $this->notificarError($reserva, "Apartamento {$apartamento->titulo} tiene cerradura {$tipoCerradura} pero sin lock_id configurado. Se ha usado la clave manual fija como fallback. CORREGIR EL APARTAMENTO en el panel admin.");
+                return $claveManual;
+            }
+
+            // Sin lock_id Y sin clave manual: situacion grave, alertar pero NO
+            // dar al huesped un PIN inventado.
+            $reserva->update(['codigo_enviado_cerradura' => 0]);
+            Log::error("AccessCodeService: apartamento {$apartamento->id} tipo '{$tipoCerradura}' SIN lock_id NI clave manual — huesped sin acceso", [
+                'reserva_id' => $reserva->id,
+            ]);
+            $this->notificarError($reserva, "🚨 URGENTE: Apartamento {$apartamento->titulo} sin lock_id ni clave manual. Huesped #{$reserva->id} se quedara SIN ACCESO. Revisar configuracion YA.");
+            return null;
         }
 
         $codigo = $esPortal
@@ -406,6 +432,7 @@ class AccessCodeService
             if ($response->successful()) {
                 $pinId = $response->json('data.provider_code_id');
                 $pinReal = $response->json('data.pin') ?? $reserva->codigo_acceso;
+                $pinViejo = $reserva->codigo_acceso;
 
                 $reserva->update([
                     'codigo_acceso'            => $pinReal,
@@ -416,6 +443,23 @@ class AccessCodeService
                 Log::info("AccessCodeService::reintento: PIN confirmado para reserva {$reserva->id}.", [
                     'provider_code_id' => $pinId,
                 ]);
+
+                // [2026-04-28 FIX auditoria #13] Si Tuyalaravel devolvio un
+                // PIN distinto al que pediamos (modo offline TTLock genera
+                // su propio PIN), el huesped tiene en su WhatsApp el viejo.
+                // Notificamos del cambio con el template aprobado.
+                if (trim((string) $pinViejo) !== trim((string) $pinReal) && !empty($pinViejo)) {
+                    try {
+                        app(\App\Services\CerraduraFallbackService::class)
+                            ->enviarCodigoEmergenciaACliente($reserva);
+                        Log::info("[reintento] Huesped notificado del cambio de PIN", [
+                            'reserva_id' => $reserva->id,
+                            'pin_viejo' => $pinViejo, 'pin_nuevo' => $pinReal,
+                        ]);
+                    } catch (\Throwable $e) {
+                        Log::warning('[reintento] No se pudo notificar al huesped del cambio: ' . $e->getMessage());
+                    }
+                }
 
                 return true;
             }
