@@ -138,9 +138,12 @@ class Kernel extends ConsoleKernel
         // Si la reprogramacion falla, envia codigo de emergencia.
         // Limit=20 por ejecucion (red de seguridad anti-spam).
         // Solo verifica reservas con entrada en proximos 7 dias.
+        // withoutOverlapping(25) = max 25 min para no solapar con la
+        // siguiente ejecucion de 30 min.
         $schedule->command('cerraduras:healthcheck-pins --apply --ventana-dias=7 --limit=20')
             ->everyThirtyMinutes()
-            ->withoutOverlapping();
+            ->withoutOverlapping(25)
+            ->runInBackground();
 
         // [2026-04-28] Red de seguridad: purga semanal de PINs zombie
         // (huespedes que ya salieron pero el Job de borrado al vencer
@@ -149,7 +152,7 @@ class Kernel extends ConsoleKernel
         // peligroso porque solo borra PINs de huespedes ya idos).
         $schedule->command('cerraduras:purgar-zombies --apply --limit=50')
             ->weeklyOn(1, '03:00') // lunes 03:00
-            ->withoutOverlapping();
+            ->withoutOverlapping(120);
 
         // Tarea programada de Limpieza de numero de telefono del cliente.
         $schedule->command('clean:phonenumbers')->twiceDaily(1, 13);

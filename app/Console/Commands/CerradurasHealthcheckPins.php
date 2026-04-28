@@ -65,6 +65,17 @@ class CerradurasHealthcheckPins extends Command
             ->whereNotNull('ttlock_pin_id')
             ->where('estado_id', '!=', 4)
             ->where('estado_id', '!=', 9)
+            // [2026-04-28 FIX #15b] Saltar las que ya recibieron codigo de
+            // emergencia hace poco. Si entran en problema 3 ciclos seguidos
+            // sin esto, mandariamos 3 WhatsApp consecutivos al mismo huesped.
+            ->where(function ($q) {
+                $q->whereNull('codigo_fallback_enviado')
+                  ->orWhere('codigo_fallback_enviado', 0);
+            })
+            // [FIX #10] Saltar vetadas (no debemos enviar codigo a vetados)
+            ->where(function ($q) {
+                $q->whereNull('vetada')->orWhere('vetada', 0);
+            })
             // Reservas en ventana: salida >= ayer y entrada <= +ventana_dias
             ->whereDate('fecha_salida', '>=', now()->subDay()->toDateString())
             ->whereDate('fecha_entrada', '<=', now()->addDays($ventana)->toDateString());
@@ -175,13 +186,23 @@ class CerradurasHealthcheckPins extends Command
      * Reprograma el PIN. Si la reprogramacion falla, envia codigo de
      * emergencia (template aprobado, atraviesa ventana 24h).
      *
+     * [2026-04-28 FIX #1+#5]
+     *  - Guarda valores ORIGINALES y restaura si la reprogramacion falla
+     *    sin programar (asi no nos quedamos peor que antes).
+     *  - Si reprograma exitosamente Y el PIN nuevo es DISTINTO al viejo
+     *    (que el huesped tiene en su WhatsApp), avisa al huesped del
+     *    cambio usando el template aprobado cambio_clave_emergencia.
+     *
      * @return string 'reprogramado' | 'emergencia' | 'nada'
      */
     private function intentarReprogramar(Reserva $r, AccessCodeService $accessCodeSvc, CerraduraFallbackService $fallbackSvc): string
     {
+        $oldPin = $r->codigo_acceso;
+        $oldPinId = $r->ttlock_pin_id;
+        $oldEnviado = $r->codigo_enviado_cerradura;
+
         try {
             // Resetear flags para que AccessCodeService genere un PIN nuevo
-            $oldPin = $r->codigo_acceso;
             $r->codigo_enviado_cerradura = 0;
             $r->ttlock_pin_id = null;
             $r->save();
@@ -194,10 +215,36 @@ class CerradurasHealthcheckPins extends Command
                     'reserva_id' => $r->id, 'old_pin' => $oldPin, 'new_pin' => $nuevoPin,
                 ]);
                 $this->info("    ✓ reprogramado nuevo pin={$nuevoPin}");
+
+                // Avisar al huesped del cambio si el PIN cambio. Usamos el
+                // template cambio_clave_emergencia (aprobado, atraviesa
+                // ventana 24h) — si no, el huesped llega con el PIN viejo
+                // que ya no funciona en la cerradura.
+                if (trim((string) $oldPin) !== trim((string) $nuevoPin)) {
+                    try {
+                        $enviado = $fallbackSvc->enviarCodigoEmergenciaACliente($r);
+                        if ($enviado) {
+                            $this->info("    ↪ huesped notificado del nuevo PIN");
+                        } else {
+                            $this->warn("    ⚠ no se pudo notificar al huesped — PIN cambio en cerradura pero su WhatsApp tiene el viejo");
+                        }
+                    } catch (\Throwable $e) {
+                        Log::warning('[PinHealthcheck] No se pudo notificar al huesped: ' . $e->getMessage());
+                    }
+                }
+
                 return 'reprogramado';
             }
 
-            // No se programo (Tuya saturado o caido). Activar fallback de emergencia.
+            // No se programo. RESTAURAR valores originales para que el
+            // estado en BD no quede peor que antes (si oldPinId era valido,
+            // sigue valido aunque hayamos puesto null).
+            $r->codigo_acceso = $oldPin;
+            $r->ttlock_pin_id = $oldPinId;
+            $r->codigo_enviado_cerradura = $oldEnviado;
+            $r->save();
+
+            // Tuya saturado o caido. Activar fallback de emergencia.
             $this->warn("    reprogramacion fallida -> enviando codigo de emergencia");
             $enviado = $fallbackSvc->enviarCodigoEmergenciaACliente($r);
             if ($enviado) {
@@ -210,6 +257,17 @@ class CerradurasHealthcheckPins extends Command
             $this->error("    ✗ tampoco se pudo enviar codigo emergencia (revisar manualmente)");
             return 'nada';
         } catch (\Throwable $e) {
+            // En caso de excepcion intentamos restaurar tambien
+            try {
+                $r->refresh();
+                if ($r->codigo_enviado_cerradura == 0 && $oldEnviado == 1) {
+                    $r->codigo_acceso = $oldPin;
+                    $r->ttlock_pin_id = $oldPinId;
+                    $r->codigo_enviado_cerradura = $oldEnviado;
+                    $r->save();
+                }
+            } catch (\Throwable $e2) { /* no cascade fail */
+            }
             Log::error('[PinHealthcheck] Excepcion reprogramando: ' . $e->getMessage(), [
                 'reserva_id' => $r->id,
             ]);

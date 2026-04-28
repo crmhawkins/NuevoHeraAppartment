@@ -33,8 +33,17 @@ use Illuminate\Support\Facades\Log;
  */
 class CerraduraSlotManager
 {
-    /** Slot maximo "seguro" antes de empezar a purgar (limite real ~9-10). */
-    public const SLOTS_LIMITE = 9;
+    /**
+     * Slot maximo "seguro" antes de empezar a purgar.
+     *
+     * [2026-04-28 FIX #3] Bajado de 9 a 6 para dejar colchon. Razon:
+     * el conteo solo mira reservas (codigo_enviado_cerradura=1), pero
+     * la cerradura fisica tambien tiene PINs permanentes (limpiadora,
+     * seguridad) y posibles zombies historicos no contabilizados.
+     * El limite fisico real es ~9-10 PINs activos. Usar 6 evita que
+     * el conteo subestime y nos lleve a saturacion silenciosa.
+     */
+    public const SLOTS_LIMITE = 6;
 
     /**
      * Comprueba que hay slot libre en el lock. Si no, intenta liberarlo
@@ -182,6 +191,23 @@ class CerraduraSlotManager
                             'fecha_entrada' => $r->fecha_entrada,
                         ]);
                         $programadas++;
+
+                        // [2026-04-28 FIX #2] Tras programar exitoso, encolar
+                        // el Job de borrado al vencer. Si no, este PIN
+                        // recien programado quedaria como zombie al expirar
+                        // (reintentarOFallback no encola el job por si solo).
+                        try {
+                            $r->refresh();
+                            if (!empty($r->ttlock_pin_id)) {
+                                $cuando = \Carbon\Carbon::parse($r->fecha_salida)
+                                    ->setTime(11, 0, 0)
+                                    ->addMinutes(30);
+                                \App\Jobs\BorrarPinAlVencer::dispatch($r->id)->delay($cuando);
+                                Log::info("[SlotManager] Job borrar al vencer encolado para reserva {$r->id} a las {$cuando}");
+                            }
+                        } catch (\Throwable $e) {
+                            Log::warning('[SlotManager] No se pudo encolar Job de borrado: ' . $e->getMessage());
+                        }
                     } else {
                         Log::warning("[SlotManager] No se pudo programar reserva {$r->id} en lock {$lockId} — el cron diario lo reintentara");
                     }
