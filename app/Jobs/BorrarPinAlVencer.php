@@ -99,11 +99,14 @@ class BorrarPinAlVencer implements ShouldQueue
                 ->get(rtrim($url, '/') . "/api/pins/by-reference/" . rawurlencode($reference));
 
             if ($resp->status() === 404) {
-                // Ya no existe. Limpiamos en nuestra BD y salimos.
+                // Ya no existe. Limpiamos en nuestra BD. El slot fisico ya
+                // esta libre (alguien lo borro por nosotros), asi que tambien
+                // intentamos programar la siguiente reserva pendiente del lock.
                 $reserva->update(['ttlock_pin_id' => null, 'codigo_enviado_cerradura' => 0]);
                 Log::info('[BorrarPinAlVencer] PIN ya no existe en Tuyalaravel, BD limpia', [
                     'reserva_id' => $reserva->id,
                 ]);
+                $this->programarSiguienteDelLock($reserva);
                 return;
             }
             if (!$resp->successful()) {
@@ -129,19 +132,8 @@ class BorrarPinAlVencer implements ShouldQueue
                 ]);
 
                 // [2026-04-28] Encadenado: liberado un slot, programar la
-                // siguiente reserva pendiente del mismo lock (si la hay y
-                // esta dentro de la ventana del proveedor). NO envia
-                // WhatsApp — eso lo hace el cron clavesAutomatico.
-                try {
-                    $apt = $reserva->apartamento;
-                    $lockId = $apt?->tuyalaravel_lock_id ?? $apt?->ttlock_lock_id;
-                    if ($lockId) {
-                        app(\App\Services\CerraduraSlotManager::class)
-                            ->programarSiguientesDelLock((int) $lockId, 1);
-                    }
-                } catch (\Throwable $e) {
-                    Log::warning('[BorrarPinAlVencer] No se pudo programar siguiente: ' . $e->getMessage());
-                }
+                // siguiente reserva pendiente del mismo lock.
+                $this->programarSiguienteDelLock($reserva);
                 return;
             }
 
@@ -152,6 +144,25 @@ class BorrarPinAlVencer implements ShouldQueue
                 'reserva_id' => $reserva->id,
             ]);
             throw $e; // dejar que la queue reintente
+        }
+    }
+
+    /**
+     * Helper: tras liberar un slot (sea por DELETE OK o por verificar 404),
+     * programa la siguiente reserva diferida del mismo lock. NO envia
+     * WhatsApp — solo programa el PIN en cerradura. Cualquier excepcion
+     * se loguea pero no rompe el flujo del Job.
+     */
+    private function programarSiguienteDelLock(Reserva $reserva): void
+    {
+        try {
+            $apt = $reserva->apartamento;
+            $lockId = $apt?->tuyalaravel_lock_id ?? $apt?->ttlock_lock_id;
+            if (!$lockId) return;
+            app(\App\Services\CerraduraSlotManager::class)
+                ->programarSiguientesDelLock((int) $lockId, 1);
+        } catch (\Throwable $e) {
+            Log::warning('[BorrarPinAlVencer] No se pudo programar siguiente: ' . $e->getMessage());
         }
     }
 }
