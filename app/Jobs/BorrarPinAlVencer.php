@@ -127,6 +127,21 @@ class BorrarPinAlVencer implements ShouldQueue
                     'internal_id' => $internalId,
                     'response' => mb_substr((string) $del->body(), 0, 200),
                 ]);
+
+                // [2026-04-28] Encadenado: liberado un slot, programar la
+                // siguiente reserva pendiente del mismo lock (si la hay y
+                // esta dentro de la ventana del proveedor). NO envia
+                // WhatsApp — eso lo hace el cron clavesAutomatico.
+                try {
+                    $apt = $reserva->apartamento;
+                    $lockId = $apt?->tuyalaravel_lock_id ?? $apt?->ttlock_lock_id;
+                    if ($lockId) {
+                        app(\App\Services\CerraduraSlotManager::class)
+                            ->programarSiguientesDelLock((int) $lockId, 1);
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('[BorrarPinAlVencer] No se pudo programar siguiente: ' . $e->getMessage());
+                }
                 return;
             }
 

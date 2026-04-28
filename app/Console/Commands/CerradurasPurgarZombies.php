@@ -117,6 +117,22 @@ class CerradurasPurgarZombies extends Command
                     $r->update(['ttlock_pin_id' => null, 'codigo_enviado_cerradura' => 0]);
                     $this->info("    ✓ borrado");
                     $purgados++;
+
+                    // [2026-04-28] Encadenado: tras liberar slot, programar
+                    // la siguiente reserva pendiente del mismo lock.
+                    try {
+                        $apt = $r->apartamento;
+                        $lockId = $apt?->tuyalaravel_lock_id ?? $apt?->ttlock_lock_id;
+                        if ($lockId) {
+                            $n = app(\App\Services\CerraduraSlotManager::class)
+                                ->programarSiguientesDelLock((int) $lockId, 1);
+                            if ($n > 0) {
+                                $this->info("    ↪ programada siguiente reserva del lock {$lockId}");
+                            }
+                        }
+                    } catch (\Throwable $e) {
+                        Log::warning('[purgar-zombies] no se programo siguiente: ' . $e->getMessage());
+                    }
                 } else {
                     $this->error("    HTTP {$del->status()} al borrar: " . mb_substr($del->body(), 0, 200));
                     $errores++;

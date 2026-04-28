@@ -84,6 +84,13 @@ class CerraduraSlotManager
                 'lock_id' => $lockId, 'borrados' => $borrados,
             ]);
 
+            // Encadenado: por cada slot liberado, programar la siguiente
+            // reserva pendiente del mismo lock que ya tiene PIN generado
+            // pero aun no esta en la cerradura.
+            if ($borrados > 0) {
+                $this->programarSiguientesDelLock($lockId, $borrados);
+            }
+
             // 3. Reconfirmar tras purga
             $reservasConPin = Reserva::whereNotNull('ttlock_pin_id')
                 ->where('codigo_enviado_cerradura', 1)
@@ -100,6 +107,92 @@ class CerraduraSlotManager
             // No bloquear el flujo principal por error en pre-flight
             Log::warning('[SlotManager] Excepcion en asegurarSlotLibre, devolviendo true por seguridad: ' . $e->getMessage());
             return true;
+        }
+    }
+
+    /**
+     * [2026-04-28] Programa el PIN de la(s) siguiente(s) reserva(s)
+     * pendientes del mismo lock cuando se libera un slot.
+     *
+     * Caso de uso: huesped sale -> Job borra su PIN -> slot libre ->
+     * el huesped que viene en X dias y aun no tiene PIN programado en
+     * la cerradura (porque cuando se creo la reserva la entrada estaba
+     * fuera de la ventana de Tuya/TTLock) ahora SI puede programarse.
+     *
+     * Filtros importantes:
+     *  - codigo_acceso ya generado (no nuevo PIN, solo enviar a cerradura).
+     *  - codigo_enviado_cerradura=0 (aun no programado).
+     *  - fecha_entrada en ventana del proveedor (Tuya 7d, TTLock 150d).
+     *  - estado_id no canceladas.
+     *
+     * NO envia WhatsApp al huesped — eso lo hace el cron clavesAutomatico
+     * cuando se acerca su entrada. Aqui solo se programa el PIN en la
+     * cerradura.
+     *
+     * @param int $lockId ID del lock (puede ser tuyalaravel_lock_id o ttlock_lock_id)
+     * @param int $cuantos Cuantas reservas programar (1 por defecto)
+     * @return int Numero efectivamente programadas
+     */
+    public function programarSiguientesDelLock(int $lockId, int $cuantos = 1): int
+    {
+        if ($cuantos < 1) return 0;
+
+        try {
+            $hoy = now()->toDateString();
+            $limiteTuya = now()->addDays(7)->toDateString();
+            $limiteTTLock = now()->addDays(150)->toDateString();
+
+            // Buscar reservas del lock con PIN generado pero NO enviado a cerradura
+            $candidatas = Reserva::with('apartamento')
+                ->whereNotNull('codigo_acceso')
+                ->where('codigo_enviado_cerradura', 0)
+                ->whereNotIn('estado_id', [4, 9])
+                ->where('fecha_entrada', '>=', $hoy)
+                ->whereHas('apartamento', function ($q) use ($lockId) {
+                    $q->where('tuyalaravel_lock_id', $lockId)
+                      ->orWhere('ttlock_lock_id', $lockId);
+                })
+                ->orderBy('fecha_entrada')
+                ->limit($cuantos * 3) // pedir mas para filtrar luego por ventana
+                ->get();
+
+            // Filtrar por ventana del proveedor (Tuya 7d, TTLock 150d)
+            $candidatas = $candidatas->filter(function ($r) use ($limiteTuya, $limiteTTLock) {
+                $apt = $r->apartamento;
+                if (!$apt) return false;
+                $tipo = strtolower($apt->tipo_cerradura ?? '');
+                $fechaE = substr((string) $r->fecha_entrada, 0, 10);
+                if ($tipo === 'tuya' && $fechaE <= $limiteTuya) return true;
+                if ($tipo === 'ttlock' && $fechaE <= $limiteTTLock) return true;
+                return false;
+            })->values()->take($cuantos);
+
+            if ($candidatas->isEmpty()) {
+                Log::info("[SlotManager] No hay siguientes reservas que programar en lock {$lockId}");
+                return 0;
+            }
+
+            $accessCodeSvc = app(AccessCodeService::class);
+            $programadas = 0;
+            foreach ($candidatas as $r) {
+                try {
+                    $ok = $accessCodeSvc->reintentarOFallback($r);
+                    if ($ok) {
+                        Log::info("[SlotManager] Programada siguiente reserva {$r->id} en lock {$lockId}", [
+                            'fecha_entrada' => $r->fecha_entrada,
+                        ]);
+                        $programadas++;
+                    } else {
+                        Log::warning("[SlotManager] No se pudo programar reserva {$r->id} en lock {$lockId} — el cron diario lo reintentara");
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning("[SlotManager] Excepcion programando reserva {$r->id}: " . $e->getMessage());
+                }
+            }
+            return $programadas;
+        } catch (\Throwable $e) {
+            Log::warning('[SlotManager] Excepcion en programarSiguientesDelLock: ' . $e->getMessage());
+            return 0;
         }
     }
 
