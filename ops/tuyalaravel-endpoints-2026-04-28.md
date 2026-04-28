@@ -1,13 +1,13 @@
 # Cambios aplicados a Tuyalaravel — 28/04/2026
 
-> **IMPORTANTE**: estos cambios NO viven en este repo (NuevoHeraAppartment).
-> Tuyalaravel es un proyecto separado. Los aplicamos directamente en el
-> contenedor `tuyalaravel-app` del VPS interno (`217.160.39.79`) con
-> backups locales `.bak.20260428`.
+> Tuyalaravel es un proyecto separado en
+> `https://github.com/crmhawkins/tuya-ttlocl-laravel` (rama `main`).
+> Los cambios de hoy YA están pusheados al repo (commit `ea5198b`),
+> así que sobreviven a un redeploy de Coolify. Esta nota queda como
+> registro histórico del incidente.
 >
-> **Si Coolify hace redeploy de Tuyalaravel desde su repo en GitHub, estos
-> cambios desaparecerán.** Hay que portarlos al repo `tuyalaravel` cuando
-> tengas acceso. Esta nota está aquí para que no se nos olvide.
+> **Backups locales en el contenedor**: `.bak.20260428` por si hubiera
+> que restaurar el estado anterior.
 
 ## Endpoints añadidos
 
@@ -68,12 +68,14 @@ docker exec tuyalaravel-app cp /var/www/app/Http/Controllers/Api/PinController.p
 docker exec tuyalaravel-app php artisan route:clear
 ```
 
-## Cómo portar al repo de Tuyalaravel
+## Repo de Tuyalaravel
 
-1. Clonar el repo (preguntar a Iván por la URL).
-2. Aplicar los cambios siguiendo este documento.
-3. Commit + push.
-4. Coolify redespliega y los cambios persisten.
+`https://github.com/crmhawkins/tuya-ttlocl-laravel` (rama `main`).
+
+OJO — el repo `https://github.com/ivanhawkins/Tuyalaravel.git` es el
+proyecto VIEJO antes del rebrand a "tuya-ttlock". NO trabajar ahí.
+
+Los cambios de hoy están en commit `ea5198b` de `main`.
 
 ## Pruebas verificadas el 28/04/2026
 
