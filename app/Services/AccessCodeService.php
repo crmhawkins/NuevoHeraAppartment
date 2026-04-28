@@ -190,6 +190,23 @@ class AccessCodeService
             return $codigo;
         }
 
+        // [2026-04-28] Pre-flight de slots: si el lock esta saturado,
+        // intenta purgar PINs de reservas finalizadas. NO bloquea el
+        // flujo si algo falla — devolver true por defecto significa
+        // "intenta programar igualmente" (es lo que ya hacia siempre
+        // antes de este cambio).
+        try {
+            $slotMgr = app(\App\Services\CerraduraSlotManager::class);
+            $hayHueco = $slotMgr->asegurarSlotLibre((int) $lockId);
+            if (!$hayHueco) {
+                Log::warning("[AccessCode] Lock {$lockId} saturado tras purga, programando igualmente con riesgo de fallo silencioso", [
+                    'reserva_id' => $reserva->id,
+                ]);
+            }
+        } catch (\Throwable $e) {
+            Log::warning('[AccessCode] SlotManager fallo, sigo flujo normal: ' . $e->getMessage());
+        }
+
         // Enviar a Tuyalaravel
         return $this->enviarATuyalaravel($reserva, $lockId, $codigo, $esPortal);
     }
@@ -272,6 +289,18 @@ class AccessCodeService
                 Log::info("AccessCodeService: PIN programado en cerradura para reserva {$reserva->id}.", [
                     'provider_code_id' => $pinId,
                 ]);
+
+                // [2026-04-28] Programar borrado automatico al vencer (libera
+                // slot en la cerradura). Si la queue falla, el cron de
+                // purga semanal lo recogera. try/catch para no romper jamas
+                // el flujo principal de creacion del PIN.
+                try {
+                    $cuandoBorrar = $invalido->copy()->addMinutes(30); // 30 min de margen
+                    \App\Jobs\BorrarPinAlVencer::dispatch($reserva->id)->delay($cuandoBorrar);
+                    Log::info("[AccessCode] Job de borrado programado para reserva {$reserva->id} a las {$cuandoBorrar}");
+                } catch (\Throwable $e) {
+                    Log::warning("[AccessCode] No se pudo programar BorrarPinAlVencer: " . $e->getMessage());
+                }
 
                 // [FALLBACK] Exito -> resetear contador de fallos del edificio+proveedor
                 $this->notificarResultadoAlFallback($reserva, true, null);

@@ -132,6 +132,25 @@ class Kernel extends ConsoleKernel
             ->hourly()
             ->withoutOverlapping();
 
+        // [2026-04-28] Healthcheck de PINs activos (cada 30 min).
+        // Si Tuyalaravel responde 404 o is_active=false dentro de la
+        // ventana effective->invalid de la reserva, reprograma el PIN.
+        // Si la reprogramacion falla, envia codigo de emergencia.
+        // Limit=20 por ejecucion (red de seguridad anti-spam).
+        // Solo verifica reservas con entrada en proximos 7 dias.
+        $schedule->command('cerraduras:healthcheck-pins --apply --ventana-dias=7 --limit=20')
+            ->everyThirtyMinutes()
+            ->withoutOverlapping();
+
+        // [2026-04-28] Red de seguridad: purga semanal de PINs zombie
+        // (huespedes que ya salieron pero el Job de borrado al vencer
+        // se perdio por queue caida o similar). Solo procesa reservas
+        // con fecha_salida + 1 dia < hoy. Aplicamos directo (no es
+        // peligroso porque solo borra PINs de huespedes ya idos).
+        $schedule->command('cerraduras:purgar-zombies --apply --limit=50')
+            ->weeklyOn(1, '03:00') // lunes 03:00
+            ->withoutOverlapping();
+
         // Tarea programada de Limpieza de numero de telefono del cliente.
         $schedule->command('clean:phonenumbers')->twiceDaily(1, 13);
 
