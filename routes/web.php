@@ -253,6 +253,17 @@ Route::middleware(['auth', 'role:ADMIN'])->group(function () {
 
     Route::get('/admin', [App\Http\Controllers\DashboardController::class, 'index'])->name('inicio');
 
+    // [2026-04-29] Revenue Management — feature/revenue-management
+    Route::prefix('admin/revenue')->name('revenue.')->group(function () {
+        Route::get('/', [App\Http\Controllers\RevenueManagementController::class, 'matriz'])->name('matriz');
+        Route::get('/historial', [App\Http\Controllers\RevenueManagementController::class, 'historial'])->name('historial');
+        Route::post('/aplicar', [App\Http\Controllers\RevenueManagementController::class, 'aplicar'])->name('aplicar');
+        Route::get('/apartamento/{id}/configurar', [App\Http\Controllers\RevenueManagementController::class, 'configurar'])->name('configurar');
+        Route::post('/apartamento/{id}/competidores', [App\Http\Controllers\RevenueManagementController::class, 'addCompetidor'])->name('addCompetidor');
+        Route::delete('/competidor/{id}', [App\Http\Controllers\RevenueManagementController::class, 'deleteCompetidor'])->name('deleteCompetidor');
+        Route::post('/apartamento/{id}/settings', [App\Http\Controllers\RevenueManagementController::class, 'updateSettings'])->name('updateSettings');
+    });
+
     // Rutas para Informes AI
     Route::get('/informes-ai', [App\Http\Controllers\InformeAiController::class, 'index'])->name('informes.ai.index');
     Route::post('/informe-ai/generar', [App\Http\Controllers\InformeAiController::class, 'generarInforme'])->name('informe.ai.generar');
