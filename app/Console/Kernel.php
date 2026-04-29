@@ -483,8 +483,25 @@ class Kernel extends ConsoleKernel
                         $idiomaCliente = $clienteService->idiomaCodigo($reserva->cliente->nacionalidad);
 
                         if (!empty($phoneCliente)) {
-                            $enviarMensaje = $this->mensajesAutomaticosBoton('dni', $token , $phoneCliente, $idiomaCliente );
-                            Storage::disk('local')->put('enviaMensaje'.$reserva->cliente_id.'.txt', $enviarMensaje );
+                            // [2026-04-29] Evitar duplicado: si la reserva
+                            // viene de Channex (Booking/Airbnb/etc), el huesped
+                            // recibe el mensaje bueno por Channex chat (texto
+                            // custom con la legislacion bien redactada y enlace
+                            // del DNI). La plantilla WhatsApp Business 'dni'
+                            // solo se manda para reservas SIN canal Channex
+                            // (web/directas) porque alli es el unico medio.
+                            // Sin esta condicion, los huespedes Channex
+                            // recibian DOS mensajes con la misma info pero
+                            // distinta redaccion (incidente 29/04 Kaoutar).
+                            if (empty($reserva->id_channex)) {
+                                $enviarMensaje = $this->mensajesAutomaticosBoton('dni', $token , $phoneCliente, $idiomaCliente );
+                                Storage::disk('local')->put('enviaMensaje'.$reserva->cliente_id.'.txt', $enviarMensaje );
+                            } else {
+                                Log::info('Primer envío DNI: omitido WhatsApp template (se envia mensaje bueno via Channex)', [
+                                    'reserva_id' => $reserva->id,
+                                    'id_channex' => $reserva->id_channex,
+                                ]);
+                            }
                         } else {
                             Log::warning('Primer envío DNI: Reserva sin teléfono de contacto, se omite WhatsApp', ['reserva_id' => $reserva->id]);
                         }
