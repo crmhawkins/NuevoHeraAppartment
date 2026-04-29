@@ -107,7 +107,32 @@ else
     log "ADVERTENCIA: $SUPERVISORD no existe."
 fi
 
-# 3. Reinicio si cambio algo
+# [2026-04-29] 3. Permisos del cache de Laravel.
+# Si docker exec u otro proceso root crea subdirs en
+# storage/framework/cache/data/XX/YY como root:root, PHP-FPM y el
+# scheduler (www-data) no pueden escribir. TODO el CRM se rompe en
+# silencio: scheduler parado, WhatsApp no procesa, etc. Detectado y
+# arreglado el 29/04/2026.
+container_id_for_cache="$(docker ps --format '{{.ID}} {{.Names}}' \
+    | grep "$CONTAINER_FILTER" \
+    | grep "$CONTAINER_NAME_HINT" \
+    | awk '{print $1}' | head -n1)"
+if [[ -n "$container_id_for_cache" ]]; then
+    # Buscar cualquier subdir bajo storage/framework/cache que no sea
+    # de www-data. Si encuentra, chown -R www-data:www-data.
+    bad_perms="$(docker exec "$container_id_for_cache" sh -c \
+        'find /var/www/html/storage/framework/cache /var/www/html/bootstrap/cache \
+            -not -user www-data 2>/dev/null | head -1' 2>/dev/null || true)"
+    if [[ -n "$bad_perms" ]]; then
+        log "DETECTADOS permisos rotos en cache (no www-data): $bad_perms"
+        docker exec "$container_id_for_cache" sh -c \
+            'chown -R www-data:www-data /var/www/html/storage/framework /var/www/html/bootstrap/cache 2>&1; chmod -R u+rw,g+rw /var/www/html/storage/framework /var/www/html/bootstrap/cache 2>&1' \
+            >> "$LOG" 2>&1 || true
+        log "Permisos cache restaurados a www-data:www-data."
+    fi
+fi
+
+# 4. Reinicio si cambio algo (entrypoint o supervisord)
 if [[ "$changed" -eq 1 ]]; then
     container_id="$(docker ps --format '{{.ID}} {{.Names}}' \
         | grep "$CONTAINER_FILTER" \

@@ -51,6 +51,60 @@ class CheckIaHealth extends Command
     {
         $fallos = [];
 
+        // [2026-04-29] 0) Cache de Laravel funcional. Si el cache esta roto
+        // (permisos, disk full, redis caido), CASI TODO el flujo del CRM
+        // se rompe silenciosamente: scheduler, WhatsappController, sesiones,
+        // healthcheck mismo. Detectarlo rapido es vital.
+        //
+        // Doble verificacion:
+        //  a) Recorrer TODOS los subdirs reales de storage/framework/cache/data
+        //     y bootstrap/cache, comprobar que son escribibles. Asi cazamos
+        //     subdirs con permisos rotos aunque ningun canary caiga ahi.
+        //  b) Canary: escribir y leer un valor por Cache::* para verificar
+        //     que el driver responde end-to-end.
+        try {
+            // (a) Recorrido de directorios
+            $dirsACheckear = [
+                storage_path('framework/cache/data'),
+                base_path('bootstrap/cache'),
+            ];
+            foreach ($dirsACheckear as $base) {
+                if (!is_dir($base)) continue;
+                if (!is_writable($base)) {
+                    $fallos[] = "Cache: directorio raiz no es escribible: {$base}";
+                    break;
+                }
+                // Comprobar subdirs: si alguno no es escribible por el usuario actual
+                $iter = new \RecursiveIteratorIterator(
+                    new \RecursiveDirectoryIterator($base, \FilesystemIterator::SKIP_DOTS),
+                    \RecursiveIteratorIterator::SELF_FIRST
+                );
+                $rotos = [];
+                foreach ($iter as $info) {
+                    if ($info->isDir() && !$info->isWritable()) {
+                        $rotos[] = $info->getPathname();
+                        if (count($rotos) >= 3) break; // primeros 3 ejemplos
+                    }
+                }
+                if (!empty($rotos)) {
+                    $fallos[] = "Cache: subdirs sin permisos de escritura: " . implode(', ', $rotos);
+                    break;
+                }
+            }
+
+            // (b) Canary write/read
+            $canary = 'ia_healthcheck_canary_' . random_int(100000, 999999);
+            $valor = (string) microtime(true);
+            \Illuminate\Support\Facades\Cache::put($canary, $valor, 60);
+            $leido = \Illuminate\Support\Facades\Cache::get($canary);
+            \Illuminate\Support\Facades\Cache::forget($canary);
+            if ($leido !== $valor) {
+                $fallos[] = "Cache de Laravel: escritura/lectura no coincide (escrito='{$valor}', leido='{$leido}').";
+            }
+        } catch (\Throwable $e) {
+            $fallos[] = "Cache de Laravel: excepcion — " . mb_substr($e->getMessage(), 0, 200);
+        }
+
         // 1) Wrapper 11435 (texto) — lo usan WhatsappController, WebhookController
         //    y el AIGatewayService como fallback de OpenAI.
         $wrapperUrl = rtrim((string) config('services.hawkins_ai.url', env('HAWKINS_AI_URL', '')), '/');
