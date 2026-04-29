@@ -7,6 +7,8 @@ use App\Models\RevenueCompetidor;
 use App\Models\RevenuePrecioCompetencia;
 use App\Models\RevenueRecomendacion;
 use App\Services\ChannexRevenueService;
+use App\Services\RevenueRecomendadorService;
+use App\Services\RevenueScraperClient;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,7 +27,220 @@ use Illuminate\Support\Facades\Log;
  */
 class RevenueManagementController extends Controller
 {
-    public function __construct(private ChannexRevenueService $channexService) {}
+    public function __construct(
+        private ChannexRevenueService $channexService,
+        private RevenueRecomendadorService $recomendador,
+        private RevenueScraperClient $scraper,
+    ) {}
+
+    /**
+     * GET /admin/revenue/hoy
+     * Pantalla principal del flujo "Calcular Revenue".
+     *
+     * Muestra:
+     *  - Apartamentos libres y ocupados HOY
+     *  - Estado del servicio scraper Python (health check)
+     *  - Última cache de competencia si existe (sin scrape automático)
+     *  - Botones:
+     *      [ Scrapear competencia ahora ] (lanza POST /scrape)
+     *      [ Aplicar precio recomendado a libres ]
+     */
+    public function hoy(Request $request)
+    {
+        $fecha = Carbon::today();
+        if ($request->filled('fecha')) {
+            try {
+                $fecha = Carbon::parse($request->input('fecha'));
+            } catch (\Exception) {
+                $fecha = Carbon::today();
+            }
+        }
+        $checkout = $fecha->copy()->addDay();
+
+        // Health del scraper
+        $health = $this->scraper->health();
+
+        // Apartamentos en esa fecha (libres + ocupados)
+        $situacion = $this->recomendador->apartamentosEnFecha($fecha);
+
+        $libres = collect($situacion)->where('libre', true)->count();
+        $ocupados = collect($situacion)->where('libre', false)->count();
+        $ocupacion_pct = $this->recomendador->ocupacionPropia($fecha);
+
+        // Última recomendación cacheada en BD (si la hay)
+        $aptIds = collect($situacion)->pluck('apartamento.id');
+        $recomendaciones = RevenueRecomendacion::query()
+            ->whereIn('apartamento_id', $aptIds)
+            ->whereDate('fecha', $fecha)
+            ->get()
+            ->keyBy('apartamento_id');
+
+        return view('revenue.hoy', [
+            'fecha' => $fecha,
+            'checkout' => $checkout,
+            'situacion' => $situacion,
+            'libres_count' => $libres,
+            'ocupados_count' => $ocupados,
+            'ocupacion_pct' => $ocupacion_pct,
+            'recomendaciones' => $recomendaciones,
+            'scraper_health' => $health,
+            'es_finde' => in_array($fecha->dayOfWeekIso, [5, 6, 7]),
+            'es_festivo' => $this->recomendador->esFestivoLocal($fecha),
+        ]);
+    }
+
+    /**
+     * POST /admin/revenue/scrape
+     * AJAX: lanza el scraper Python y guarda recomendaciones en BD.
+     * Devuelve JSON con stats y recomendaciones por apartamento.
+     */
+    public function scrape(Request $request)
+    {
+        $request->validate([
+            'fecha' => 'required|date',
+            'zona' => 'nullable|in:algeciras_centro,algeciras_costa,bahia_completa',
+            'adultos' => 'nullable|integer|between:1,10',
+            'use_cache' => 'nullable|boolean',
+        ]);
+
+        $fecha = Carbon::parse($request->input('fecha'));
+        $checkout = $fecha->copy()->addDay();
+        $zona = $request->input('zona', 'algeciras_centro');
+        $adultos = (int) $request->input('adultos', 2);
+        $useCache = (bool) $request->input('use_cache', true);
+
+        // 1. Llamar al scraper Python
+        try {
+            $datos = $this->scraper->scrapeMercado(
+                fechaDesde: $fecha->toDateString(),
+                fechaHasta: $checkout->toDateString(),
+                zona: $zona,
+                adultos: $adultos,
+                useCache: $useCache,
+            );
+        } catch (\Throwable $e) {
+            return response()->json([
+                'error' => $e->getMessage(),
+                'hint' => 'Lanza el servicio: cd revenue-scraper-local && uvicorn service:app --port 8765',
+            ], 503);
+        }
+
+        $statsCombinado = $datos['combinado'] ?? [];
+
+        // 2. Calcular recomendación por apartamento
+        $situacion = $this->recomendador->apartamentosEnFecha($fecha);
+        $resultados = [];
+
+        foreach ($situacion as $row) {
+            /** @var Apartamento $apt */
+            $apt = $row['apartamento'];
+            $rec = $this->recomendador->calcularRecomendacion(
+                $apt, $fecha, $statsCombinado, precioActual: null
+            );
+
+            // Guardar/actualizar en BD
+            if ($rec['precio_recomendado'] !== null) {
+                RevenueRecomendacion::updateOrCreate(
+                    ['apartamento_id' => $apt->id, 'fecha' => $fecha->toDateString()],
+                    [
+                        'precio_recomendado' => $rec['precio_recomendado'],
+                        'competencia_media' => $statsCombinado['media'] ?? null,
+                        'competencia_min' => $statsCombinado['min'] ?? null,
+                        'competencia_max' => $statsCombinado['max'] ?? null,
+                        'competidores_count' => $statsCombinado['n'] ?? 0,
+                        'ocupacion_nuestra_pct' => $rec['ocupacion_pct'],
+                        'es_finde' => $rec['es_finde'],
+                        'es_festivo' => $rec['es_festivo'],
+                        'razonamiento' => $rec['razonamiento'],
+                        'calculado_at' => now(),
+                    ]
+                );
+            }
+
+            $resultados[] = [
+                'apartamento_id' => $apt->id,
+                'nombre' => $apt->nombre,
+                'libre' => $row['libre'],
+                'reserva_id' => $row['reserva']?->id,
+                'precio_recomendado' => $rec['precio_recomendado'],
+                'razonamiento' => $rec['razonamiento'],
+                'ajustes' => $rec['ajustes_aplicados'],
+            ];
+        }
+
+        return response()->json([
+            'fecha' => $fecha->toDateString(),
+            'zona' => $zona,
+            'mercado' => $statsCombinado,
+            'fuentes' => [
+                'airbnb' => $datos['airbnb']['stats'] ?? [],
+                'booking' => $datos['booking']['stats'] ?? [],
+            ],
+            'cached' => $datos['cached'] ?? false,
+            'cache_age_minutes' => $datos['cache_age_minutes'] ?? null,
+            'apartamentos' => $resultados,
+            'listings_top' => collect($datos['listings'] ?? [])
+                ->whereNotNull('precio')
+                ->sortBy('precio')
+                ->take(20)
+                ->values()
+                ->all(),
+        ]);
+    }
+
+    /**
+     * POST /admin/revenue/aplicar-libres-hoy
+     * Aplica el precio recomendado a TODOS los apartamentos libres en
+     * una fecha. Ataja del flujo "1 click".
+     */
+    public function aplicarLibresHoy(Request $request)
+    {
+        $request->validate([
+            'fecha' => 'required|date',
+            'apartamento_ids' => 'nullable|array',
+            'apartamento_ids.*' => 'integer|exists:apartamentos,id',
+        ]);
+        $fecha = Carbon::parse($request->input('fecha'));
+        $aptIds = $request->input('apartamento_ids');  // si null = todos los libres
+
+        $situacion = $this->recomendador->apartamentosEnFecha($fecha);
+        $libres = collect($situacion)->where('libre', true);
+        if ($aptIds) {
+            $libres = $libres->filter(fn($r) => in_array($r['apartamento']->id, $aptIds));
+        }
+
+        $cambios = [];
+        foreach ($libres as $row) {
+            $apt = $row['apartamento'];
+            $rec = RevenueRecomendacion::where('apartamento_id', $apt->id)
+                ->whereDate('fecha', $fecha)
+                ->first();
+            if ($rec && $rec->precio_recomendado) {
+                $cambios[] = [
+                    'apartamento_id' => $apt->id,
+                    'fecha' => $fecha->toDateString(),
+                    'precio' => (float) $rec->precio_recomendado,
+                ];
+            }
+        }
+
+        if (empty($cambios)) {
+            return response()->json([
+                'error' => 'No hay precios recomendados. Ejecuta primero "Calcular precios competencia".',
+            ], 422);
+        }
+
+        $stats = $this->channexService->aplicarCambios($cambios, auth()->id());
+
+        Log::info('[Revenue] aplicar-libres-hoy', [
+            'user_id' => auth()->id(),
+            'fecha' => $fecha->toDateString(),
+            'count' => count($cambios),
+            'stats' => $stats,
+        ]);
+
+        return response()->json($stats + ['fecha' => $fecha->toDateString()]);
+    }
 
     // ============================================================
     // VISTAS UI (admin)

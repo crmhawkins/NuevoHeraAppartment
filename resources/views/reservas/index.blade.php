@@ -195,6 +195,11 @@
                 data-bs-toggle="tooltip" title="Ver ocupación de apartamentos">
             <i class="fas fa-calendar-check me-1"></i>Ocupación hoy
         </button>
+        {{-- [2026-04-29] Revenue Management — boton para calcular precios competencia --}}
+        <a href="{{ route('revenue.hoy') }}" class="btn btn-warning btn-sm"
+           data-bs-toggle="tooltip" title="Compara con la competencia y aplica precio recomendado">
+            <i class="fas fa-chart-line me-1"></i>Calcular Revenue
+        </a>
     </div>
 </div>
 

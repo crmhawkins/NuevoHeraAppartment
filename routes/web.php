@@ -255,6 +255,12 @@ Route::middleware(['auth', 'role:ADMIN'])->group(function () {
 
     // [2026-04-29] Revenue Management — feature/revenue-management
     Route::prefix('admin/revenue')->name('revenue.')->group(function () {
+        // Pantalla principal "Calcular Revenue" (la del boton del panel reservas)
+        Route::get('/hoy', [App\Http\Controllers\RevenueManagementController::class, 'hoy'])->name('hoy');
+        Route::post('/scrape', [App\Http\Controllers\RevenueManagementController::class, 'scrape'])->name('scrape');
+        Route::post('/aplicar-libres-hoy', [App\Http\Controllers\RevenueManagementController::class, 'aplicarLibresHoy'])->name('aplicarLibresHoy');
+
+        // Vistas avanzadas (matriz multi-dia, historial, configuracion)
         Route::get('/', [App\Http\Controllers\RevenueManagementController::class, 'matriz'])->name('matriz');
         Route::get('/historial', [App\Http\Controllers\RevenueManagementController::class, 'historial'])->name('historial');
         Route::post('/aplicar', [App\Http\Controllers\RevenueManagementController::class, 'aplicar'])->name('aplicar');
