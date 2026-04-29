@@ -5,6 +5,29 @@ Archivo de memoria local para retomar contexto en conversaciones futuras.
 
 ---
 
+## VERSIÓN ESTABLE DE REFERENCIA
+
+**Tag git: `stable-2026-04-29`** en ambos repos:
+- `crmhawkins/NuevoHeraAppartment` → tag en commit `e478878`
+- `crmhawkins/tuya-ttlocl-laravel` → tag en commit `17eb5fd`
+
+Esta es la versión que el cliente confirmó estable al final del 29/04/2026
+tras una jornada de incidentes (cache root:root, URL Channex/IA muertas,
+cerraduras saturadas con WhatsApp masivo de emergencia, checkin público
+mostrando códigos duplicados, 2 reservas perdidas).
+
+**Si algo se rompe en futuras sesiones y no se identifica claramente la
+causa, volver aquí**:
+```bash
+git checkout stable-2026-04-29
+# o como referencia para diff:
+git diff stable-2026-04-29..HEAD -- ruta/a/fichero.php
+```
+
+Nunca borrar este tag sin acuerdo con el cliente.
+
+---
+
 ## 0. REGLAS INVIOLABLES DEL SISTEMA DE CERRADURAS
 
 **Establecidas por el cliente el 29/04/2026 tras incidente de saturación
