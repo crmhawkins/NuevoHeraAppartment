@@ -423,8 +423,18 @@ class CheckInPublicController extends Controller
         $claveAptFija = $apartamento ? trim((string) $apartamento->claves) : '';
         $claveEdifFija = ($apartamento && $apartamento->edificio) ? trim((string) $apartamento->edificio->clave) : '';
 
+        // [2026-04-29] FIX: codigo_acceso solo vale como fallback de portal
+        // si la cerradura es DIGITAL (tuya/ttlock) — ahi codigo_acceso contiene
+        // el PIN dinamico programado en la cerradura del portal.
+        // En cerraduras MANUALES, codigo_acceso contiene la clave del PISO
+        // (apartamento->claves), por lo que usarlo como portal mostraba el
+        // mismo codigo en ambos campos (75 huespedes afectados desde el
+        // refactor del 26/04 — incidente Hawkins Costa 2A NIHAD/MARIA).
+        $tipoCerr = strtolower((string) ($apartamento->tipo_cerradura ?? 'manual'));
+        $accesoComoPortal = in_array($tipoCerr, ['tuya', 'ttlock'], true)
+            && !empty($reserva->codigo_acceso);
         $codigoPortal = $reserva->codigo_portal
-            ?: ($reserva->codigo_acceso ?: ($claveEdifFija ?: null));
+            ?: ($accesoComoPortal ? $reserva->codigo_acceso : ($claveEdifFija ?: null));
         $codigoApto = $reserva->codigo_apartamento
             ?: ($claveAptFija ?: null);
 
