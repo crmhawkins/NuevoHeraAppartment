@@ -265,8 +265,25 @@ class Kernel extends ConsoleKernel
         // Limpiar notificaciones antiguas cada día a las 3:00 AM
         $schedule->command('notifications:clean --days=30')->dailyAt('03:00');
 
-        // Programar códigos de acceso en cerraduras TTLock para reservas que ya están dentro del rango de 150 días
-        $schedule->command('cerraduras:programar-proximas')->daily()->at('06:00')->withoutOverlapping();
+        // [2026-04-29] Rotacion diaria de PINs en cerraduras (regla 9 slots, CLAUDE.md seccion 0):
+        //  1) borra PINs de salientes (fecha_salida <= hoy)
+        //  2) programa PINs de entrantes (fecha_entrada = hoy)
+        //  3) verifica que cada lock tenga <= 9 PINs registrados
+        // Se ejecuta a las 11:05 (despues de la hora de checkout 11:00).
+        $schedule->command('cerraduras:rotacion-diaria')
+            ->dailyAt('11:05')
+            ->withoutOverlapping()
+            ->onFailure(function () {
+                Log::error('[scheduler] cerraduras:rotacion-diaria fallo');
+            });
+
+        // [2026-04-29] Red de seguridad: si la rotacion no programo alguna
+        // reserva que entra hoy/manana, la pillamos aqui (cada hora).
+        // Limite reducido a hoy+1 dia (antes era 7d/150d) para no preprogramar.
+        $schedule->command('cerraduras:programar-proximas')
+            ->hourly()
+            ->between('07:00', '20:00')
+            ->withoutOverlapping();
 
         // Enviar a MIR las reservas pendientes (red de seguridad)
         // Se ejecuta 2 veces al día: 10:00 y 22:00
