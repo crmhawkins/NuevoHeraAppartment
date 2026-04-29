@@ -1,7 +1,98 @@
 # NuevoHeraAppartment — Memoria del proyecto
 
 Archivo de memoria local para retomar contexto en conversaciones futuras.
-Última actualización: 2026-04-17.
+Última actualización: 2026-04-29.
+
+---
+
+## 0. REGLAS INVIOLABLES DEL SISTEMA DE CERRADURAS
+
+**Establecidas por el cliente el 29/04/2026 tras incidente de saturación
+de slots y envío masivo de WhatsApp de emergencia. NO TOCAR.**
+
+### 0.1 Capacidad máxima por cerradura: 9 PINs
+
+Cada cerradura física Tuya/TTLock tiene **9 slots** y se distribuyen así:
+
+- **7 slots** para huéspedes que ENTRAN HOY (PINs dinámicos por reserva)
+- **1 slot** para PIN de **seguridad/emergencia** (fijo, permanente)
+- **1 slot** para PIN de **limpiadoras** (fijo, permanente)
+
+Total: **9. Nunca más.** Si el sistema intenta meter un 10º PIN, falla
+con `"The number of passwords has reached the limit"`. Eso significa
+que se está incumpliendo alguna de las reglas siguientes.
+
+### 0.2 PROHIBIDO programar PINs futuros
+
+**NO se pre-programan PINs con días/semanas/meses de antelación.**
+
+Si una reserva entra dentro de 3 días, el PIN se queda PENDIENTE en BD
+(`codigo_enviado_cerradura = 0`) y NO se manda a la cerradura física
+hasta el día de la entrada.
+
+Cualquier código que recorra reservas y dispare `Tuyalaravel POST /api/pins`
+con `effective_time > hoy + 1 día` está MAL. Hay que cambiarlo a
+"solo programar reservas que entran HOY".
+
+### 0.3 Borrado obligatorio el día de salida a las 11:00
+
+Cuando un huésped se va (`fecha_salida = hoy`, hora `11:00`):
+
+1. El sistema BORRA el PIN de su reserva en la cerradura física
+   (`Tuyalaravel DELETE /api/pins/{provider_code_id}`)
+2. Libera el slot
+3. Sólo entonces puede programar al siguiente
+
+### 0.4 Procedimiento diario obligatorio
+
+Cada día (idealmente cron a las 11:00 + revisión a las 14:00):
+
+1. **BORRAR salientes**: para todas las reservas con `fecha_salida = hoy`,
+   borrar su PIN en cerradura. Confirmar slot liberado.
+2. **PROGRAMAR entrantes**: para todas las reservas con `fecha_entrada = hoy`,
+   programar su PIN en cerradura ahora.
+3. **Verificar slots**: cada cerradura debe quedar con ≤ 9 PINs registrados.
+   Si supera, hay zombies → purgarlos.
+
+Este orden es crítico: primero borrar, después programar. Si no, los
+slots de los salientes bloquean a los entrantes.
+
+### 0.5 Cómo se debió implementar (vs. cómo está hoy)
+
+**Hoy** (estado defectuoso):
+- `cerraduras:programar-proximas` programa PINs con ventana de hasta 7 días
+  (Tuya) o 150 días (TTLock) por adelantado.
+- `BorrarPinAlVencer` se programa con `delay()` en queue al crear el PIN —
+  si la queue se atasca o se reinicia el contenedor mal, el PIN no se
+  borra y queda zombie.
+- Resultado: la cerradura se llena de PINs futuros + zombies y bloquea
+  los del día (incidente Hawkins Suites 29/04/2026).
+
+**Como debe ser**:
+- Cron diario `cerraduras:rotacion-diaria`:
+  1. Borra los PINs de reservas con `fecha_salida <= hoy` y `codigo_enviado_cerradura = 1`.
+  2. Programa los PINs de reservas con `fecha_entrada = hoy` y `codigo_enviado_cerradura = 0`.
+  3. Verifica conteo final de slots en cada lock; si > 9 alerta admin.
+- `cerraduras:programar-proximas` desactivado o limitado a `fecha_entrada <= hoy + 1`
+  como red de seguridad, no como flujo principal.
+- `BorrarPinAlVencer` queda como fallback secundario (no como mecanismo
+  principal de borrado).
+
+### 0.6 Si una cerradura está saturada — protocolo
+
+NO ejecutar masivamente `AccessCodeService::generarYProgramar` para
+varias reservas de golpe. Cada llamada que falla incrementa
+`fallos_consecutivos_tuya`; al llegar a 3 se activa el modo fallback y
+**se mandan automáticamente 17+ WhatsApp de "cambio de clave de
+emergencia" a TODOS los huéspedes activos del edificio**. Es
+irreversible (los mensajes ya están enviados).
+
+Si la cerradura está saturada:
+1. Primero `php artisan cerraduras:purgar-zombies` para liberar slots.
+2. Comprobar `GET /api/locks/{id}/pins-count` que `registered <= 9`.
+3. Solo entonces reintentar programar.
+4. Si el fallback se activó por accidente, hay que avisar al cliente
+   con un mensaje aclarativo manualmente.
 
 ---
 
