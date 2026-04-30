@@ -105,14 +105,24 @@ class CerradurasProbarRecuperacion extends Command
             return;
         }
 
-        // PIN de prueba con ventana muy estrecha para que se borre solo
-        // (ej: 1 minuto en el pasado). Asi no contamina la cerradura.
-        $efectivo = Carbon::now()->subMinutes(2)->toDateTimeString();
-        $invalido = Carbon::now()->subMinute()->toDateTimeString();
+        // [2026-04-30 BUG FIX] Antes pasabamos fechas EN EL PASADO (efectivo
+        // hace 2 min, invalido hace 1 min) para que el PIN naciera caducado
+        // y no contaminara. PERO Tuya rechaza PINs ya caducados con el error
+        // "the effective time or invalid time is invalid" -> el cron fallaba
+        // SIEMPRE -> el fallback nunca se auto-desactivaba (el edificio
+        // Hawkins Suites llevaba 8h+ recibiendo codigo de emergencia mientras
+        // la cerradura estaba sana en realidad).
+        //
+        // Fix: ventana valida corta (ahora .. ahora+2min). Tras programar el
+        // PIN, lo borramos para no contaminar la cerradura (cumple el
+        // limite de 9 slots).
+        $efectivo = Carbon::now()->toDateTimeString();
+        $invalido = Carbon::now()->addMinutes(2)->toDateTimeString();
         $pin = '0' . random_int(100000, 999999); // 7 digitos
         $extRef = "healthcheck_fallback_{$edif->id}_{$proveedor}";
 
         $exitoso = false;
+        $pinId = null;
         try {
             $resp = Http::withHeaders(['X-API-Key' => $apiKey])
                 ->timeout(20)
@@ -125,11 +135,27 @@ class CerradurasProbarRecuperacion extends Command
                     'external_reference' => $extRef,
                 ]);
             $exitoso = $resp->successful();
-            if (!$exitoso) {
+            if ($exitoso) {
+                $j = $resp->json();
+                $pinId = $j['data']['id'] ?? $j['id'] ?? null;
+            } else {
                 $this->line("    intento fallido: HTTP {$resp->status()} " . mb_substr($resp->body(), 0, 100));
             }
         } catch (\Throwable $e) {
             $this->line('    intento fallido: ' . mb_substr($e->getMessage(), 0, 120));
+        }
+
+        // [2026-04-30] Tras la prueba, BORRAR el PIN para no contaminar la
+        // cerradura (regla de los 9 slots). Si el delete falla, no es
+        // critico: el PIN expira solo en 2 minutos.
+        if ($pinId) {
+            try {
+                Http::withHeaders(['X-API-Key' => $apiKey])
+                    ->timeout(15)
+                    ->delete(rtrim($tuyaAppUrl, '/') . "/api/pins/{$pinId}");
+            } catch (\Throwable $e) {
+                $this->line('    aviso: delete healthcheck PIN fallo (PIN expira solo): ' . mb_substr($e->getMessage(), 0, 100));
+            }
         }
 
         $cacheKey = "fallback_recovery:{$edif->id}:{$proveedor}";
