@@ -157,6 +157,26 @@ class Kernel extends ConsoleKernel
         // Tarea programada de Limpieza de numero de telefono del cliente.
         $schedule->command('clean:phonenumbers')->twiceDaily(1, 13);
 
+        // [2026-04-30] Revenue Management — scrape nocturno de competencia.
+        // Cada noche a las 06:30 (Madrid) lanza barrido de 30 dias para que
+        // a las 08:00 las recomendaciones de precios esten ya actualizadas
+        // cuando el admin entra al panel. Background, no bloquea otros
+        // schedulers. Si el scraper en la IA esta caido, falla limpio.
+        $schedule->call(function () {
+            $jobId = 'cron_' . now()->format('YmdHi');
+            $fechaDesde = now()->addDay()->toDateString();
+            \Illuminate\Support\Facades\Artisan::call('revenue:scrape-multi', [
+                'jobId' => $jobId,
+                'fechaDesde' => $fechaDesde,
+                'dias' => 30,
+            ]);
+        })
+            ->dailyAt('06:30')
+            ->timezone('Europe/Madrid')
+            ->withoutOverlapping()
+            ->runInBackground()
+            ->name('revenue:scrape-nocturno');
+
         // Tarea programada de Nacionalidad del cliente ejecutada con éxito.
         $schedule->call(function (ClienteService $clienteService) {
             // Obtener la fecha de hoy
