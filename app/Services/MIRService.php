@@ -702,23 +702,18 @@ class MIRService
     }
 
     /**
-     * Enviar alerta por WhatsApp cuando falla el envío a MIR tras todos los reintentos
+     * [2026-04-30] Antes mandaba WhatsApp inmediato al admin por cada fallo.
+     * Ahora SOLO loguea — el cron diario `mir:resumen-pendientes` (11:00 Madrid)
+     * agrupa todos los fallos del dia en un unico mensaje al admin para no
+     * spammear cada vez que un huesped falla con el DNI.
      */
     private function enviarAlertaFalloMIR(Reserva $reserva, ?string $error): void
     {
-        try {
-            $whatsappService = app(WhatsappNotificationService::class);
-            $mensaje = "ALERTA MIR: Fallo al enviar reserva #{$reserva->codigo_reserva} (ID: {$reserva->id}) tras 3 intentos. Error: " . ($error ?? 'desconocido');
-            $whatsappService->sendToConfiguredRecipients($mensaje);
-            Log::info('MIR: Alerta WhatsApp enviada por fallo en envío', [
-                'reserva_id' => $reserva->id,
-            ]);
-        } catch (\Exception $e) {
-            Log::error('MIR: No se pudo enviar alerta WhatsApp por fallo MIR', [
-                'reserva_id' => $reserva->id,
-                'error_whatsapp' => $e->getMessage(),
-            ]);
-        }
+        Log::warning('[MIR] Fallo envio reserva (alerta consolidada en cron diario 11:00)', [
+            'reserva_id' => $reserva->id,
+            'codigo_reserva' => $reserva->codigo_reserva,
+            'error' => mb_substr((string) $error, 0, 250),
+        ]);
     }
 
     /**
@@ -1269,30 +1264,19 @@ class MIRService
      * No se dispara desde envios manuales (ReservasController::enviarMIR)
      * porque ahi el usuario ya ve el error en la UI.
      */
+    /**
+     * [2026-04-30] Antes mandaba WhatsApp inmediato al admin por cada rechazo.
+     * Ahora SOLO loguea — el cron `mir:resumen-pendientes` (11:00 Madrid)
+     * agrupa todos los rechazos del dia en un unico mensaje.
+     */
     private function enviarAlertaRechazoMIR(Reserva $reserva, string $mensaje): void
     {
-        try {
-            $whatsappService = app(WhatsappNotificationService::class);
-            $mensajeCorto = mb_substr(trim($mensaje), 0, 300);
-            $texto  = "⚠️ ALERTA MIR: Reserva #{$reserva->codigo_reserva} (ID: {$reserva->id}) rechazada por MIR.\n";
-            $texto .= "Motivo: {$mensajeCorto}\n";
-            if ($reserva->fecha_entrada) {
-                $texto .= "Entrada: " . \Carbon\Carbon::parse($reserva->fecha_entrada)->format('d/m/Y') . "\n";
-            }
-            $texto .= "Revisa en el CRM para resolverlo.";
-            $whatsappService->sendToConfiguredRecipients($texto);
-            Log::info('MIR: Alerta WhatsApp enviada por rechazo de contenido', [
-                'reserva_id' => $reserva->id,
-                'mensaje' => $mensajeCorto,
-            ]);
-        } catch (\Exception $e) {
-            // Fallo enviando la alerta: lo logueamos pero no propagamos para
-            // no romper el flujo de enviarSiLista.
-            Log::error('MIR: No se pudo enviar alerta WhatsApp por rechazo MIR', [
-                'reserva_id' => $reserva->id,
-                'error_whatsapp' => $e->getMessage(),
-            ]);
-        }
+        Log::warning('[MIR] Reserva rechazada por MIR (alerta consolidada en cron diario 11:00)', [
+            'reserva_id' => $reserva->id,
+            'codigo_reserva' => $reserva->codigo_reserva,
+            'fecha_entrada' => $reserva->fecha_entrada,
+            'motivo' => mb_substr(trim($mensaje), 0, 300),
+        ]);
     }
 
     /**
@@ -1304,28 +1288,19 @@ class MIRService
      * (dedup con Cache). No se invoca desde envios manuales porque ahi el
      * usuario ya ve el error en la UI.
      */
+    /**
+     * [2026-04-30] Antes mandaba WhatsApp inmediato al admin por cada CP invalido.
+     * Ahora SOLO loguea — el cron `mir:resumen-pendientes` (11:00 Madrid)
+     * agrupa todos los fallos del dia en un unico mensaje.
+     */
     private function enviarAlertaCPInvalido(Reserva $reserva, string $detalle): void
     {
-        try {
-            $whatsappService = app(WhatsappNotificationService::class);
-            $detalleCorto = mb_substr(trim($detalle), 0, 300);
-            $texto  = "⚠️ ALERTA MIR: Reserva #{$reserva->codigo_reserva} (ID: {$reserva->id}) NO se ha enviado a MIR por codigo postal invalido.\n";
-            $texto .= "Detalle: {$detalleCorto}\n";
-            if ($reserva->fecha_entrada) {
-                $texto .= "Entrada: " . \Carbon\Carbon::parse($reserva->fecha_entrada)->format('d/m/Y') . "\n";
-            }
-            $texto .= "Corrige el codigo postal del cliente/huesped en el CRM y se reintentara automaticamente.";
-            $whatsappService->sendToConfiguredRecipients($texto);
-            Log::info('MIR: Alerta WhatsApp enviada por CP invalido', [
-                'reserva_id' => $reserva->id,
-                'detalle' => $detalleCorto,
-            ]);
-        } catch (\Exception $e) {
-            Log::error('MIR: No se pudo enviar alerta WhatsApp por CP invalido', [
-                'reserva_id' => $reserva->id,
-                'error_whatsapp' => $e->getMessage(),
-            ]);
-        }
+        Log::warning('[MIR] CP invalido bloquea envio (alerta consolidada en cron diario 11:00)', [
+            'reserva_id' => $reserva->id,
+            'codigo_reserva' => $reserva->codigo_reserva,
+            'fecha_entrada' => $reserva->fecha_entrada,
+            'detalle' => mb_substr(trim($detalle), 0, 300),
+        ]);
     }
 
     /**
@@ -1343,44 +1318,24 @@ class MIRService
      * humanizar cada problema por separado. Cada issue debe tener:
      * {severity, entidad, entidad_id, campo, mensaje, sugerencia}.
      */
+    /**
+     * [2026-04-30] Antes mandaba WhatsApp inmediato al admin por cada
+     * validacion pre-envio fallida. Ahora SOLO loguea — el cron
+     * `mir:resumen-pendientes` (11:00 Madrid) agrupa todos los issues
+     * del dia en un unico mensaje al admin.
+     */
     private function enviarAlertaValidacionInvalida(Reserva $reserva, array $issuesDatos): void
     {
-        try {
-            $whatsappService = app(WhatsappNotificationService::class);
-
-            $cliente = $reserva->cliente;
-            $nombreCliente = trim(($cliente->nombre ?? '') . ' ' . ($cliente->apellido1 ?? ''));
-            $entradaFmt = $reserva->fecha_entrada
-                ? \Carbon\Carbon::parse($reserva->fecha_entrada)->format('d/m/Y')
-                : 'sin fecha';
-
-            // Humanizar cada issue
-            $lineasHumanas = [];
-            foreach ($issuesDatos as $i) {
-                $lineasHumanas[] = '• ' . $this->humanizarIssue($i);
-            }
-            $detalle = implode("\n", $lineasHumanas);
-
-            $url = config('app.url') . '/admin/reservas-revision-manual';
-
-            $texto = "⚠️ RESERVA BLOQUEADA PARA MIR\n\n"
-                . "Reserva #{$reserva->id} — {$nombreCliente}\n"
-                . "Entrada: {$entradaFmt}\n\n"
-                . "Datos que hay que corregir:\n{$detalle}\n\n"
-                . "📋 Revisar en: {$url}\n"
-                . "Usa el boton 'Arreglar' del campo en rojo. Tras corregir, marca 'Revalidar' y se envia a MIR automaticamente.";
-
-            $whatsappService->sendToConfiguredRecipients($texto);
-            Log::info('MIR: Alerta WhatsApp enviada por validacion pre-envio fallida', [
-                'reserva_id' => $reserva->id,
-                'detalle' => $detalle,
-            ]);
-        } catch (\Exception $e) {
-            Log::error('MIR: No se pudo enviar alerta WhatsApp por validacion pre-envio', [
-                'reserva_id' => $reserva->id,
-                'error_whatsapp' => $e->getMessage(),
-            ]);
+        $lineasHumanas = [];
+        foreach ($issuesDatos as $i) {
+            $lineasHumanas[] = $this->humanizarIssue($i);
         }
+        Log::warning('[MIR] Validacion pre-envio fallida (alerta consolidada en cron diario 11:00)', [
+            'reserva_id' => $reserva->id,
+            'codigo_reserva' => $reserva->codigo_reserva,
+            'fecha_entrada' => $reserva->fecha_entrada,
+            'issues' => $lineasHumanas,
+        ]);
     }
 
     /**

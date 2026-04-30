@@ -107,11 +107,14 @@ class Kernel extends ConsoleKernel
         $schedule->command('whatsapp:sync-templates')->everyFifteenMinutes()->withoutOverlapping();
 
         // [2026-04-26] Resumen DIARIO unico de reservas bloqueadas para MIR.
-        // Sustituye al spam anterior (un mensaje WhatsApp por cada reserva
-        // que fallaba la validacion). Ahora se manda 1 mensaje a las 09:30
-        // con la lista de TODAS las reservas pendientes de corregir.
+        // [2026-04-30] Movido de 09:30 a 11:00 por peticion del cliente y
+        // ahora consolida TODOS los tipos de fallo MIR (envio fallido,
+        // rechazo, CP invalido, validacion pre-envio fallida). Las funciones
+        // enviarAlerta* del MIRService y AlertaEquipoService::mirFallo
+        // ya NO envian WhatsApp inmediato — solo loguean. Este cron es la
+        // unica salida de alertas MIR al admin.
         $schedule->command('mir:resumen-pendientes')
-            ->dailyAt('09:30')
+            ->dailyAt('11:00')
             ->timezone('Europe/Madrid')
             ->withoutOverlapping();
 

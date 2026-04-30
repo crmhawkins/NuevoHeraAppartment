@@ -106,21 +106,21 @@ class AlertaEquipoService
     }
 
     /**
-     * Alerta: fallo en envío a MIR.
+     * [2026-04-30] Antes mandaba WhatsApp inmediato + email al admin por
+     * cada fallo de envio a MIR. Ahora SOLO loguea — el cron
+     * `mir:resumen-pendientes` (11:00 Madrid) agrupa todos los fallos
+     * del dia en un unico mensaje al admin.
      */
     public static function mirFallo($reserva, string $error): void
     {
         $cliente = $reserva->cliente;
-        self::alertar(
-            'MIR FALLIDO',
-            "El envío a MIR ha fallado para la reserva #{$reserva->id}.\n\n"
-            . "Código: {$reserva->codigo_reserva}\n"
-            . "Cliente: " . ($cliente->nombre ?? '') . " " . ($cliente->apellido1 ?? '') . "\n"
-            . "Entrada: {$reserva->fecha_entrada}\n"
-            . "Error: {$error}\n\n"
-            . "El sistema reintentará a las 10:00 y 22:00.",
-            'mir_fallo'
-        );
+        \Illuminate\Support\Facades\Log::warning('[Alerta] MIR fallido (alerta consolidada en cron diario 11:00)', [
+            'reserva_id' => $reserva->id,
+            'codigo_reserva' => $reserva->codigo_reserva,
+            'cliente' => trim(($cliente->nombre ?? '') . ' ' . ($cliente->apellido1 ?? '')),
+            'fecha_entrada' => $reserva->fecha_entrada,
+            'error' => mb_substr($error, 0, 250),
+        ]);
     }
 
     /**
