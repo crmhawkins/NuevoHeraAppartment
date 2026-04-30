@@ -33,6 +33,33 @@ El guardian:
 - `/etc/cron.d/coolify-laravel-guardian` (cada 2 min)
 - Log: `/var/log/coolify-laravel-guardian.log`
 
+## 5090-services-watchdog.ps1 / install-5090-watchdog.ps1
+
+Watchdog de los servicios IA del PC 5090 (`192.168.1.45`, hostname
+`DESKTOP-NGK3ABQ`). Comprueba cada minuto que `ollama` responde en
+:11434 y el wrapper python en :11435; relanza la tarea programada
+(`OllamaServe` / `AIWrapper`) si caen.
+
+**Contexto**: 26/04/2026 ambas tareas quedaron en estado `Ready` (no
+`Running`) sin que nada las relanzase. El túnel reverso al VPS seguía
+vivo pero los puertos no respondían → alerta `IA NO DISPONIBLE`
+durante varias horas. El watchdog evita que vuelva a pasar.
+
+**Instalado en el 5090**:
+- `C:\Users\ia-local\services-watchdog.ps1` (= `5090-services-watchdog.ps1`)
+- Tarea programada `IAServicesWatchdog` (boot + cada 1 hora, runas SYSTEM)
+- Log: `C:\Users\ia-local\services-watchdog.log`
+
+**Para instalar/actualizar** (desde fuera de la red Hawkins, vía túnel
+inverso al VPS 81):
+
+```bash
+scp ops/5090-services-watchdog.ps1 ops/install-5090-watchdog.ps1 claude@217.160.39.81:/tmp/
+ssh -J claude@217.160.39.81 -p 2222 servidor-ia-prueba@localhost "scp claude@217.160.39.81:/tmp/{5090-services-watchdog.ps1,install-5090-watchdog.ps1} ~/tmp/"
+# y luego paramiko al 5090 (192.168.1.45) con IA-local / H@wkins26 ejecutando:
+#   powershell -NoProfile -ExecutionPolicy Bypass -File install-5090-watchdog.ps1
+```
+
 ## crm-uptime-monitor.sh
 
 Monitor externo de disponibilidad del CRM. Si el sitio devuelve 5xx

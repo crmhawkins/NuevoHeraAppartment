@@ -70,11 +70,26 @@ class AccessCodeService
         // [2026-04-26] Cerradura manual: el codigo es la clave del apartamento.
         // Lo guardamos en codigo_apartamento (canonico nuevo) y en codigo_acceso
         // (legacy, por compat con lectores antiguos).
-        $reserva->update([
+        // [2026-04-29] Tambien rellenamos codigo_portal con la clave fija del
+        // edificio (si existe), para que la pantalla del checkin publico no
+        // tenga que adivinar y muestre las DOS claves diferenciadas (portal +
+        // piso). Sin esto, codigo_portal quedaba NULL y el huesped veia el
+        // mismo codigo en ambos campos (incidente NIHAD/MARIA Costa 29/04).
+        $edif = $apartamento->edificioName ?? $apartamento->edificioRel ?? null;
+        if (!$edif && !empty($apartamento->edificio_id)) {
+            $edif = \App\Models\Edificio::find($apartamento->edificio_id);
+        }
+        $clavePortal = ($edif && !empty($edif->clave)) ? trim((string) $edif->clave) : null;
+
+        $update = [
             'codigo_acceso'            => $codigo,
             'codigo_apartamento'       => $codigo,
             'codigo_enviado_cerradura' => 1, // Manual = siempre "programada"
-        ]);
+        ];
+        if ($clavePortal !== null && $clavePortal !== '') {
+            $update['codigo_portal'] = $clavePortal;
+        }
+        $reserva->update($update);
 
         Log::info("AccessCodeService: código manual asignado a reserva {$reserva->id}.");
         return $codigo;

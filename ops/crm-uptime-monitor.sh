@@ -9,8 +9,8 @@ FAIL_THRESHOLD=3
 ADMIN_PHONE="34605621704"
 PHONE_ID="102360642838173"
 GRAPH_VERSION="v19.0"
-TEMPLATE_DOWN="alerta_doble_reserva"
-TEMPLATE_UP="alerta_doble_reserva"
+TEMPLATE_DOWN="alerta_sistema_hawkins"
+TEMPLATE_UP="alerta_sistema_hawkins"
 TEMPLATE_LANG="es"
 
 LARAVEL_CONTAINER="laravel-f6irzmls5je67llxtivpv7lx"
@@ -67,17 +67,24 @@ get_whatsapp_token() {
 json_escape() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
 
 send_whatsapp() {
+    # $1 template, $2..$5 bloques de texto. Los concatenamos en 1 sola
+    # variable porque el template 'alerta_sistema_hawkins' solo tiene {{1}}.
     local template="$1" v1="$2" v2="$3" v3="$4" v4="$5"
     local token
     token=$(get_whatsapp_token) || {
         log "WARN no se pudo obtener whatsapp_token - omito envio"
         return 1
     }
-    v1=$(json_escape "$v1"); v2=$(json_escape "$v2"); v3=$(json_escape "$v3"); v4=$(json_escape "$v4")
+
+    # Construir un unico string " · " separado, sin \n/\t/espacios multiples
+    # (Meta rechaza esos chars en params de template, error #100).
+    local texto="${v1} · ${v2} · ${v3} · ${v4}"
+    texto=$(printf '%s' "$texto" | tr -d '\r\n\t' | tr -s ' ')
+    texto=$(json_escape "$texto")
 
     local payload
-    printf -v payload '{"messaging_product":"whatsapp","to":"%s","type":"template","template":{"name":"%s","language":{"code":"%s"},"components":[{"type":"body","parameters":[{"type":"text","text":"%s"},{"type":"text","text":"%s"},{"type":"text","text":"%s"},{"type":"text","text":"%s"}]}]}}' \
-        "$ADMIN_PHONE" "$template" "$TEMPLATE_LANG" "$v1" "$v2" "$v3" "$v4"
+    printf -v payload '{"messaging_product":"whatsapp","to":"%s","type":"template","template":{"name":"%s","language":{"code":"%s"},"components":[{"type":"body","parameters":[{"type":"text","text":"%s"}]}]}}' \
+        "$ADMIN_PHONE" "$template" "$TEMPLATE_LANG" "$texto"
 
     local http_code body tmp
     tmp=$(mktemp)
