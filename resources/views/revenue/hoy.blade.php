@@ -540,14 +540,24 @@
             blue:   'RECOMENDADA + AJUSTE FINDES',
         };
 
-        const totalA = data.estrategias[0].mes_70pct;
+        // [2026-04-30] proyeccion_30d = ingresos REALES proximos 30 dias =
+        //   reservas confirmadas (a su precio real prorrateado) + libres × precio_propuesto × 0.75
+        const totalA = data.estrategias[0].proyeccion_30d ?? data.estrategias[0].mes_70pct;
         let html = '';
         data.estrategias.forEach((e, idx) => {
             const c = colors[e.color] || colors.blue;
-            const diff = e.mes_70pct - totalA;
-            const diffStr = idx === 0 ? 'punto de partida' : (diff > 0 ? `+${diff.toLocaleString()}€/mes` : `${diff.toLocaleString()}€/mes`);
+            const proyeccion = e.proyeccion_30d ?? e.mes_70pct;
+            const reservado = e.reservado_30d ?? 0;
+            const libreEst = e.libre_estimado_30d ?? proyeccion;
+            const diff = proyeccion - totalA;
+            const diffStr = idx === 0 ? 'punto de partida' : (diff > 0 ? `+${diff.toLocaleString()}€` : `${diff.toLocaleString()}€`);
             const diffClass = idx === 0 ? 'text-muted' : (diff > 0 ? 'text-success fw-bold' : 'text-danger');
             const letra = e.nombre.charAt(0);
+
+            // Tooltip con desglose
+            const tooltipDesglose = `Reservas ya confirmadas: ${reservado.toLocaleString()}€ (a su precio real). ` +
+                                    `Estimacion huecos al 75% ocupacion: ${libreEst.toLocaleString()}€. ` +
+                                    `Total proyectado proximos 30 dias.`;
 
             // Lista precios apartamentos
             let preciosHtml = '<div class="small mt-2">';
@@ -569,9 +579,12 @@
                             <span class="text-muted small">${letra}</span>
                         </div>
                         <h6 class="card-title">${e.nombre.replace(/^[A-D]\.\s*/, '')}</h6>
-                        <div class="my-3 text-center">
-                            <div class="display-6 fw-bold">${e.mes_70pct.toLocaleString()}€</div>
-                            <small class="text-muted">por mes (al 70% ocupación)</small>
+                        <div class="my-3 text-center" title="${tooltipDesglose}">
+                            <div class="display-6 fw-bold">${proyeccion.toLocaleString()}€</div>
+                            <small class="text-muted d-block">proyeccion 30 dias</small>
+                            <small class="text-muted d-block" style="font-size: 0.7rem;">
+                                ${reservado.toLocaleString()}€ ya cobrados + ${libreEst.toLocaleString()}€ huecos × 75%
+                            </small>
                             <div class="${diffClass} small mt-1">${diffStr}</div>
                         </div>
                         ${preciosHtml}

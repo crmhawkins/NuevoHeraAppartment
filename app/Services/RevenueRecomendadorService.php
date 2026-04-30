@@ -176,6 +176,14 @@ class RevenueRecomendadorService
      */
     public function compararEstrategias(array $apartamentos, Carbon $fecha, array $listings): array
     {
+        // [2026-04-30] Pre-calculamos la matriz de ocupacion real para los
+        // proximos 30 dias. Es la misma para las 4 estrategias (las reservas
+        // ya hechas no cambian segun la estrategia que elijamos), solo cambia
+        // el precio que aplicamos a las noches LIBRES.
+        $hoy = Carbon::today();
+        $diasProyeccion = 30;
+        $matrizOcupacion = $this->matrizOcupacion($apartamentos, $hoy, $diasProyeccion);
+
         // Filtrar listings con precio
         $conPrecio = array_filter($listings, fn($l) => isset($l['precio']) && $l['precio'] > 0);
 
@@ -208,28 +216,32 @@ class RevenueRecomendadorService
         $estrategias[] = $this->aplicarEstrategiaTodos(
             'A. Conservadora (mediana mercado completo)',
             'Mediana de TODOS los listings (incluye hostales y habitaciones que bajan el precio). Factor segmento del apartamento. Riesgo: dejas dinero sobre la mesa.',
-            $apartamentos, $fecha, $statsAll, [], 'red'
+            $apartamentos, $fecha, $statsAll, [], 'red',
+            $matrizOcupacion, $diasProyeccion
         );
 
         // === Estrategia 2: PREMIUM EN TODOS — fuerza factor 1.10 ===
         $estrategias[] = $this->aplicarEstrategiaTodos(
             'B. Premium uniforme (+10% sobre mediana mercado)',
             'Mediana del mercado entero × 1.10 en todos. Asume que todos tus apartamentos son premium vs hostales/habitaciones.',
-            $apartamentos, $fecha, $statsAll, ['factor_override' => 1.10], 'orange'
+            $apartamentos, $fecha, $statsAll, ['factor_override' => 1.10], 'orange',
+            $matrizOcupacion, $diasProyeccion
         );
 
         // === Estrategia 3: COMP SET REAL — solo apartamentos enteros ===
         $estrategias[] = $this->aplicarEstrategiaTodos(
             'C. Comp Set real (solo apartamentos enteros)',
             "Solo mediana de los apartamentos enteros realmente comparables (no hostales ni habitaciones). N=" . count($premiumPrecios) . " competidores reales. Mediana: " . round($medianaPremium) . "€.",
-            $apartamentos, $fecha, $statsPremium, [], 'green'
+            $apartamentos, $fecha, $statsPremium, [], 'green',
+            $matrizOcupacion, $diasProyeccion
         );
 
         // === Estrategia 4: PRICING INTELIGENTE — comp set + factor + finde + cap mínimo ===
         $estrategias[] = $this->aplicarEstrategiaTodos(
             'D. Pricing inteligente (recomendada)',
             'Comp set real + factor segmento del apartamento + ajustes finde/festivo/ocupación + clamp mín-máx. Lo que de verdad debería usarse.',
-            $apartamentos, $fecha, $statsPremium, [], 'blue'
+            $apartamentos, $fecha, $statsPremium, [], 'blue',
+            $matrizOcupacion, $diasProyeccion
         );
 
         return [
@@ -241,8 +253,17 @@ class RevenueRecomendadorService
         ];
     }
 
-    private function aplicarEstrategiaTodos(string $nombre, string $descripcion, array $apartamentos, Carbon $fecha, array $stats, array $opts, string $color): array
-    {
+    private function aplicarEstrategiaTodos(
+        string $nombre,
+        string $descripcion,
+        array $apartamentos,
+        Carbon $fecha,
+        array $stats,
+        array $opts,
+        string $color,
+        array $matrizOcupacion = [],
+        int $diasProyeccion = 30
+    ): array {
         $precios = [];
         $totalDia = 0;
         foreach ($apartamentos as $row) {
@@ -274,15 +295,123 @@ class RevenueRecomendadorService
             ];
             if ($libre) $totalDia += $precio;
         }
+
+        // [2026-04-30] Proyeccion real de ingresos para los proximos 30 dias:
+        //   Σ reservas confirmadas (a su precio real prorrateado por noche)
+        // + Σ noches libres × precio_propuesto × 0.75 (factor de ocupacion
+        //   esperada para los huecos)
+        // Mucho mas fiel que el 'total_dia × 30 × 0.70' anterior, que asumia
+        // que la foto de hoy se repetia 30 dias.
+        $proyeccion30d = $this->calcularProyeccionMensual($matrizOcupacion, $precios, $diasProyeccion, 0.75);
+        $totalReservadoMes = $this->totalReservasMatriz($matrizOcupacion);
+        $totalLibreEstimado = $proyeccion30d - $totalReservadoMes;
+
         return [
             'nombre' => $nombre,
             'descripcion' => $descripcion,
             'color' => $color,
             'precios' => $precios,
             'total_dia' => $totalDia,
+            // [2026-04-30] mes_70pct se mantiene por compatibilidad pero la
+            // tarjeta principal usa proyeccion_30d (calculo correcto).
             'mes_70pct' => round($totalDia * 30 * 0.70, 0),
             'mes_85pct' => round($totalDia * 30 * 0.85, 0),
+            'proyeccion_30d' => round($proyeccion30d, 0),
+            'reservado_30d' => round($totalReservadoMes, 0),
+            'libre_estimado_30d' => round($totalLibreEstimado, 0),
         ];
+    }
+
+    /**
+     * [2026-04-30] Construye una matriz [apartamento_id][dia_idx] con el
+     * precio prorrateado por noche de la reserva activa ese dia, o null si
+     * el apartamento esta libre.
+     *
+     * dia_idx 0 = $desde, 1 = $desde + 1 dia, ..., $dias - 1 = ultimo dia.
+     *
+     * @return array<int, array<int, ?float>>
+     */
+    private function matrizOcupacion(array $apartamentos, Carbon $desde, int $dias): array
+    {
+        $apartamentoIds = [];
+        foreach ($apartamentos as $row) {
+            $apt = is_array($row) ? $row['apartamento'] : $row;
+            $apartamentoIds[] = $apt->id;
+        }
+
+        $hasta = $desde->copy()->addDays($dias);
+
+        // Reservas activas que solapen el rango [hoy, hoy+30)
+        $reservas = Reserva::query()
+            ->whereNotIn('estado_id', [4, 9])
+            ->whereNull('deleted_at')
+            ->whereIn('apartamento_id', $apartamentoIds)
+            ->whereDate('fecha_salida', '>', $desde)
+            ->whereDate('fecha_entrada', '<', $hasta)
+            ->get();
+
+        // Inicializar matriz a null (libre)
+        $matriz = [];
+        foreach ($apartamentoIds as $aptId) {
+            $matriz[$aptId] = array_fill(0, $dias, null);
+        }
+
+        // Marcar dias reservados con su precio prorrateado por noche
+        foreach ($reservas as $r) {
+            $entrada = Carbon::parse($r->fecha_entrada)->startOfDay();
+            $salida = Carbon::parse($r->fecha_salida)->startOfDay();
+            $noches = $entrada->diffInDays($salida);
+            if ($noches < 1) continue;
+            $precioNoche = ((float) $r->precio) / $noches;
+
+            for ($d = 0; $d < $dias; $d++) {
+                $dia = $desde->copy()->addDays($d);
+                if ($dia->gte($entrada) && $dia->lt($salida)) {
+                    $matriz[$r->apartamento_id][$d] = $precioNoche;
+                }
+            }
+        }
+
+        return $matriz;
+    }
+
+    /**
+     * [2026-04-30] Suma los ingresos proyectados a $diasProyeccion vista:
+     *   - Por cada noche reservada: precio prorrateado real (100%, ya lo cobras)
+     *   - Por cada noche libre:     precio_propuesto × $factorOcupacion (estimacion)
+     */
+    private function calcularProyeccionMensual(array $matriz, array $preciosPropuestos, int $dias, float $factorOcupacion): float
+    {
+        $total = 0.0;
+        foreach ($matriz as $aptId => $diasMatriz) {
+            $precioPropuesto = (float) ($preciosPropuestos[$aptId]['precio'] ?? 0);
+            for ($d = 0; $d < $dias; $d++) {
+                $precioNocheReal = $diasMatriz[$d] ?? null;
+                if ($precioNocheReal !== null) {
+                    $total += $precioNocheReal;          // ya reservado: lo que cobras de verdad
+                } else {
+                    $total += $precioPropuesto * $factorOcupacion;  // libre: estimacion
+                }
+            }
+        }
+        return $total;
+    }
+
+    /**
+     * [2026-04-30] Suma SOLO los ingresos ya confirmados (reservas existentes
+     * en los proximos $dias dias). No depende de la estrategia de pricing.
+     */
+    private function totalReservasMatriz(array $matriz): float
+    {
+        $total = 0.0;
+        foreach ($matriz as $diasMatriz) {
+            foreach ($diasMatriz as $precioNoche) {
+                if ($precioNoche !== null) {
+                    $total += (float) $precioNoche;
+                }
+            }
+        }
+        return $total;
     }
 
     private function mediana(array $valores): float
