@@ -29,8 +29,16 @@ class ProgramarCerradurasProximas extends Command
     public function handle(): int
     {
         $hoy = Carbon::now()->toDateString();
-        $limiteTTLock = Carbon::now()->addDays(150)->toDateString();
-        $limiteTuya   = Carbon::now()->addDays(7)->toDateString();
+        // [2026-04-29] Limite reducido a hoy+1 para respetar la regla de
+        // "9 PINs maximo por cerradura, prohibido pre-programar futuros"
+        // (CLAUDE.md seccion 0). Antes era 7d Tuya / 150d TTLock, lo que
+        // saturaba la cerradura del portal Suites bloqueando reservas
+        // entrantes (incidente 29/04). El flujo principal pasa a ser
+        // 'cerraduras:rotacion-diaria' que se ejecuta cada dia. Este
+        // comando queda como red de seguridad para reservas que entran
+        // hoy o manana y por algun motivo no se programaron en la rotacion.
+        $limiteTTLock = Carbon::now()->addDay()->toDateString();
+        $limiteTuya   = Carbon::now()->addDay()->toDateString();
 
         // Reservas candidatas: con PIN generado pero no enviado, no canceladas,
         // entrada dentro de la ventana de su proveedor.

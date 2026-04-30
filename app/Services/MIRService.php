@@ -1175,9 +1175,15 @@ class MIRService
                 'detalle' => $detalle,
             ]);
 
-            // Alerta WhatsApp: solo la primera vez en 24h para no spamear.
+            // [2026-04-26] Eliminado el envio inmediato de WhatsApp por cada
+            // reserva fallida (generaba un mensaje por huesped y saturaba al
+            // admin). En su lugar, el comando programado mir:resumen-pendientes
+            // (Console/Commands/MirResumenPendientes.php) envia UN UNICO mensaje
+            // resumen una vez al dia con todas las reservas bloqueadas. La marca
+            // mir_estado=error_validacion en BD permite que ese comando las
+            // localice. La cache key se conserva por compatibilidad con otros
+            // alertadores (rechazo/CP) que sí siguen siendo individuales.
             if (!Cache::has($cacheKey)) {
-                $this->enviarAlertaValidacionInvalida($reserva, array_values($issuesDatos));
                 Cache::put($cacheKey, true, now()->addHours(24));
             }
             return null;

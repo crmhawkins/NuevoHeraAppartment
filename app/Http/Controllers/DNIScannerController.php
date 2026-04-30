@@ -1368,11 +1368,17 @@ INSTRUCCIONES ESPECÍFICAS:
 4. DIRECCIÓN COMPLETA: En el REVERSO del DNI, busca el campo "DOMICILIO". Extrae TODA la dirección completa incluyendo calle, número, piso, puerta, etc. (ej: "C. VIRGEN. DEL VALLE 2B P01 B"). No solo la ciudad.
 5. El tipo de documento debe ser "DNI", "NIE" o "Pasaporte" según el documento que estés analizando.
 6. El sexo puede aparecer como "M"/"F", "Masculino"/"Femenino", o "Hombre"/"Mujer".
-7. NUMERO DE SOPORTE DEL DOCUMENTO (campo numero_soporte_documento):
-   - En el DNI español aparece con la etiqueta "NUM SOPORTE" o "IDESP" (normalmente en el anverso, debajo del numero de DNI). Formato: 3 letras + 6 digitos (ej: "BAB123456", "AAA987654").
-   - En el NIE aparece como "IDESP" o "NUM SOPORTE" con formato letra + 8 digitos (ej: "E01234567").
-   - En pasaportes no existe este campo, dejalo vacio.
-   - Es un dato OBLIGATORIO para MIR, extraelo siempre que el documento lo tenga.
+7. NUMERO DE SOPORTE DEL DOCUMENTO (campo numero_soporte_documento) — CAMPO CRITICO, REVISALO DOS VECES:
+   - QUE ES: identificador unico del soporte fisico (la tarjeta), distinto del numero del DNI/NIE. Es OBLIGATORIO para MIR.
+   - ETIQUETAS POSIBLES: "NUM SOPORTE", "NUM. SOPORTE", "NUMERO SOPORTE", "SOPORTE", "IDESP", "NSU", "SUPPORT NUMBER", "NUM. SUPP". Cualquiera de ellas vale.
+   - DONDE BUSCARLO en el ANVERSO del DNI: en la parte SUPERIOR DERECHA del documento, en letras pequenas, justo debajo del titulo "DNI" o "DOCUMENTO NACIONAL DE IDENTIDAD", o tambien debajo/al lado del numero de DNI.
+   - DONDE BUSCARLO en el REVERSO: si no aparece claramente en el anverso, mira tambien la zona inferior del reverso, encima de la zona MRZ, a veces aparece alli.
+   - FORMATO DNI ESPANOL ACTUAL: exactamente 3 LETRAS + 6 DIGITOS (ej: "BAB123456", "AAA987654", "CDM456789"). 9 caracteres en total.
+   - FORMATO NIE: letra + 8 digitos (ej: "E01234567").
+   - FORMATO ANTIGUO (DNI emitido antes de 2015): puede tener formato distinto, pero rara vez aparece sin etiqueta. Si encuentras un codigo de 7-9 caracteres alfanumericos junto a una etiqueta de SOPORTE, copialo tal cual.
+   - NO CONFUNDAS: el numero de soporte NO es el numero del DNI (que tiene 8 digitos + letra), NO es el codigo de barras, NO es el CAN (Card Access Number, suele ser 6 digitos numericos solos), NO es el numero del MRZ.
+   - SI NO LO VES con ninguna etiqueta clara, devuelve el campo VACIO. NO inventes ni copies otro numero. Es preferible vacio a un valor incorrecto.
+   - En PASAPORTES no existe este campo: dejalo vacio.
 8. MRZ (Machine Readable Zone, solo para PASAPORTES):
    - En el pasaporte hay 2 lineas de 44 caracteres cada una en la parte inferior, con letras, digitos y caracteres "<".
    - En el DNI/NIE actual hay 3 lineas de 30 caracteres en el reverso.
@@ -1388,15 +1394,31 @@ INSTRUCCIONES ESPECÍFICAS:
 "localidad": "",
 "codigo_postal": "",
 "provincia": "",
-"lugar_nacimiento": ""
+"lugar_nacimiento": "",
+"numero_soporte_documento": ""
 }
 
 INSTRUCCIONES ESPECÍFICAS:
-1. DIRECCIÓN COMPLETA: Busca el campo "DOMICILIO" en el reverso. Extrae TODA la dirección incluyendo calle, número, piso, puerta, bloque, etc. (ej: "C. VIRGEN. DEL VALLE 2B P01 B"). No solo la ciudad.
-2. LOCALIDAD: Extrae la ciudad que aparece después de la dirección (ej: "SEVILLA").
-3. PROVINCIA: Extrae la provincia que aparece después de la localidad (puede ser la misma que la localidad si es una ciudad capital de provincia).
-4. CÓDIGO POSTAL: Si aparece en el documento, extráelo. Si no aparece, déjalo vacío.
-5. LUGAR DE NACIMIENTO: Busca el campo "LUGAR DE NACIMIENTO" en el reverso del DNI. Este campo es OBLIGATORIO y aparece claramente marcado. Extrae la ciudad y provincia de nacimiento (ej: "SEVILLA" o "SEVILLA, SEVILLA").';
+
+1. DOMICILIO: en el DNI espanol moderno NO hay un campo etiquetado "LOCALIDAD" como tal. Toda la info viene bajo la etiqueta "DOMICILIO" en 2-3 lineas con este patron:
+   - Linea 1: nombre de la calle + numero + piso/puerta (ej: "C. POLONIA 32")
+   - Linea 2 (a veces): codigo postal (5 digitos) + ciudad (ej: "28012 MADRID")
+   - Linea 3 (a veces): provincia, o se omite si la ciudad ES la provincia
+   Lee TODAS las lineas del bloque DOMICILIO y separalas en los campos siguientes.
+
+2. direccion: SOLO la calle + numero + piso/puerta de la primera linea, SIN codigo postal ni ciudad. Ej: "C. VIRGEN DEL VALLE 2B P01 B".
+
+3. localidad: la CIUDAD (no la provincia, no el CP). Es texto alfabetico, normalmente en MAYUSCULAS, de 3-30 caracteres. Esta despues del codigo postal en la misma linea, o en una linea propia. Ejemplos: "MADRID", "SEVILLA", "ALCORCON", "ALGECIRAS". Si NO encuentras un CP claro, la ciudad suele ser la primera palabra en mayusculas que NO sea parte de la calle.
+
+4. provincia: la provincia que aparece despues de la localidad. Si es una ciudad capital, puede coincidir con la localidad (ej: localidad="SEVILLA", provincia="SEVILLA"). Si no la ves explicita, dejala vacia (la deduciremos del CP).
+
+5. codigo_postal: 5 digitos numericos. Aparece SIEMPRE delante de la ciudad en el DNI moderno (ej: "28012 MADRID"). Si no lo ves, vacio.
+
+6. lugar_nacimiento: campo "LUGAR DE NACIMIENTO" en el reverso, separado del DOMICILIO. Extrae ciudad y provincia (ej: "SEVILLA" o "SEVILLA, SEVILLA").
+
+7. numero_soporte_documento: en algunos DNI aparece tambien en el reverso por encima del MRZ. Etiquetas: "NUM SOPORTE", "IDESP", "NSU", "SOPORTE". Formato 3 letras + 6 digitos (ej: "BAB123456"). Si no lo ves con etiqueta clara, vacio. NO copies el numero del DNI ni del MRZ.
+
+REGLA DE ORO: si dudas en separar dirección/localidad/CP, prefiere RELLENAR localidad y CP aunque la "direccion" sea mas corta, antes que dejar localidad vacia.';
             }
             
             // URL completa de la API: baseUrl/chat/analyze-image
@@ -1641,7 +1663,62 @@ INSTRUCCIONES ESPECÍFICAS:
                 'side' => $side,
                 'data_keys' => array_keys($extractedData)
             ]);
-            
+
+            // [2026-04-26] Fallback Ollama Cloud (qwen3-vl:235b-cloud) para
+            // campos criticos que el modelo local de 8B falla. Solo se dispara
+            // en el anverso, solo si el campo viene vacio o con formato
+            // invalido. Coste: 0 EUR (incluido en plan Ollama).
+            if ($side === 'front') {
+                try {
+                    $fallback = app(\App\Services\OpenAIVisionFallbackService::class);
+
+                    // 1) numero_soporte_documento: aparece en pequeno y el
+                    //    modelo local lo lee mal con frecuencia.
+                    $sopActual = isset($extractedData['numero_soporte_documento'])
+                        ? trim((string) $extractedData['numero_soporte_documento'])
+                        : '';
+                    $sopValido = $sopActual !== '' && preg_match('/^[A-Z]{1,3}\d{6,8}$/i', $sopActual);
+                    if (!$sopValido) {
+                        $rescatado = $fallback->extractNumeroSoporte($imagePath);
+                        if ($rescatado) {
+                            Log::info('[DNIScanner] Fallback recupero numero_soporte_documento', [
+                                'antes' => $sopActual ?: '(vacio)', 'despues' => $rescatado,
+                            ]);
+                            $extractedData['numero_soporte_documento'] = $rescatado;
+                        }
+                    }
+
+                    // 2) numero del documento (DNI/NIE). El local a veces lee
+                    //    un digito de mas (ej: 748533319A en vez de 74853319A).
+                    //    Solo intentamos rescate si lo que viene NO cumple
+                    //    formato canonico DNI (8d+letra) ni NIE (X/Y/Z+7d+letra).
+                    $dniActual = isset($extractedData['dni'])
+                        ? strtoupper(trim((string) $extractedData['dni']))
+                        : '';
+                    $dniValido = $dniActual !== '' && (
+                        preg_match('/^\d{8}[A-Z]$/', $dniActual)
+                        || preg_match('/^[XYZ]\d{7}[A-Z]$/', $dniActual)
+                    );
+                    // Si parece un DNI pero con un digito de mas (9d+letra),
+                    // o vacio, intentamos. Si es un pasaporte (formato libre),
+                    // no tocamos.
+                    $tipoDoc = strtolower((string) ($extractedData['tipo_documento'] ?? ''));
+                    $esDniONie = str_contains($tipoDoc, 'dni') || str_contains($tipoDoc, 'nie')
+                        || (preg_match('/^\d{6,10}[A-Z]$/', $dniActual) && !str_contains($tipoDoc, 'pas'));
+                    if (!$dniValido && $esDniONie) {
+                        $rescDni = $fallback->extractNumeroDocumento($imagePath);
+                        if ($rescDni) {
+                            Log::info('[DNIScanner] Fallback recupero numero documento', [
+                                'antes' => $dniActual ?: '(vacio)', 'despues' => $rescDni,
+                            ]);
+                            $extractedData['dni'] = $rescDni;
+                        }
+                    }
+                } catch (\Throwable $e) {
+                    Log::warning('[DNIScanner] Excepcion en fallback: ' . $e->getMessage());
+                }
+            }
+
             return [
                 'success' => true,
                 'data' => $extractedData
@@ -2051,6 +2128,36 @@ INSTRUCCIONES ESPECÍFICAS:
                         // NO marcar data_dni aquí - se validará después de actualizar
                     ];
 
+                    // [2026-04-26] Auto-rellenar `nacionalidad` (codigo ISO que
+                    // usa el validador MIR) cuando viene vacia. Sin esto, el
+                    // validator asume Espana y bloquea la reserva exigiendo CP
+                    // espanol a un huesped extranjero.
+                    //
+                    //  - Si tipo_documento == DNI -> ESP (siempre)
+                    //  - Si hay nacionalidadStr (ej: MAROCAINE, FRANCAISE) ->
+                    //    usar como pais. El validator solo comprueba si esta
+                    //    en la lista de aliases ES; cualquier otro string es
+                    //    "extranjero" y por tanto valido sin CP espanol.
+                    if (empty($persona->nacionalidad)) {
+                        // [2026-04-26] Prioridad: si nacionalidadStr ya viene
+                        // rellena con un valor NO espanol (ej: "FR", "MAROCAINE",
+                        // "PT"), respetarlo aunque tipo_documento_str diga
+                        // "DNI" — el OCR puede haber leido "DNI" en un
+                        // documento de identidad extranjero (frances, italiano)
+                        // pero la nacionalidad real es la otra.
+                        $nacStr = trim((string) ($data['nacionalidad'] ?? $persona->nacionalidadStr ?? ''));
+                        $aliasEs = ['ES', 'ESP', 'SPAIN', 'ESPANA', 'ESPAÑA', 'ESPAÑOLA', 'ESPANOLA'];
+                        $nacStrEsExtranjera = $nacStr !== '' && !in_array(strtoupper($nacStr), $aliasEs, true);
+
+                        if ($nacStrEsExtranjera) {
+                            $updateData['nacionalidad'] = $nacStr;
+                        } elseif ($tipoDocCode === 'D') {
+                            $updateData['nacionalidad'] = 'ESP';
+                        } elseif ($nacStr !== '') {
+                            $updateData['nacionalidad'] = $nacStr;
+                        }
+                    }
+
                     // [2026-04-22] Numero de soporte del documento (obligatorio para
                     // MIR en DNI/NIE). Lo lee el OCR del anverso. Solo sobreescribimos
                     // si el OCR lo encontro y el cliente no lo tenia ya.
@@ -2138,6 +2245,25 @@ INSTRUCCIONES ESPECÍFICAS:
                         'tipo_documento_str' => $tipoDocStr
                     ];
 
+                    // [2026-04-26] Auto-rellenar `nacionalidad` (lo usa MIR
+                    // para saber si es extranjero). DNI -> ESP. Pasaporte/NIE
+                    // -> usar nacionalidadStr si la tenemos.
+                    if (empty($persona->nacionalidad)) {
+                        // [2026-04-26] Misma prioridad que en cliente:
+                        // nacionalidadStr no espanola GANA sobre tipo_documento DNI.
+                        $nacStr = trim((string) ($data['nacionalidad'] ?? $persona->nacionalidadStr ?? ''));
+                        $aliasEs = ['ES', 'ESP', 'SPAIN', 'ESPANA', 'ESPAÑA', 'ESPAÑOLA', 'ESPANOLA'];
+                        $nacStrEsExtranjera = $nacStr !== '' && !in_array(strtoupper($nacStr), $aliasEs, true);
+
+                        if ($nacStrEsExtranjera) {
+                            $updateData['nacionalidad'] = $nacStr;
+                        } elseif ($tipoDocCode === '1') {
+                            $updateData['nacionalidad'] = 'ESP';
+                        } elseif ($nacStr !== '') {
+                            $updateData['nacionalidad'] = $nacStr;
+                        }
+                    }
+
                     // [2026-04-22] Numero de soporte del documento (NUM SOPORTE / IDESP)
                     // obligatorio para MIR. Lo extrae el OCR del anverso del DNI/NIE.
                     if (!empty($data['numero_soporte_documento']) && empty($persona->numero_soporte_documento)) {
@@ -2176,34 +2302,124 @@ INSTRUCCIONES ESPECÍFICAS:
             // Procesar datos del reverso (donde aparece la dirección en el DNI)
             if ($side === 'rear' && !empty($data)) {
                 $updateData = [];
-                
-                // Extraer dirección del reverso del DNI
-                // La IA debería extraer: direccion, localidad, codigo_postal, provincia
-                if (isset($data['direccion']) && !empty($data['direccion'])) {
-                    $updateData['direccion'] = $data['direccion'];
+
+                // [2026-04-26] Parser de fallback: si la IA mete CP+ciudad
+                // dentro de la `direccion` (caso clasico DNI moderno donde el
+                // bloque DOMICILIO viene multilinea), separamos aqui.
+                $dirRaw = trim((string) ($data['direccion'] ?? ''));
+                $locRaw = trim((string) ($data['localidad'] ?? ''));
+                $cpRaw  = trim((string) ($data['codigo_postal'] ?? ''));
+
+                if ($dirRaw !== '' && ($locRaw === '' || $cpRaw === '')) {
+                    // Patron tipico: "C/ POLONIA 32 28012 MADRID" o
+                    // "C/ POLONIA 32, 28012 MADRID" — buscar 5 digitos seguidos
+                    // de palabras alfabeticas.
+                    if (preg_match('/^(.+?)[,\s]+(\d{5})\s+([A-ZÁÉÍÓÚÑa-záéíóúñ\s\-\.]{2,40?})$/u', $dirRaw, $m)) {
+                        $dirRaw = trim($m[1]);
+                        if ($cpRaw === '') $cpRaw = trim($m[2]);
+                        if ($locRaw === '') $locRaw = trim($m[3]);
+                    } elseif ($locRaw === '' && preg_match('/(\d{5})\s+([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ\s\-\.]{2,40})$/u', $dirRaw, $m)) {
+                        if ($cpRaw === '') $cpRaw = trim($m[1]);
+                        $locRaw = trim($m[2]);
+                        // Quitar la parte CP+ciudad de la direccion
+                        $dirRaw = trim(preg_replace('/\s*\d{5}\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ\s\-\.]{2,40}$/u', '', $dirRaw));
+                    }
+                    Log::info('[DNIScanner] parser fallback DOMICILIO', [
+                        'direccion' => $dirRaw, 'localidad' => $locRaw, 'cp' => $cpRaw,
+                    ]);
                 }
-                
-                if (isset($data['localidad']) && !empty($data['localidad'])) {
-                    $updateData['localidad'] = $data['localidad'];
-                }
-                
-                if (isset($data['codigo_postal']) && !empty($data['codigo_postal'])) {
-                    $updateData['codigo_postal'] = $data['codigo_postal'];
-                }
-                
+
+                if ($dirRaw !== '') $updateData['direccion'] = $dirRaw;
+                if ($locRaw !== '') $updateData['localidad'] = $locRaw;
+                if ($cpRaw !== '')  $updateData['codigo_postal'] = $cpRaw;
+
                 if (isset($data['provincia']) && !empty($data['provincia'])) {
                     $updateData['provincia'] = $data['provincia'];
+                }
+
+                // [2026-04-26] Lookup automatico del codigo postal via
+                // OpenStreetMap (Nominatim) cuando el OCR no lo extrae bien.
+                // El reverso del DNI a veces tiene el CP impreso en una zona
+                // muy comprimida y el modelo lee basura ("PO2 B", vacio, etc).
+                // Si tenemos direccion + localidad lo resolvemos al vuelo.
+                $cpExtraido = trim((string) ($updateData['codigo_postal']
+                    ?? $data['codigo_postal'] ?? $persona->codigo_postal ?? ''));
+                $cpValido = preg_match('/^\d{5}$/', $cpExtraido);
+
+                $direccionFinal = trim((string) ($updateData['direccion']
+                    ?? $persona->direccion ?? ''));
+                $localidadFinal = trim((string) ($updateData['localidad']
+                    ?? $persona->localidad ?? ''));
+
+                // [2026-04-26] Solo intentamos lookup de CP para personas con
+                // nacionalidad espanola o sin informar. RD 933/2021 no exige
+                // CP a viajeros extranjeros, asi que no tiene sentido inventar
+                // uno espanol para ellos.
+                $aliasEs = ['ES', 'ESP', 'SPAIN', 'ESPANA', 'ESPAÑA', 'ESPAÑOLA', 'ESPANOLA'];
+                $nac = strtoupper(trim((string) ($persona->nacionalidad ?? '')));
+                $esEspanolOSinPais = $nac === '' || in_array($nac, $aliasEs, true);
+
+                if (!$cpValido && $esEspanolOSinPais && ($direccionFinal !== '' || $localidadFinal !== '')) {
+                    try {
+                        $cpSvc = app(\App\Services\CodigoPostalLookupService::class);
+                        $resCp = $cpSvc->buscar(
+                            $direccionFinal,
+                            $localidadFinal,
+                            trim((string) ($updateData['provincia'] ?? $persona->provincia ?? ''))
+                        );
+                        if ($resCp && !empty($resCp['codigo_postal'])) {
+                            $updateData['codigo_postal'] = $resCp['codigo_postal'];
+                            // Si la provincia en BD no era una provincia espanola
+                            // valida (ej: "ALGECIRAS" en vez de "Cadiz"), la
+                            // sustituimos por la que devuelve Nominatim. No
+                            // tocamos provincias que ya parecen correctas.
+                            $provBD = trim((string) ($updateData['provincia']
+                                ?? $persona->provincia ?? ''));
+                            if (!empty($resCp['provincia']) && $provBD !== $resCp['provincia']) {
+                                // Heuristica: si la provincia BD coincide con la
+                                // localidad (sintoma claro de error), corregir.
+                                if (mb_strtolower($provBD) === mb_strtolower($localidadFinal)) {
+                                    $updateData['provincia'] = $resCp['provincia'];
+                                }
+                            }
+                            \Illuminate\Support\Facades\Log::info('[DNIScanner] CP rescatado por Nominatim', [
+                                'persona' => $persona->id ?? null,
+                                'cp_antes' => $cpExtraido ?: '(vacio)',
+                                'cp_despues' => $resCp['codigo_postal'],
+                                'direccion' => $direccionFinal,
+                                'localidad' => $localidadFinal,
+                            ]);
+                        }
+                    } catch (\Throwable $e) {
+                        \Illuminate\Support\Facades\Log::warning('[DNIScanner] Lookup CP fallido: ' . $e->getMessage());
+                    }
                 }
                 
                 // Lugar de nacimiento también puede venir del reverso del DNI
                 if (isset($data['lugar_nacimiento']) && !empty($data['lugar_nacimiento'])) {
                     $updateData['lugar_nacimiento'] = trim($data['lugar_nacimiento']);
                 }
-                
+
+                // [2026-04-26] Rescate desde el reverso: si el frontal no pudo
+                // extraer el numero de soporte y la IA lo encuentra en el
+                // reverso, lo guardamos. Solo si la persona aun no lo tiene.
+                if (
+                    isset($data['numero_soporte_documento']) &&
+                    !empty($data['numero_soporte_documento']) &&
+                    empty($persona->numero_soporte_documento ?? null)
+                ) {
+                    $sop = trim((string) $data['numero_soporte_documento']);
+                    // Validacion ligera: descartar valores absurdos antes de
+                    // persistir (evitar que la IA copie aqui el num del DNI).
+                    if (preg_match('/^[A-Z]{1,3}[0-9]{6,8}$/i', $sop)) {
+                        $updateData['numero_soporte_documento'] = strtoupper($sop);
+                    }
+                }
+
                 // Si hay datos de dirección o lugar de nacimiento, actualizar
                 if (!empty($updateData)) {
                     $persona->update($updateData);
-                    
+
                     Log::info('Datos de dirección del reverso guardados', [
                         'persona_tipo' => $tipo,
                         'persona_id' => $persona->id,

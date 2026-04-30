@@ -16,35 +16,72 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
  * [2026-04-20] Panel de reservas que requieren revision manual por fallo
  * del preflight de MIR.
  *
- * Una reserva llega aqui cuando:
+ * [2026-04-28] Ampliado para incluir TODAS las reservas con DNI subido
+ * que aun NO se han enviado a MIR — antes solo aparecian las que tenian
+ * mir_estado='error_validacion'. Las que estaban en estado inicial
+ * (mir_estado=NULL, todavia sin procesar por el cron) no aparecian en
+ * ningun listado, asi que el admin no podia ver la foto del DNI ni
+ * intervenir hasta que el cron las marcase como error_validacion (o
+ * peor, las enviase mal).
+ *
+ * Una reserva aparece aqui cuando:
  *  - El cliente ya subio el DNI (dni_entregado=1).
- *  - MIRService::enviarSiLista() intento enviar pero el preflight detecto
- *    errores bloqueantes (CP incorrecto, DNI sin letra, etc.).
- *  - mir_estado quedo en 'error_validacion' y mir_respuesta contiene el
- *    JSON de issues detectados.
+ *  - La reserva NO esta cancelada.
+ *  - NO ha sido enviada con exito a MIR (mir_codigo_referencia vacio).
+ *  - mir_estado es NULL (sin procesar), error_validacion (preflight
+ *    detecto issues), error/rechazado (MIR rechazo XML) o error_envio
+ *    (excepcion HTTP).
  *
  * Desde aqui el admin ve cada issue y puede:
+ *  - Mirar las fotos del DNI subidas (frontal, reverso, pasaporte).
  *  - Ir directamente a editar el cliente o el huesped afectado.
- *  - Re-validar la reserva una vez corregida (boton que llama a
- *    enviarSiLista de nuevo).
+ *  - Re-validar la reserva una vez corregida.
  */
 class ReservaRevisionManualController extends Controller
 {
     public function index(Request $request)
     {
         $reservas = Reserva::with(['cliente', 'apartamento.edificio'])
-            ->where('mir_estado', 'error_validacion')
             ->where('estado_id', '!=', 4) // no canceladas
+            ->where('estado_id', '!=', 9) // no canceladas en Channex
             ->where('dni_entregado', true)
+            ->whereNull('mir_codigo_referencia') // sin lote = no enviada con exito
+            ->where(function ($q) {
+                // Cualquier estado que NO sea "enviado" exitosamente.
+                $q->whereNull('mir_estado')
+                  ->orWhereIn('mir_estado', ['error_validacion', 'error', 'rechazado', 'error_envio']);
+            })
+            // [2026-04-28] Solo reservas activas (la salida no ha pasado aun).
+            // Las reservas de hace anios que nunca se enviaron a MIR son ruido
+            // historico y ya no van a enviarse retroactivamente. El admin solo
+            // necesita ver las que aun pueden hacerse.
+            ->whereDate('fecha_salida', '>=', now()->toDateString())
             ->orderBy('fecha_entrada')
             ->get()
             ->map(function ($r) {
                 $r->_issues_parsed = $this->parseIssues($r->mir_respuesta, $r);
                 $r->_fotos_dni = $this->getFotosDni($r->id);
+                // [2026-04-28] etiqueta humana del estado para la vista
+                $r->_estado_label = $this->etiquetaEstado($r->mir_estado);
                 return $r;
             });
 
         return view('admin.reservas-revision-manual.index', compact('reservas'));
+    }
+
+    /**
+     * Devuelve un texto humano para mostrar en la columna "Estado" del listado.
+     */
+    private function etiquetaEstado(?string $mirEstado): string
+    {
+        return match ((string) $mirEstado) {
+            ''                  => 'Sin procesar (DNI subido, esperando cron)',
+            'error_validacion'  => 'Validacion fallida',
+            'error'             => 'Rechazado por MIR (XML)',
+            'rechazado'         => 'Rechazado por MIR',
+            'error_envio'       => 'Error tecnico de envio',
+            default             => $mirEstado,
+        };
     }
 
     /**

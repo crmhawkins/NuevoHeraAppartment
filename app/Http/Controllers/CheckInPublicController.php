@@ -414,14 +414,28 @@ class CheckInPublicController extends Controller
             $this->setAppLocale($cliente);
         }
 
+        // [2026-04-26] Tras el refactor de AccessCodeService, los campos
+        // canonicos son `codigo_portal` (PIN del edificio) y `codigo_apartamento`
+        // (clave del piso). Caemos a los antiguos como fallback durante la
+        // transicion (reservas creadas antes de la migracion).
         $codigosAcceso = null;
-        if ($reserva->codigo_acceso) {
+        $apartamento = $reserva->apartamento;
+        $claveAptFija = $apartamento ? trim((string) $apartamento->claves) : '';
+        $claveEdifFija = ($apartamento && $apartamento->edificio) ? trim((string) $apartamento->edificio->clave) : '';
+
+        $codigoPortal = $reserva->codigo_portal
+            ?: ($reserva->codigo_acceso ?: ($claveEdifFija ?: null));
+        $codigoApto = $reserva->codigo_apartamento
+            ?: ($claveAptFija ?: null);
+
+        if ($codigoPortal || $codigoApto) {
             $codigosAcceso = [
-                'codigo_acceso' => $reserva->codigo_acceso,
-                'apartamento_titulo' => $reserva->apartamento ? $reserva->apartamento->titulo : null,
-                'clave_edificio' => $reserva->apartamento && $reserva->apartamento->edificio
-                    ? $reserva->apartamento->edificio->clave
-                    : null,
+                'codigo_portal' => $codigoPortal,
+                'codigo_apartamento' => $codigoApto,
+                'apartamento_titulo' => $apartamento ? $apartamento->titulo : null,
+                // Compat retro: vistas/integraciones antiguas
+                'codigo_acceso'  => $codigoApto ?: $codigoPortal,
+                'clave_edificio' => $codigoPortal,
             ];
         }
 

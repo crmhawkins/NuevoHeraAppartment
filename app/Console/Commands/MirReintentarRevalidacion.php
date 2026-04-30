@@ -36,11 +36,17 @@ class MirReintentarRevalidacion extends Command
         $limit = (int) $this->option('limit');
         $dryRun = (bool) $this->option('dry-run');
 
-        // Solo reservas activas con error_validacion, que no sean canceladas
-        // ni ignoradas manualmente, y cuya fecha de entrada no sea ya pasada.
-        // Priorizamos las de entrada mas cercana.
+        // [2026-04-26] Ampliado para cubrir 2 estados:
+        //  - error_validacion: la falla la deteccion el validador interno
+        //  - error: el MIR rechazo el XML (XSD/contenido) — antes se quedaba
+        //    fuera de este cron y solo el admin podia reintentar a mano. Ahora
+        //    el `mir:auto-rescate` (cada 30 min) corrige los datos y deja la
+        //    reserva en error_validacion o estado=null, asi que reintentar
+        //    aqui las recoge y las envia.
+        // Tambien permitimos rechazado (estado del SOAP cuando MIR rechaza
+        // contenido pero acepta el formato).
         $query = Reserva::query()
-            ->where('mir_estado', 'error_validacion')
+            ->whereIn('mir_estado', ['error_validacion', 'error', 'rechazado'])
             ->where('estado_id', '!=', 4)
             ->where('dni_entregado', true)
             ->whereDate('fecha_entrada', '>=', now()->subDays(7)->toDateString())
@@ -74,9 +80,9 @@ class MirReintentarRevalidacion extends Command
                 if ($resultado !== null && !empty($resultado['success'])) {
                     $enviadas++;
                     $this->info(" ✓ Reserva #{$r->id} enviada a MIR. Lote: " . ($resultado['codigo_referencia'] ?? '-'));
-                } elseif ($r->mir_estado === 'error_validacion') {
+                } elseif (in_array($r->mir_estado, ['error_validacion', 'error', 'rechazado'], true)) {
                     $sigueBloqueadas++;
-                    $this->line(" · Reserva #{$r->id} sigue bloqueada");
+                    $this->line(" · Reserva #{$r->id} sigue bloqueada (estado={$r->mir_estado})");
                 } elseif ($r->mir_estado === 'enviado') {
                     // Ya se envio aunque $resultado sea null (edge case)
                     $enviadas++;

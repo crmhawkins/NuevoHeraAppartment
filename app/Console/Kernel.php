@@ -48,6 +48,8 @@ class Kernel extends ConsoleKernel
         \App\Console\Commands\EnviarMIRPendientes::class,
         \App\Console\Commands\ProgramarCerradurasProximas::class,
         \App\Console\Commands\VerificarCheckinHoy::class,
+        \App\Console\Commands\WhatsappSyncTemplates::class,
+        \App\Console\Commands\AccesoReenviarCorreccion::class,
         \App\Console\Commands\ImportarMovimientosBanco::class,
         \App\Console\Commands\DetectOrphanedReservations::class,
     ];
@@ -97,6 +99,60 @@ class Kernel extends ConsoleKernel
         // desde el panel o el huesped re-subio el DNI con mejor informacion,
         // esto las envia solas sin que nadie tenga que pulsar Revalidar.
         $schedule->command('mir:reintentar-revalidacion')->everyTenMinutes()->withoutOverlapping();
+
+        // [2026-04-24] Sincroniza el estado de los templates WhatsApp desde
+        // Meta Business API. Cuando Meta aprueba un template nuevo (p.ej.
+        // dni_dia_entrada), este cron actualiza el status en BD y el codigo
+        // empieza a usarlo automaticamente en el siguiente envio.
+        $schedule->command('whatsapp:sync-templates')->everyFifteenMinutes()->withoutOverlapping();
+
+        // [2026-04-26] Resumen DIARIO unico de reservas bloqueadas para MIR.
+        // Sustituye al spam anterior (un mensaje WhatsApp por cada reserva
+        // que fallaba la validacion). Ahora se manda 1 mensaje a las 09:30
+        // con la lista de TODAS las reservas pendientes de corregir.
+        $schedule->command('mir:resumen-pendientes')
+            ->dailyAt('09:30')
+            ->timezone('Europe/Madrid')
+            ->withoutOverlapping();
+
+        // [2026-04-26] Auto-rescate de reservas bloqueadas para MIR. Aplica
+        // fallbacks (Ollama Cloud Vision para soporte/numero documento,
+        // Nominatim+LLM para codigo postal) sobre los issues registrados.
+        // Tras corregir resetea mir_estado para que el cron normal de MIR
+        // las envie en el siguiente ciclo. Cada 30 min.
+        $schedule->command('mir:auto-rescate')
+            ->everyThirtyMinutes()
+            ->withoutOverlapping();
+
+        // [2026-04-27] Auto-desactivacion segura del modo fallback de
+        // cerraduras. Cada hora prueba si Tuya/TTLock recupero. Tras 3
+        // exitos consecutivos auto-desactiva el fallback. Conservador:
+        // si la API responde mal aunque sea una vez, resetea contador.
+        $schedule->command('cerraduras:probar-recuperacion')
+            ->hourly()
+            ->withoutOverlapping();
+
+        // [2026-04-28] Healthcheck de PINs activos (cada 30 min).
+        // Si Tuyalaravel responde 404 o is_active=false dentro de la
+        // ventana effective->invalid de la reserva, reprograma el PIN.
+        // Si la reprogramacion falla, envia codigo de emergencia.
+        // Limit=20 por ejecucion (red de seguridad anti-spam).
+        // Solo verifica reservas con entrada en proximos 7 dias.
+        // withoutOverlapping(25) = max 25 min para no solapar con la
+        // siguiente ejecucion de 30 min.
+        $schedule->command('cerraduras:healthcheck-pins --apply --ventana-dias=7 --limit=20')
+            ->everyThirtyMinutes()
+            ->withoutOverlapping(25)
+            ->runInBackground();
+
+        // [2026-04-28] Red de seguridad: purga semanal de PINs zombie
+        // (huespedes que ya salieron pero el Job de borrado al vencer
+        // se perdio por queue caida o similar). Solo procesa reservas
+        // con fecha_salida + 1 dia < hoy. Aplicamos directo (no es
+        // peligroso porque solo borra PINs de huespedes ya idos).
+        $schedule->command('cerraduras:purgar-zombies --apply --limit=50')
+            ->weeklyOn(1, '03:00') // lunes 03:00
+            ->withoutOverlapping(120);
 
         // Tarea programada de Limpieza de numero de telefono del cliente.
         $schedule->command('clean:phonenumbers')->twiceDaily(1, 13);
@@ -153,12 +209,22 @@ class Kernel extends ConsoleKernel
                         $phoneCliente = !empty($telefono) ? $this->limpiarNumeroTelefono($telefono) : null;
 
                         // 1. Enviar recordatorio al HUÉSPED por WhatsApp (si tiene token para el enlace)
+                        //    [2026-04-24] En el dia de la entrada preferimos el template
+                        //    'dni_dia_entrada' (tono mas urgente: avisa que se incumple
+                        //    la legislacion espanola). Si no esta APPROVED todavia en
+                        //    el idioma del cliente, caemos al 'dni' original.
                         if (!empty($reserva->token)) {
                             if (!empty($phoneCliente)) {
-                                $this->mensajesAutomaticosBoton('dni', $reserva->token, $phoneCliente, $idiomaCliente);
+                                $tmplDia = \App\Models\WhatsappTemplate::where('name', 'dni_dia_entrada')
+                                    ->where('language', $idiomaCliente)
+                                    ->where('status', 'APPROVED')
+                                    ->exists();
+                                $templateNombre = $tmplDia ? 'dni_dia_entrada' : 'dni';
+                                $this->mensajesAutomaticosBoton($templateNombre, $reserva->token, $phoneCliente, $idiomaCliente);
                                 Log::info('Recordatorio DNI enviado al huésped', [
                                     'reserva_id' => $reserva->id,
                                     'telefono' => $phoneCliente,
+                                    'template' => $templateNombre,
                                 ]);
                             } else {
                                 Log::warning('Recordatorio DNI: Reserva sin teléfono de contacto, se omite WhatsApp al huésped', ['reserva_id' => $reserva->id]);
@@ -199,8 +265,25 @@ class Kernel extends ConsoleKernel
         // Limpiar notificaciones antiguas cada día a las 3:00 AM
         $schedule->command('notifications:clean --days=30')->dailyAt('03:00');
 
-        // Programar códigos de acceso en cerraduras TTLock para reservas que ya están dentro del rango de 150 días
-        $schedule->command('cerraduras:programar-proximas')->daily()->at('06:00')->withoutOverlapping();
+        // [2026-04-29] Rotacion diaria de PINs en cerraduras (regla 9 slots, CLAUDE.md seccion 0):
+        //  1) borra PINs de salientes (fecha_salida <= hoy)
+        //  2) programa PINs de entrantes (fecha_entrada = hoy)
+        //  3) verifica que cada lock tenga <= 9 PINs registrados
+        // Se ejecuta a las 11:05 (despues de la hora de checkout 11:00).
+        $schedule->command('cerraduras:rotacion-diaria')
+            ->dailyAt('11:05')
+            ->withoutOverlapping()
+            ->onFailure(function () {
+                Log::error('[scheduler] cerraduras:rotacion-diaria fallo');
+            });
+
+        // [2026-04-29] Red de seguridad: si la rotacion no programo alguna
+        // reserva que entra hoy/manana, la pillamos aqui (cada hora).
+        // Limite reducido a hoy+1 dia (antes era 7d/150d) para no preprogramar.
+        $schedule->command('cerraduras:programar-proximas')
+            ->hourly()
+            ->between('07:00', '20:00')
+            ->withoutOverlapping();
 
         // Enviar a MIR las reservas pendientes (red de seguridad)
         // Se ejecuta 2 veces al día: 10:00 y 22:00
@@ -400,8 +483,25 @@ class Kernel extends ConsoleKernel
                         $idiomaCliente = $clienteService->idiomaCodigo($reserva->cliente->nacionalidad);
 
                         if (!empty($phoneCliente)) {
-                            $enviarMensaje = $this->mensajesAutomaticosBoton('dni', $token , $phoneCliente, $idiomaCliente );
-                            Storage::disk('local')->put('enviaMensaje'.$reserva->cliente_id.'.txt', $enviarMensaje );
+                            // [2026-04-29] Evitar duplicado: si la reserva
+                            // viene de Channex (Booking/Airbnb/etc), el huesped
+                            // recibe el mensaje bueno por Channex chat (texto
+                            // custom con la legislacion bien redactada y enlace
+                            // del DNI). La plantilla WhatsApp Business 'dni'
+                            // solo se manda para reservas SIN canal Channex
+                            // (web/directas) porque alli es el unico medio.
+                            // Sin esta condicion, los huespedes Channex
+                            // recibian DOS mensajes con la misma info pero
+                            // distinta redaccion (incidente 29/04 Kaoutar).
+                            if (empty($reserva->id_channex)) {
+                                $enviarMensaje = $this->mensajesAutomaticosBoton('dni', $token , $phoneCliente, $idiomaCliente );
+                                Storage::disk('local')->put('enviaMensaje'.$reserva->cliente_id.'.txt', $enviarMensaje );
+                            } else {
+                                Log::info('Primer envío DNI: omitido WhatsApp template (se envia mensaje bueno via Channex)', [
+                                    'reserva_id' => $reserva->id,
+                                    'id_channex' => $reserva->id_channex,
+                                ]);
+                            }
                         } else {
                             Log::warning('Primer envío DNI: Reserva sin teléfono de contacto, se omite WhatsApp', ['reserva_id' => $reserva->id]);
                         }
@@ -766,11 +866,24 @@ class Kernel extends ConsoleKernel
                             'es_atico' => $reserva->apartamento_id === 1
                         ]);
 
+                        // [2026-04-26] Tras refactor codigo_acceso: priorizar
+                        // codigo_portal/codigo_apartamento (canonicos nuevos)
+                        // sobre las claves estaticas del edificio/apartamento.
+                        // Si el fallback esta activo, codigo_portal contiene
+                        // el PIN dinamico que SI corresponde con lo que se ha
+                        // programado en la cerradura. Las claves estaticas
+                        // quedan como fallback ultimo.
+                        $codPortalEnv = $reserva->codigo_portal
+                            ?: ($reserva->apartamento->edificioName->clave ?? null);
+                        $codAptoEnv = $reserva->codigo_apartamento
+                            ?: ($reserva->apartamento->claves ?? null);
+
                         if ($reserva->apartamento_id === 1) {
                             $data = $this->clavesMensajeAtico(
                                 $reserva->cliente->nombre,
-                                $reserva->apartamento->titulo, $reserva->apartamento->edificioName->clave,
-                                $reserva->apartamento->claves,
+                                $reserva->apartamento->titulo,
+                                $codPortalEnv,
+                                $codAptoEnv,
                                 $phoneCliente,
                                 $idiomaCliente,
                                 $idiomaCliente == 'pt_PT' ? 'codigo_atico_por' : 'codigos_atico',
@@ -779,9 +892,10 @@ class Kernel extends ConsoleKernel
                             );
                         } else {
                             $data = $this->clavesMensaje(
-                                $reserva->cliente->nombre == null ? $reserva->cliente->alias : $reserva->cliente->nombre, $reserva->apartamento->titulo,
-                                $reserva->apartamento->edificioName->clave,
-                                $reserva->apartamento->claves,
+                                $reserva->cliente->nombre == null ? $reserva->cliente->alias : $reserva->cliente->nombre,
+                                $reserva->apartamento->titulo,
+                                $codPortalEnv,
+                                $codAptoEnv,
                                 $phoneCliente,
                                 $idiomaCliente,
                                 $enlace
@@ -1646,6 +1760,83 @@ class Kernel extends ConsoleKernel
      * @param string|null $messageIdMeta ID del mensaje devuelto por WhatsApp Cloud API
      * @param array  $metadata      Payload original enviado a Meta (para auditoria)
      */
+    /**
+     * [2026-04-24] Renderiza un template de WhatsApp al texto real que recibe
+     * el cliente, sustituyendo los {{1}}, {{2}}... por las variables. Se usa
+     * para que el panel de conversaciones muestre el contenido real del
+     * mensaje en vez de un resumen opaco tipo "Despedida enviada a X".
+     *
+     * Lee la plantilla de whatsapp_templates (el mismo contenido que Meta
+     * tiene aprobado). Si no la encuentra, devuelve null y el caller
+     * muestra el texto de fallback.
+     */
+    private function renderizarTemplate(string $templateName, string $idioma, array $variables): ?string
+    {
+        try {
+            $tmpl = \App\Models\WhatsappTemplate::where('name', $templateName)
+                ->where('language', $idioma)
+                ->first();
+            if (!$tmpl) {
+                // Fallback a cualquier idioma si no hay match exacto (es_ES / es, etc.)
+                $tmpl = \App\Models\WhatsappTemplate::where('name', $templateName)
+                    ->orderByRaw("CASE language WHEN 'es' THEN 0 WHEN 'en' THEN 1 ELSE 2 END")
+                    ->first();
+            }
+            if (!$tmpl) return null;
+
+            $components = $tmpl->components;
+            if (is_string($components)) $components = json_decode($components, true);
+            if (!is_array($components)) return null;
+
+            $partes = [];
+            foreach ($components as $c) {
+                $tipo = strtoupper($c['type'] ?? '');
+                $texto = (string) ($c['text'] ?? '');
+                if ($texto === '') continue;
+                // Sustituir {{1}}, {{2}}, ...
+                foreach (array_values($variables) as $i => $val) {
+                    $texto = str_replace('{{' . ($i + 1) . '}}', (string) $val, $texto);
+                }
+                if ($tipo === 'HEADER')      $partes[] = "*{$texto}*";
+                elseif ($tipo === 'FOOTER')  $partes[] = "_{$texto}_";
+                else                         $partes[] = $texto;
+            }
+            return trim(implode("\n\n", $partes));
+        } catch (\Throwable $e) {
+            Log::warning('renderizarTemplate fallo', [
+                'template' => $templateName, 'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * [2026-04-24] Extrae del payload que mandamos a Meta el nombre del
+     * template, idioma y variables, y renderiza el texto final. Devuelve
+     * null si el payload no es un template o no se pudo renderizar — el
+     * caller usa entonces el texto de fallback.
+     */
+    private function renderizarDesdeMetadata(array $metadata): ?string
+    {
+        $tmpl = $metadata['template'] ?? null;
+        if (!is_array($tmpl)) return null;
+        $name = $tmpl['name'] ?? null;
+        $lang = $tmpl['language']['code'] ?? 'es';
+        if (!$name) return null;
+
+        // Extraer las variables del body (hay templates con header/buttons
+        // tambien pero para el texto visible nos basta con BODY)
+        $vars = [];
+        foreach ((array) ($tmpl['components'] ?? []) as $c) {
+            if (strtolower((string) ($c['type'] ?? '')) !== 'body') continue;
+            foreach ((array) ($c['parameters'] ?? []) as $p) {
+                $vars[] = (string) ($p['text'] ?? '');
+            }
+            break;
+        }
+        return $this->renderizarTemplate($name, $lang, $vars);
+    }
+
     private function registrarWhatsappAutomatico(
         string $telefono,
         string $textoLegible,
@@ -1653,6 +1844,14 @@ class Kernel extends ConsoleKernel
         ?string $messageIdMeta,
         array $metadata = []
     ): void {
+        // [2026-04-24] Si el metadata contiene un template, intentamos
+        // renderizar el texto REAL (con variables sustituidas) en vez del
+        // resumen opaco. Asi el panel de WhatsApp del admin muestra lo que
+        // el cliente ve, no un "Despedida enviada a X tras su estancia".
+        $textoReal = $this->renderizarDesdeMetadata($metadata);
+        if (is_string($textoReal) && $textoReal !== '') {
+            $textoLegible = $textoReal;
+        }
         try {
             // 1) Registro detallado del mensaje saliente (un registro por mensaje
             //    individual, con el id de Meta para tracking de estados/entregas)
@@ -2240,9 +2439,11 @@ class Kernel extends ConsoleKernel
         // Registrar en conversaciones del CRM si el envio fue OK
         $responseJson = json_decode($response, true);
         if (is_array($responseJson) && isset($responseJson['messages'][0]['id'])) {
+            $textoReal = $this->renderizarTemplate('despedida', $idioma, [$nombre])
+                ?? "👋 Despedida enviada a {$nombre} tras su estancia";
             $this->registrarWhatsappAutomatico(
                 $telefono,
-                "👋 Despedida enviada a {$nombre} tras su estancia",
+                $textoReal,
                 'despedida',
                 $responseJson['messages'][0]['id'],
                 $mensajePersonalizado

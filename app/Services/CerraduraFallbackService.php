@@ -195,6 +195,16 @@ class CerraduraFallbackService
     /**
      * Envia WhatsApp al cliente con el codigo de emergencia. Marca la
      * reserva con codigo_fallback_enviado=1 para no reenviar.
+     *
+     * [2026-04-27] Preferencia: template aprobado `cambio_clave_emergencia`
+     * (UTILITY, atraviesa la ventana 24h). Si todavia no esta aprobado en
+     * el idioma del huesped, cae a texto libre como compatibilidad —
+     * sabiendo que Meta puede bloquear por ventana 24h (error 131047).
+     *
+     * [2026-04-27 BUG-FIX A2] Tambien actualiza reservas.codigo_portal con
+     * el codigo de emergencia, para que la web de check-in muestre el
+     * codigo correcto (antes solo se enviaba por WhatsApp y la web
+     * seguia mostrando el PIN viejo).
      */
     public function enviarCodigoEmergenciaACliente(Reserva $reserva, ?Edificio $edificio = null): bool
     {
@@ -209,25 +219,136 @@ class CerraduraFallbackService
             return false;
         }
 
+        // Coherencia BD <-> WhatsApp: pasar a fallback significa que el
+        // codigo_portal de la reserva pasa a ser el de emergencia.
+        if ($reserva->codigo_portal !== $codigoEmerg) {
+            $reserva->codigo_portal = $codigoEmerg;
+            $reserva->save();
+        }
+
+        // Resolver idioma del huesped
+        $idioma = 'es';
+        try {
+            $clienteSvc = app(\App\Services\ClienteService::class);
+            $idioma = $clienteSvc->idiomaCodigo($reserva->cliente?->nacionalidad ?? null) ?: 'es';
+        } catch (\Throwable $e) { /* ignore */ }
+
+        $apartamentoTitulo = $reserva->apartamento?->titulo ?? 'su apartamento';
         $fechaEntradaFmt = Carbon::parse($reserva->fecha_entrada)->format('d/m/Y');
         $fechaSalidaFmt  = Carbon::parse($reserva->fecha_salida)->format('d/m/Y');
+        $nombre = $reserva->cliente?->nombre ?: 'huesped';
 
-        $msg  = "⚠️ Cambio en el código de acceso\n\n";
-        $msg .= "El código anterior que te enviamos para el portal YA NO FUNCIONA.\n\n";
-        $msg .= "Nuevo código de acceso: *{$codigoEmerg}* (pulsa # después)\n\n";
-        $msg .= "Valido del {$fechaEntradaFmt} al {$fechaSalidaFmt}.\n\n";
-        $msg .= "Perdona las molestias, estamos resolviendo una incidencia con la cerradura.";
+        $enviado = false;
 
-        try {
-            $this->enviarWhatsAppTexto($phone, $msg);
+        // 1. Preferencia: template aprobado en el idioma del cliente.
+        $tmpl = \App\Models\WhatsappTemplate::where('name', 'cambio_clave_emergencia')
+            ->where('language', $idioma)
+            ->where('status', 'APPROVED')
+            ->first();
+        if (!$tmpl) {
+            // Fallback al espanol/ingles si el del cliente no esta aprobado
+            $tmpl = \App\Models\WhatsappTemplate::where('name', 'cambio_clave_emergencia')
+                ->whereIn('language', ['es', 'en'])
+                ->where('status', 'APPROVED')
+                ->orderByRaw("CASE language WHEN 'es' THEN 0 ELSE 1 END")
+                ->first();
+        }
+
+        if ($tmpl) {
+            $enviado = $this->enviarTemplateCambioClave(
+                $phone, $tmpl->language,
+                $nombre, $apartamentoTitulo, $codigoEmerg, $fechaEntradaFmt, $fechaSalidaFmt
+            );
+        }
+
+        // 2. Fallback: texto libre. Solo entrega si el cliente escribio al
+        //    business en las ultimas 24h. Lo intentamos para no perder el
+        //    aviso si algun cliente esta activo conversando.
+        if (!$enviado) {
+            $msg  = "⚠️ Cambio en el código de acceso\n\n";
+            $msg .= "El código anterior que te enviamos para el portal YA NO FUNCIONA.\n\n";
+            $msg .= "Nuevo código de acceso: *{$codigoEmerg}* (pulsa # después)\n\n";
+            $msg .= "Valido del {$fechaEntradaFmt} al {$fechaSalidaFmt}.\n\n";
+            $msg .= "Perdona las molestias, estamos resolviendo una incidencia con la cerradura.";
+            try {
+                $this->enviarWhatsAppTexto($phone, $msg);
+                $enviado = true;
+                Log::info("[Fallback] Reserva {$reserva->id}: codigo emergencia enviado por TEXTO LIBRE (sin template aprobado o template fallo)");
+            } catch (\Throwable $e) {
+                Log::error("[Fallback] Error enviando codigo emergencia reserva {$reserva->id}: " . $e->getMessage());
+            }
+        }
+
+        if ($enviado) {
             $reserva->codigo_fallback_enviado = true;
             $reserva->save();
-            Log::info("[Fallback] Reserva {$reserva->id}: codigo emergencia enviado al cliente");
-            return true;
-        } catch (\Throwable $e) {
-            Log::error("[Fallback] Error enviando codigo emergencia reserva {$reserva->id}: " . $e->getMessage());
-            return false;
+            Log::info("[Fallback] Reserva {$reserva->id}: codigo emergencia notificado al cliente");
         }
+        return $enviado;
+    }
+
+    /**
+     * Envia el template `cambio_clave_emergencia` con sus 5 parametros.
+     * Devuelve true si Meta devolvio messages[0].id, false si falla.
+     */
+    private function enviarTemplateCambioClave(
+        string $phone, string $lang,
+        string $nombre, string $apartamento, string $codigo, string $fechaEntrada, string $fechaSalida
+    ): bool {
+        $token = \App\Models\Setting::whatsappToken();
+        $url = \App\Models\Setting::whatsappUrl();
+
+        $phone = preg_replace('/\D+/', '', $phone);
+        if ($phone !== '' && !str_starts_with($phone, '34') && strlen($phone) === 9) {
+            $phone = '34' . $phone;
+        }
+
+        $clean = function ($s) {
+            $s = (string) $s;
+            $s = preg_replace("/[\r\n\t]+/", ' ', $s);
+            $s = preg_replace('/ {2,}/', ' ', $s);
+            return trim($s) ?: '-';
+        };
+
+        $payload = [
+            'messaging_product' => 'whatsapp',
+            'recipient_type' => 'individual',
+            'to' => $phone,
+            'type' => 'template',
+            'template' => [
+                'name' => 'cambio_clave_emergencia',
+                'language' => ['code' => $lang],
+                'components' => [[
+                    'type' => 'body',
+                    'parameters' => [
+                        ['type' => 'text', 'text' => $clean($nombre)],
+                        ['type' => 'text', 'text' => $clean($apartamento)],
+                        ['type' => 'text', 'text' => $clean($codigo)],
+                        ['type' => 'text', 'text' => $clean($fechaEntrada)],
+                        ['type' => 'text', 'text' => $clean($fechaSalida)],
+                    ],
+                ]],
+            ],
+        ];
+
+        try {
+            $resp = \Illuminate\Support\Facades\Http::withToken($token)
+                ->timeout(15)->post($url, $payload);
+            if ($resp->successful() && $resp->json('messages.0.id')) {
+                Log::info("[Fallback] Template cambio_clave_emergencia enviado", [
+                    'wamid' => $resp->json('messages.0.id'),
+                    'lang' => $lang,
+                ]);
+                return true;
+            }
+            Log::warning('[Fallback] Template cambio_clave_emergencia rechazado', [
+                'status' => $resp->status(),
+                'body' => mb_substr((string) $resp->body(), 0, 300),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('[Fallback] Excepcion enviando template cambio_clave: ' . $e->getMessage());
+        }
+        return false;
     }
 
     /**

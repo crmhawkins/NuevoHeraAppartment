@@ -79,8 +79,16 @@ class WhatsappNotificationService
             ->where('status', 'APPROVED')
             ->first();
         if ($tmplUni) {
-            // Meta limita texto de variable a 1024 chars sin saltos dobles.
-            $texto = preg_replace("/\n{3,}/", "\n\n", $message);
+            // [FIX 2026-04-24] Meta rechaza parametros con new-line/tab o
+            // mas de 4 espacios consecutivos (error #100 "Invalid parameter").
+            // Normalizamos: saltos de linea -> " · ", tabs -> espacio,
+            // espacios consecutivos -> uno solo. Tambien truncamos a 1024
+            // chars (limite de template param).
+            $texto = str_replace(["\r\n", "\r"], "\n", (string) $message);
+            $texto = preg_replace('/[\t\v\f]+/', ' ', $texto);
+            $texto = preg_replace('/\n+/', ' · ', $texto);
+            $texto = preg_replace('/ {2,}/', ' ', $texto);
+            $texto = trim($texto);
             if (mb_strlen($texto) > 1024) $texto = mb_substr($texto, 0, 1000) . '…';
             return ['alerta_sistema_hawkins', [$texto]];
         }
