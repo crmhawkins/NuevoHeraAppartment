@@ -174,8 +174,9 @@ class Kernel extends ConsoleKernel
             ->name('revenue:scrape-nocturno')
             ->dailyAt('06:30')
             ->timezone('Europe/Madrid')
-            ->withoutOverlapping()
-            ->runInBackground();
+            ->withoutOverlapping();
+        // Nota: no runInBackground() porque Laravel no lo soporta en closures.
+        // El comando tarda 2-5 min pero withoutOverlapping evita acumulacion.
 
         // Tarea programada de Nacionalidad del cliente ejecutada con éxito.
         $schedule->call(function (ClienteService $clienteService) {
