@@ -30,7 +30,14 @@ class EnviarClavesChannexCommand extends Command
         // 3. NO sean de la web (origen != 'web')
         // 4. Tengan id_channex (booking ID de Channex)
         // 5. Tengan mensaje de bienvenida enviado (categoria_id = 4)
-        // 6. Tengan DNI subido (dni_entregado = true)
+        //
+        // [2026-04-30] CAMBIO IMPORTANTE: ya NO se filtra por dni_entregado.
+        // Antes: si la reserva no tenia DNI subido se SALTABA y el huesped no
+        // recibia nada el dia de entrada (se quedaba en el limbo). Eso paso
+        // con la reserva 5525 (Gloria) hoy.
+        // Ahora: SIEMPRE se envian las claves. Si ademas el DNI no esta
+        // subido se envia un AVISO ADICIONAL con la URL para subirlo,
+        // recordando que sin DNI esta prohibido el acceso por ley.
         // NOTA: No verificamos si ya se enviaron las claves - esto es para reenvío manual si falla algo
         $reservas = Reserva::whereDate('fecha_entrada', '=', $fechaHoyStr)
             ->where(function($query) {
@@ -39,7 +46,6 @@ class EnviarClavesChannexCommand extends Command
             })
             ->where('origen', '!=', 'web')
             ->whereNotNull('id_channex') // Booking ID de Channex
-            ->where('dni_entregado', true) // DNI debe estar subido
             ->whereIn('id', function ($query) {
                 $query->select('reserva_id')
                     ->from('mensajes_auto')
@@ -112,12 +118,10 @@ class EnviarClavesChannexCommand extends Command
                     continue;
                 }
 
-                // Verificar que el DNI esté subido
-                if (empty($reserva->dni_entregado) || $reserva->dni_entregado != true) {
-                    $this->warn("⚠️  Reserva #{$reserva->id}: DNI no subido. Saltando...");
-                    $omitidas++;
-                    continue;
-                }
+                // [2026-04-30] Ya NO bloqueamos el envio de claves por falta de DNI.
+                // Las claves se envian SIEMPRE. Si no hay DNI se envia ademas
+                // un aviso (ver bloque al final del envio exitoso).
+                $sinDni = empty($reserva->dni_entregado) || $reserva->dni_entregado != true;
 
                 $apartamentoReservado = $reserva->apartamento;
                 if (!$apartamentoReservado) {
@@ -239,6 +243,45 @@ class EnviarClavesChannexCommand extends Command
                         'id_channex' => $reserva->id_channex,
                         'codigo_reserva' => $reserva->codigo_reserva
                     ]);
+
+                    // [2026-04-30] Si la reserva NO tiene el DNI subido, ademas
+                    // de las claves enviamos el aviso "Sube el DNI o acceso
+                    // prohibido" en el idioma del cliente. Texto extraido del
+                    // template Meta `dni_dia_entrada` (ya aprobado, ids 74-80).
+                    // No bloqueamos las claves pero el huesped recibe la senal
+                    // clara de que sin DNI no entra.
+                    if ($sinDni) {
+                        try {
+                            $avisoDni = $this->construirAvisoDniDiaEntrada($idiomaCliente, $reserva->token);
+                            $rAviso = \App\Http\Controllers\WebhookController::enviarMensajeAutomaticoAChannex(
+                                $avisoDni,
+                                $reserva->id_channex
+                            );
+                            if ($rAviso) {
+                                MensajeAuto::updateOrCreate(
+                                    ['reserva_id' => $reserva->id, 'categoria_id' => 5], // 5 = aviso DNI dia entrada
+                                    ['cliente_id' => $reserva->cliente_id, 'fecha_envio' => Carbon::now()]
+                                );
+                                $this->warn("   ⚠️  Aviso DNI enviado (reserva sin DNI)");
+                                Log::info('[EnviarClavesChannex] Aviso dni_dia_entrada enviado tras claves', [
+                                    'reserva_id' => $reserva->id,
+                                    'id_channex' => $reserva->id_channex,
+                                    'idioma' => $idiomaCliente,
+                                ]);
+                            } else {
+                                $this->error("   ❌ Aviso DNI fallo al enviar a Channex");
+                                Log::error('[EnviarClavesChannex] Aviso dni_dia_entrada fallo', [
+                                    'reserva_id' => $reserva->id,
+                                    'id_channex' => $reserva->id_channex,
+                                ]);
+                            }
+                        } catch (\Throwable $e) {
+                            Log::error('[EnviarClavesChannex] Excepcion enviando aviso dni_dia_entrada', [
+                                'reserva_id' => $reserva->id,
+                                'error' => $e->getMessage(),
+                            ]);
+                        }
+                    }
                 } else {
                     $this->error("   ❌ Error al enviar mensaje a Channex");
                     $errores++;
@@ -283,5 +326,35 @@ class EnviarClavesChannexCommand extends Command
         $this->info("✅ Proceso de envío de claves por Channex finalizado.");
 
         return 0;
+    }
+
+    /**
+     * [2026-04-30] Construye el texto del aviso "Sube el DNI o acceso prohibido"
+     * en el idioma del cliente. Texto base extraido del template WhatsApp Meta
+     * 'dni_dia_entrada' (ids 74-80) ya aprobado por Meta.
+     *
+     * Como el envio es por inbox de Channex (texto libre, no plantilla Meta),
+     * adaptamos el body con el enlace ya construido al token de la reserva.
+     *
+     * @param string $idioma  codigo de idioma del cliente (es, en, fr, de, it, pt_PT, ar)
+     * @param string $token   token unico de la reserva (para construir el enlace)
+     */
+    private function construirAvisoDniDiaEntrada(string $idioma, string $token): string
+    {
+        $url = "https://crm.apartamentosalgeciras.com/dni-user/{$token}";
+        // Normalizar idioma a codigo de 2 letras
+        $key = strtolower(substr($idioma, 0, 2));
+
+        $textos = [
+            'es' => "⚠️ Información importante sobre su reserva\n\nEstimado cliente, si no sube su documento de identidad DNI o PASAPORTE a nuestra plataforma está incumpliendo la legislación española y está prohibido el acceso a nuestro alojamiento.\n\nPor favor, acceda al siguiente enlace y envíenos su documentación:\n{$url}",
+            'en' => "⚠️ Important information about your reservation\n\nDear guest, if you do not upload your ID document (DNI or passport) to our platform you are not complying with Spanish legislation and access to our accommodation is forbidden.\n\nPlease use the link below to send us your documentation:\n{$url}",
+            'fr' => "⚠️ Information importante concernant votre réservation\n\nCher client, si vous ne téléchargez pas votre pièce d'identité (DNI ou passeport) sur notre plateforme, vous ne respectez pas la législation espagnole et l'accès à notre hébergement est interdit.\n\nVeuillez accéder au lien suivant et nous envoyer vos documents :\n{$url}",
+            'de' => "⚠️ Wichtige Informationen zu Ihrer Reservierung\n\nSehr geehrter Gast, wenn Sie Ihren Ausweis (DNI oder Reisepass) nicht auf unserer Plattform hochladen, verstoßen Sie gegen die spanische Gesetzgebung und der Zugang zu unserer Unterkunft ist untersagt.\n\nBitte nutzen Sie den folgenden Link, um uns Ihre Dokumente zu schicken:\n{$url}",
+            'it' => "⚠️ Informazione importante sulla sua prenotazione\n\nGentile ospite, se non carica il suo documento d'identità (DNI o passaporto) sulla nostra piattaforma sta violando la legislazione spagnola e l'accesso al nostro alloggio è vietato.\n\nLa preghiamo di accedere al seguente link e inviarci la sua documentazione:\n{$url}",
+            'pt' => "⚠️ Informação importante sobre a sua reserva\n\nPrezado cliente, se não enviar o seu documento de identidade (DNI ou passaporte) para a nossa plataforma, está a incumprir a legislação espanhola e o acesso ao nosso alojamento está proibido.\n\nPor favor, aceda ao seguinte link e envie-nos a sua documentação:\n{$url}",
+            'ar' => "⚠️ معلومات مهمة بشأن حجزك\n\nعزيزي الضيف، إذا لم تقم بتحميل وثيقة هويتك (DNI أو جواز السفر) على منصتنا، فأنت تخالف القانون الإسباني ويُمنع الوصول إلى مكان إقامتنا.\n\nيرجى الدخول إلى الرابط التالي وإرسال وثائقك إلينا:\n{$url}",
+        ];
+
+        return $textos[$key] ?? $textos['en'];
     }
 }
