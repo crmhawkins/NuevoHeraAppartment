@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('users')) return; // [2026-04-30] idempotente
         Schema::table('users', function (Blueprint $table) {
             $table->string('avatar')->nullable()->after('role');
             $table->string('phone')->nullable()->after('avatar');

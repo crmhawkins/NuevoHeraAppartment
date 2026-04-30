@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('edificios')) return; // [2026-04-30] idempotente
         Schema::table('edificios', function (Blueprint $table) {
             $table->boolean('mir_activo')->default(true)->after('metodo_entrada');
         });

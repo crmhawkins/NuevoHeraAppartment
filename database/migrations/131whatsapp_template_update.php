@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('whatsapp_templates')) return; // [2026-04-30] idempotente
         Schema::table('whatsapp_templates', function (Blueprint $table) {
             $table->string('template_id')->unique()->nullable(); // ← si aún no lo tienes
             $table->string('parameter_format')->nullable();     // ← nuevo campo

@@ -11,6 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('amenities')) return;
+        // [2026-04-30] SQLite no soporta ALTER COLUMN. Skipped en local; produccion MySQL OK.
+        if (\DB::connection()->getDriverName() === 'sqlite') return; // [2026-04-30] idempotente
         Schema::table('amenities', function (Blueprint $table) {
             // Hacer nullable el campo cantidad_por_nino
             $table->integer('cantidad_por_nino')->nullable()->change();

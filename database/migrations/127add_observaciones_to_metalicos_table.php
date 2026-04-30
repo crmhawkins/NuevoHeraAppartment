@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up()
     {
+        if (!Schema::hasTable('metalicos')) return; // [2026-04-30] idempotente
         Schema::table('metalicos', function (Blueprint $table) {
             $table->text('observaciones')->nullable();
         });

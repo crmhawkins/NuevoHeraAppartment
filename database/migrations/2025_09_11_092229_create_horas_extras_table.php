@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('horas_extras')) return; // [2026-04-30] idempotente
         Schema::create('horas_extras', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('user_id');

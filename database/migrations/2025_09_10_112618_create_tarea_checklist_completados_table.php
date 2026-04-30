@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (Schema::hasTable('tarea_checklist_completados')) return; // [2026-04-30] idempotente
         Schema::create('tarea_checklist_completados', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('tarea_asignada_id');

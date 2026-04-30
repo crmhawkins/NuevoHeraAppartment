@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
+        if (!Schema::hasTable('presupuesto_conceptos')) return; // [2026-04-30] idempotente
         Schema::table('presupuesto_conceptos', function (Blueprint $t) {
             $t->string('tipo', 20)->default('alojamiento')->after('concepto');
             $t->unsignedInteger('unidades')->nullable()->after('tipo');

@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('huespedes')) return; // [2026-04-30] idempotente
         Schema::table('huespedes', function (Blueprint $table) {
             $table->string('nacionalidadStr')->nullable();
             $table->string('nacionalidadCode')->nullable();

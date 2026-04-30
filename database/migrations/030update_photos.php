@@ -8,6 +8,7 @@ return new class extends Migration
 {
     public function up()
     {
+        if (!Schema::hasTable('photos')) return; // [2026-04-30] idempotente
         Schema::table('photos', function (Blueprint $table) {
             $table->unsignedBigInteger('huespedes_id')->nullable();
 

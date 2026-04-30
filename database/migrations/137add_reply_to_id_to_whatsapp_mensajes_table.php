@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up()
     {
+        if (!Schema::hasTable('whatsapp_mensajes')) return; // [2026-04-30] idempotente
         Schema::table('whatsapp_mensajes', function (Blueprint $table) {
             $table->unsignedBigInteger('reply_to_id')->nullable()->after('id');
             $table->foreign('reply_to_id')->references('id')->on('whatsapp_mensajes')->onDelete('set null');

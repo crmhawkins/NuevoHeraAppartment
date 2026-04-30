@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('reservas')) return; // [2026-04-30] idempotente
         Schema::table('reservas', function (Blueprint $table) {
             $table->boolean('mir_enviado')->default(false)->after('enviado_webpol')->comment('Indica si la reserva ha sido enviada a MIR');
             $table->string('mir_estado', 50)->nullable()->after('mir_enviado')->comment('Estado del envío a MIR (enviado, error, pendiente)');

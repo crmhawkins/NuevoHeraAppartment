@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('amenities')) return; // [2026-04-30] idempotente
         Schema::table('amenities', function (Blueprint $table) {
             // Campos para amenities de niños
             $table->boolean('es_para_ninos')->default(false)->after('categoria');

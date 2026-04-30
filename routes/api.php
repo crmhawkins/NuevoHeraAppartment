@@ -157,3 +157,11 @@ Route::post('/bankinter/scraper/import', [App\Http\Controllers\Api\BankinterScra
 Route::get('/bankinter/scraper/credentials', [App\Http\Controllers\Api\BankinterCredentialsApiController::class, 'index'])
     ->middleware('throttle:30,1')
     ->name('api.bankinter.scraper.credentials');
+
+// [2026-04-29] Revenue Management — endpoint para que el scraper Python
+// envie los resultados (precios competencia). Auth via X-Scraper-Token
+// (env REVENUE_SCRAPER_TOKEN, distinto del de Bankinter).
+Route::post('/revenue/scraper-callback', [
+    App\Http\Controllers\RevenueManagementController::class,
+    'scraperCallback'
+])->middleware('throttle:60,1')->name('api.revenue.scraper.callback');

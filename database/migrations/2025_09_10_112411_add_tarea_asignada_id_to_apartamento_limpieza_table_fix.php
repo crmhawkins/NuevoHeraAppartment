@@ -11,10 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('apartamento_limpieza')) return; // [2026-04-30] idempotente
         Schema::table('apartamento_limpieza', function (Blueprint $table) {
-            $table->unsignedBigInteger('tarea_asignada_id')->nullable()->after('empleada_id');
-            $table->string('origen')->nullable()->after('tarea_asignada_id');
-            $table->index('tarea_asignada_id');
+            // [2026-04-30] hasColumn check para evitar duplicate al re-ejecutar
+            if (!Schema::hasColumn('apartamento_limpieza', 'tarea_asignada_id')) {
+                $table->unsignedBigInteger('tarea_asignada_id')->nullable()->after('empleada_id');
+                $table->index('tarea_asignada_id');
+            }
+            if (!Schema::hasColumn('apartamento_limpieza', 'origen')) {
+                $table->string('origen')->nullable();
+            }
         });
     }
 

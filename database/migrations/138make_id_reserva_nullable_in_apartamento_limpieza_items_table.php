@@ -12,7 +12,9 @@ return new class extends Migration
     public function up(): void
     {
         // Verificar si la tabla existe antes de modificarla
-        if (Schema::hasTable('apartamento_limpieza_items')) {
+
+        // [2026-04-30] SQLite no soporta ALTER COLUMN. Skipped en local; produccion MySQL OK.
+        if (\DB::connection()->getDriverName() === 'sqlite') return;        if (Schema::hasTable('apartamento_limpieza_items')) {
             Schema::table('apartamento_limpieza_items', function (Blueprint $table) {
                 $table->unsignedBigInteger('id_reserva')->nullable()->change();
             });

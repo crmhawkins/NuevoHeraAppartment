@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('invoices')) return; // [2026-04-30] idempotente
         Schema::table('invoices', function (Blueprint $table) {
             // Campos para facturas rectificativas
             $table->boolean('es_rectificativa')->default(false)->comment('Indica si es una factura rectificativa');

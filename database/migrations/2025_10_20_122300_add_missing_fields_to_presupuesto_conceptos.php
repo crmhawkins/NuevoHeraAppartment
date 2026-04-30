@@ -8,6 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (!Schema::hasTable('presupuesto_conceptos')) return; // [2026-04-30] idempotente
         Schema::table('presupuesto_conceptos', function (Blueprint $table) {
             if (!Schema::hasColumn('presupuesto_conceptos', 'fecha_entrada')) {
                 $table->date('fecha_entrada')->nullable()->after('subtotal');

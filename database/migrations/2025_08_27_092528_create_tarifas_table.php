@@ -11,6 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // [2026-04-30] Idempotente: tabla creada por 091create_tarifas
+        if (Schema::hasTable('tarifas')) return;
         Schema::create('tarifas', function (Blueprint $table) {
             $table->id();
             $table->string('nombre');

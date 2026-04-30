@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('clientes')) return; // [2026-04-30] idempotente
         Schema::table('clientes', function (Blueprint $table) {
             // Campos para plataforma del estado (solo si RH con cliente como contacto)
             $table->string('pais_iso3', 3)->nullable()->comment('Código ISO3 del país de residencia');

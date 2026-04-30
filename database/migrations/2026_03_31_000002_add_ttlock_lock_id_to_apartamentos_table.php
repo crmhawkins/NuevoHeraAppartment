@@ -8,6 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (!Schema::hasTable('apartamentos')) return; // [2026-04-30] idempotente
         Schema::table('apartamentos', function (Blueprint $table) {
             $table->unsignedBigInteger('ttlock_lock_id')->nullable()->after('id');
         });

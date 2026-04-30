@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('clientes')) return; // [2026-04-30] idempotente
         Schema::table('clientes', function (Blueprint $table) {
             $table->string('lugar_nacimiento')->nullable()->after('fecha_nacimiento')->comment('Lugar de nacimiento (ciudad, provincia)');
         });

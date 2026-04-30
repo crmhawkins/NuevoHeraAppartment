@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('incidencias')) return; // [2026-04-30] idempotente
         Schema::table('incidencias', function (Blueprint $table) {
             // Campos para identificar incidencias desde WhatsApp
             $table->string('telefono_cliente', 20)->nullable()->after('empleada_id');

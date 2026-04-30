@@ -8,6 +8,9 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (!Schema::hasTable('edificios')) return;
+        // [2026-04-30] SQLite no soporta ALTER COLUMN. Skipped en local; produccion MySQL OK.
+        if (\DB::connection()->getDriverName() === 'sqlite') return; // [2026-04-30] idempotente
         // Edificios: tipo cerradura principal + ID en Tuyalaravel
         Schema::table('edificios', function (Blueprint $table) {
             $table->string('tipo_cerradura_principal', 20)->default('manual')->after('metodo_entrada');

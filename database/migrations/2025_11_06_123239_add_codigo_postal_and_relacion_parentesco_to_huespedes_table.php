@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('huespedes')) return; // [2026-04-30] idempotente
         Schema::table('huespedes', function (Blueprint $table) {
             $table->string('codigo_postal', 10)->nullable()->after('localidad')->comment('Código postal del huésped');
             $table->string('relacion_parentesco')->nullable()->after('telefono_movil')->comment('Relación de parentesco con el cliente principal');

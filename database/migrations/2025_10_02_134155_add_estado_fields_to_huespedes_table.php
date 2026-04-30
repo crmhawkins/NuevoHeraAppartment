@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('huespedes')) return; // [2026-04-30] idempotente
         Schema::table('huespedes', function (Blueprint $table) {
             // Campos para plataforma del estado
             $table->string('pais_iso3', 3)->nullable()->comment('Código ISO3 del país de origen');

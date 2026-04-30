@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('whatsapp_mensaje_chatgpt')) return; // [2026-04-30] idempotente
         Schema::table('whatsapp_mensaje_chatgpt', function (Blueprint $table) {
             $table->string('respuesta_id')->nullable()->after('respuesta');
         });

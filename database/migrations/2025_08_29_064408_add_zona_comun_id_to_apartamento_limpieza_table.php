@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('apartamento_limpieza')) return; // [2026-04-30] idempotente
         Schema::table('apartamento_limpieza', function (Blueprint $table) {
             $table->unsignedBigInteger('zona_comun_id')->nullable()->after('apartamento_id');
             $table->string('tipo_limpieza')->default('apartamento')->after('zona_comun_id'); // apartamento, zona_comun

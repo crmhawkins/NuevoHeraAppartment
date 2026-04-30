@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('huespedes')) return; // [2026-04-30] idempotente
         Schema::table('huespedes', function (Blueprint $table) {
             $table->unsignedBigInteger('cliente_comprador_id')->nullable()->after('reserva_id')->comment('ID del cliente que realizó la compra cuando la reserva no es para él');
             $table->foreign('cliente_comprador_id')->references('id')->on('clientes')->onDelete('set null');

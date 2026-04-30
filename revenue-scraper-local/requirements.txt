@@ -1,0 +1,18 @@
+# Revenue Management - Scrapers self-hosted (local test)
+# Probado con Python 3.11+
+
+# Airbnb scraping via GraphQL interno (sin browser, sin proxies necesarios)
+pyairbnb==0.0.13
+
+# Browser stealth para Booking.com (Firefox patched)
+camoufox[geoip]==0.4.11
+
+# HTTP cliente moderno (HTTP/2, robusto)
+httpx[http2]==0.27.2
+
+# Parser HTML rapido
+parsel==1.9.1
+
+# Utilidades
+python-dotenv==1.0.1
+rich==13.9.4   # output bonito en consola

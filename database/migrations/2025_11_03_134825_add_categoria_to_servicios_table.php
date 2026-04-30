@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('servicios')) return; // [2026-04-30] idempotente
         Schema::table('servicios', function (Blueprint $table) {
             $table->string('categoria')->nullable()->after('orden')->comment('Categoría del servicio (ej: Aparcamiento, Internet, Cocina, Baño, etc.)');
         });

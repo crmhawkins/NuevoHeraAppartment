@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up()
     {
+        if (!Schema::hasTable('whatsapp_mensaje_chatgpt')) return; // [2026-04-30] idempotente
         Schema::table('whatsapp_mensaje_chatgpt', function (Blueprint $table) {
             $table->foreignId('whatsapp_mensaje_id')->nullable()->constrained('whatsapp_mensajes')->onDelete('set null');
         });

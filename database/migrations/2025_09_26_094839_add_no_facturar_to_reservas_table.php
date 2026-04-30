@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('reservas')) return; // [2026-04-30] idempotente
         Schema::table('reservas', function (Blueprint $table) {
             $table->boolean('no_facturar')->default(false)->comment('Indica si la reserva no debe facturarse automáticamente');
         });

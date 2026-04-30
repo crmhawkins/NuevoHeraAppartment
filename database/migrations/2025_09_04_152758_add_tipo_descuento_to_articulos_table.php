@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('articulos')) return; // [2026-04-30] idempotente
         Schema::table('articulos', function (Blueprint $table) {
             $table->enum('tipo_descuento', ['reposicion', 'consumo'])
                   ->default('reposicion')

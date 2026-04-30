@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('apartamentos')) return; // [2026-04-30] idempotente
         Schema::table('apartamentos', function (Blueprint $table) {
             // Campos para plataforma del estado
             $table->string('codigo_establecimiento')->nullable()->comment('Código del establecimiento para plataforma del estado');

@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('cupones')) return; // [2026-04-30] idempotente
         Schema::table('cupones', function (Blueprint $table) {
             // Añadir columna tipo_descuento si no existe
             if (!Schema::hasColumn('cupones', 'tipo_descuento')) {

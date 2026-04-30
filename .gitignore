@@ -57,3 +57,44 @@ main.py
 *.log
 !storage/logs/.gitignore
 .claude/worktrees/
+
+# [2026-04-30] Artefactos de pruebas locales Revenue Management — NUNCA en git.
+# Volcados HTML del navegador, respuestas JSON de prueba, logs de comandos
+# locales, scripts one-off y backups de produccion. No deben subirse.
+.env.production-backup
+.env.production*
+artisan_out.txt
+artisan_serve_out.txt
+migrate_out.txt
+patch_out.txt
+patch_change_out.txt
+service_out.txt
+setup_out.txt
+setup_local_revenue_output.txt
+*_page.html
+scrape_resp.html
+scrape_response.json
+estrategias.json
+composer.phar
+check_db.php
+setup_local_revenue.php
+patch_idempotent_migrations.php
+patch_change_migrations.php
+revenue-scraper-local/cache/
+revenue-scraper-local/capturas/
+revenue-scraper-local/capturas_test/
+revenue-scraper-local/output/
+revenue-scraper-local/service_out.txt
+revenue-scraper-local/venv/
+revenue-scraper-local/__pycache__/
+database/hawkins_local.sqlite
+database/*.sqlite
+database/*.sqlite-journal
+
+# [2026-04-30] Watchdogs y utilidades locales Windows (no van al servidor)
+install_watchdog.py
+install_watchdog2.py
+install_watchdog_task.ps1
+services-watchdog.ps1
+tmp_5090_inspect.py
+tuya_pinctl_v2.php

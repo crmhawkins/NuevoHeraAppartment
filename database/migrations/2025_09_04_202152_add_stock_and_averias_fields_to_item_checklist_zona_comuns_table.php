@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('item_checklist_zona_comuns')) return; // [2026-04-30] idempotente
         Schema::table('item_checklist_zona_comuns', function (Blueprint $table) {
             $table->boolean('tiene_stock')->default(false)->after('orden');
             $table->foreignId('articulo_id')->nullable()->constrained('articulos')->onDelete('set null')->after('tiene_stock');
