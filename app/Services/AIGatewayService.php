@@ -107,13 +107,15 @@ class AIGatewayService
         $baseUrl = config('services.hawkins_ai.url', env('HAWKINS_AI_URL', ''));
         $apiKey  = config('services.hawkins_ai.api_key', env('HAWKINS_AI_API_KEY'));
 
-        // Modelo de fallback para TEXTO (distinto del de vision que usa el
-        // resto del CRM para DNI/facturas). Por defecto gpt-oss:120b-cloud,
-        // que es el modelo de chat disponible en el servidor 5090. Se puede
-        // sobrescribir via env HAWKINS_AI_CHAT_MODEL o pasando 'hawkins_model'
-        // en los parametros de la llamada.
-        $modelo = $params['hawkins_model']
+        // [2026-04-30] Esquema 2-niveles automatico para chat:
+        //   primario:   gpt-oss:120b-cloud  (calidad maxima, rate limit semanal Ollama Cloud)
+        //   secundario: gpt-oss:20b         (local en GPU 5090, sin rate limit)
+        // Si el primario devuelve weekly_limit/429, el wrapper IA devuelve
+        // un body con "ollama_http"/"weekly usage limit"; lo detectamos y
+        // reintentamos contra el secundario antes de lanzar excepcion.
+        $modeloPrimario = $params['hawkins_model']
             ?? env('HAWKINS_AI_CHAT_MODEL', 'gpt-oss:120b-cloud');
+        $modeloLocal = env('HAWKINS_AI_CHAT_FALLBACK_MODEL', 'gpt-oss:20b');
 
         if (empty($baseUrl) || empty($apiKey)) {
             throw new \RuntimeException('Hawkins AI no configurada (faltan HAWKINS_AI_URL o HAWKINS_AI_API_KEY)');
@@ -141,16 +143,60 @@ class AIGatewayService
         ->timeout(60)
         ->withoutVerifying();
 
-        $response = $httpClient->post($url, [
-            'prompt' => $prompt,
-            'modelo' => $modelo,
-        ]);
+        // [2026-04-30] Bucle 2 intentos: primero primario (cloud), si rate
+        // limit detectado conmutamos a local. El wrapper devuelve HTTP 200
+        // con body {error: ollama_http, status: 429, ...} cuando upstream
+        // (Ollama Cloud) ha agotado cuota; tambien gestionamos 429 directo.
+        $modelo = $modeloPrimario;
+        $response = null;
+        $body = null;
+        $usadoFallback = false;
+        for ($attempt = 1; $attempt <= 2; $attempt++) {
+            $response = $httpClient->post($url, [
+                'prompt' => $prompt,
+                'modelo' => $modelo,
+            ]);
 
-        if ($response->failed()) {
-            throw new \RuntimeException("Hawkins AI HTTP {$response->status()}: " . mb_substr($response->body(), 0, 250));
+            $rawBody = (string) $response->body();
+            $body = $response->json();
+
+            $esLimitCloud = false;
+            if ($response->status() === 429) {
+                $esLimitCloud = true;
+            } elseif (is_array($body) && (
+                ($body['status'] ?? null) === 429
+                || stripos((string)($body['error'] ?? ''), 'ollama_http') !== false
+                || stripos((string)($body['detail'] ?? ''), 'usage limit') !== false
+                || stripos((string)($body['detail'] ?? ''), 'weekly') !== false
+            )) {
+                $esLimitCloud = true;
+            } elseif (stripos($rawBody, 'weekly usage limit') !== false
+                || stripos($rawBody, 'usage limit') !== false) {
+                $esLimitCloud = true;
+            }
+
+            if ($esLimitCloud && $attempt === 1 && $modelo !== $modeloLocal) {
+                Log::warning('[AIGateway] Cloud limit detectado en Hawkins, conmutando a modelo LOCAL', [
+                    'modelo_cloud' => $modelo,
+                    'modelo_local_proximo' => $modeloLocal,
+                    'status' => $response->status(),
+                    'body' => mb_substr($rawBody, 0, 200),
+                ]);
+                $modelo = $modeloLocal;
+                $usadoFallback = true;
+                continue;
+            }
+
+            // Fin de bucle: respuesta valida o segundo intento ya agotado.
+            break;
         }
 
-        $body = $response->json();
+        if ($response === null || $response->failed()) {
+            $st = $response ? $response->status() : 0;
+            $bd = $response ? mb_substr((string)$response->body(), 0, 250) : 'sin response';
+            throw new \RuntimeException("Hawkins AI HTTP {$st}: {$bd}");
+        }
+
         // El endpoint puede devolver el texto en distintos campos segun version
         $texto = $body['response']
             ?? $body['respuesta']
@@ -168,6 +214,7 @@ class AIGatewayService
         Log::info('[AIGateway] Respuesta Hawkins AI OK', [
             'modelo' => $modelo,
             'chars' => mb_strlen($texto),
+            'usado_fallback_local' => $usadoFallback,
         ]);
 
         // Devolver en formato compatible con OpenAI para que el codigo llamador

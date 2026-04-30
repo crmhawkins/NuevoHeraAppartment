@@ -90,13 +90,27 @@ PROMPT;
         $base = rtrim(env('OLLAMA_URL', 'http://10.0.0.1:11434'), '/');
         $url = $base . '/api/chat';
 
-        $modelo = env('FALLBACK_VISION_MODEL', 'qwen3-vl:235b-cloud');
+        // [2026-04-30] Esquema 2-niveles automatico:
+        //   primario:   qwen3-vl:235b-cloud   (calidad maxima, pero rate limit semanal Ollama Cloud)
+        //   secundario: qwen3-vl:8b-thinking  (local en GPU 5090, sin rate limit)
+        // Si el primario devuelve weekly_limit/429, conmutamos al secundario
+        // automaticamente para los siguientes intentos del mismo lote.
+        $modeloPrimario = env('FALLBACK_VISION_MODEL', 'qwen3-vl:235b-cloud');
+        $modeloLocal = env('FALLBACK_VISION_MODEL_LOCAL', 'qwen3-vl:8b-thinking');
+        $modelo = $modeloPrimario;
+        $cloudLimitDetectado = false;
 
         // [2026-04-26] Bucle de reintentos. Si la primera llamada devuelve un
         // codigo valido, salimos inmediatamente; solo gastamos llamadas extra
         // cuando hace falta. Variamos el seed implicitamente porque Ollama
         // no garantiza determinismo perfecto entre llamadas.
         for ($intento = 1; $intento <= $maxIntentos; $intento++) {
+            // [2026-04-30] Si en un intento previo detectamos limite cloud,
+            // los siguientes ya van directamente al modelo local.
+            if ($cloudLimitDetectado) {
+                $modelo = $modeloLocal;
+            }
+
             $payload = [
                 'model' => $modelo,
                 'stream' => false,
@@ -114,17 +128,34 @@ PROMPT;
             } catch (\Throwable $e) {
                 Log::error('[OllamaCloudFallback] Excepcion HTTP: ' . $e->getMessage(), [
                     'intento' => $intento,
+                    'modelo' => $modelo,
                 ]);
                 continue;
             }
             $ms = (int) ((microtime(true) - $t0) * 1000);
 
             if (!$resp->successful()) {
+                $body = (string) $resp->body();
+                // [2026-04-30] Detectar limite semanal de Ollama Cloud y
+                // conmutar a modelo LOCAL en el siguiente intento.
+                $esLimitCloud = $resp->status() === 429
+                    || stripos($body, 'weekly usage limit') !== false
+                    || stripos($body, 'usage limit') !== false
+                    || stripos($body, 'upgrade for higher limits') !== false;
+                if ($esLimitCloud && !$cloudLimitDetectado) {
+                    $cloudLimitDetectado = true;
+                    Log::warning('[OllamaCloudFallback] Cloud limit detectado, conmutando a modelo LOCAL', [
+                        'modelo_cloud' => $modelo,
+                        'modelo_local_proximo' => $modeloLocal,
+                        'status' => $resp->status(),
+                    ]);
+                }
                 Log::warning('[OllamaCloudFallback] Ollama rechazo la peticion', [
                     'intento' => $intento,
                     'status' => $resp->status(),
-                    'body' => mb_substr((string) $resp->body(), 0, 400),
+                    'body' => mb_substr($body, 0, 400),
                     'modelo' => $modelo,
+                    'cloud_limit' => $esLimitCloud,
                 ]);
                 continue;
             }
@@ -142,6 +173,7 @@ PROMPT;
                 'candidato' => $candidato,
                 'valido' => (bool) $valido,
                 'ms' => $ms,
+                'cloud_limit_active' => $cloudLimitDetectado,
             ]);
 
             if ($valido) return $candidato;
@@ -215,9 +247,18 @@ PROMPT;
 
         $base = rtrim(env('OLLAMA_URL', 'http://10.0.0.1:11434'), '/');
         $url = $base . '/api/chat';
-        $modelo = env('FALLBACK_VISION_MODEL', 'qwen3-vl:235b-cloud');
+        // [2026-04-30] Mismo esquema 2-niveles que extractNumeroSoporte:
+        // si el primario cloud devuelve weekly_limit/429, conmutamos al
+        // modelo local automaticamente.
+        $modeloPrimario = env('FALLBACK_VISION_MODEL', 'qwen3-vl:235b-cloud');
+        $modeloLocal = env('FALLBACK_VISION_MODEL_LOCAL', 'qwen3-vl:8b-thinking');
+        $modelo = $modeloPrimario;
+        $cloudLimitDetectado = false;
 
         for ($intento = 1; $intento <= $maxIntentos; $intento++) {
+            if ($cloudLimitDetectado) {
+                $modelo = $modeloLocal;
+            }
             try {
                 $resp = Http::timeout(120)->post($url, [
                     'model' => $modelo,
@@ -232,15 +273,30 @@ PROMPT;
             } catch (\Throwable $e) {
                 Log::error('[OllamaCloudFallback] Excepcion HTTP extractNumeroDocumento: ' . $e->getMessage(), [
                     'intento' => $intento,
+                    'modelo' => $modelo,
                 ]);
                 continue;
             }
 
             if (!$resp->successful()) {
+                $body = (string) $resp->body();
+                $esLimitCloud = $resp->status() === 429
+                    || stripos($body, 'weekly usage limit') !== false
+                    || stripos($body, 'usage limit') !== false
+                    || stripos($body, 'upgrade for higher limits') !== false;
+                if ($esLimitCloud && !$cloudLimitDetectado) {
+                    $cloudLimitDetectado = true;
+                    Log::warning('[OllamaCloudFallback] Cloud limit detectado en extractNumeroDocumento, conmutando a LOCAL', [
+                        'modelo_cloud' => $modelo,
+                        'modelo_local_proximo' => $modeloLocal,
+                    ]);
+                }
                 Log::warning('[OllamaCloudFallback] Ollama rechazo extractNumeroDocumento', [
                     'intento' => $intento,
                     'status' => $resp->status(),
-                    'body' => mb_substr((string) $resp->body(), 0, 400),
+                    'body' => mb_substr($body, 0, 400),
+                    'modelo' => $modelo,
+                    'cloud_limit' => $esLimitCloud,
                 ]);
                 continue;
             }
