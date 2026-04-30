@@ -230,18 +230,74 @@ class CheckIaHealth extends Command
                 'modelo' => 'gpt-oss:120b-cloud',
             ]);
 
-            if (!$resp->successful()) {
-                return "HTTP {$resp->status()}: " . mb_substr($resp->body(), 0, 150);
+            $rawBody = (string) $resp->body();
+
+            if (!$resp->successful() || $this->esCloudLimitBody($rawBody)) {
+                // [2026-04-30] Cloud limit (429 / weekly usage). Intentar
+                // fallback local del wrapper. Si responde, NO es fallo
+                // critico — el CRM seguira funcionando con calidad reducida
+                // (degradacion controlada).
+                if ($this->esCloudLimitBody($rawBody) || $resp->status() === 429) {
+                    $modeloLocal = (string) env('HAWKINS_AI_CHAT_FALLBACK_MODEL', 'gpt-oss:20b');
+                    if ($this->probarWrapperFallback($url, $apiKey, $modeloLocal)) {
+                        Log::info('[ia:healthcheck] Cloud chat agotado, pero fallback local OK — sin alerta', [
+                            'modelo_local' => $modeloLocal,
+                        ]);
+                        return null; // tratamos como sano
+                    }
+                    return "cloud agotado (429/weekly limit) Y fallback local {$modeloLocal} tambien fallo";
+                }
+                return "HTTP {$resp->status()}: " . mb_substr($rawBody, 0, 150);
             }
             $body = $resp->json();
             $texto = $body['response'] ?? $body['respuesta'] ?? $body['message'] ?? null;
             if (empty($texto)) {
-                return "respuesta vacia: " . mb_substr((string) $resp->body(), 0, 150);
+                return "respuesta vacia: " . mb_substr($rawBody, 0, 150);
             }
             return null;
         } catch (\Throwable $e) {
             return "excepcion: " . mb_substr($e->getMessage(), 0, 150);
         }
+    }
+
+    /**
+     * [2026-04-30] Reintenta el wrapper con un modelo local cuando el cloud
+     * agoto cuota. Devuelve true si el local responde con texto.
+     */
+    private function probarWrapperFallback(string $url, string $apiKey, string $modeloLocal): bool
+    {
+        try {
+            $resp = Http::withHeaders([
+                'X-API-Key'    => $apiKey,
+                'Content-Type' => 'application/json',
+            ])
+            ->timeout(45)
+            ->withoutVerifying()
+            ->post($url, [
+                'prompt' => 'ping',
+                'modelo' => $modeloLocal,
+            ]);
+
+            if (!$resp->successful()) return false;
+            $body = $resp->json();
+            $texto = $body['response'] ?? $body['respuesta'] ?? $body['message'] ?? null;
+            return !empty($texto);
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
+     * [2026-04-30] Detecta si una respuesta es del tipo "cloud limit" de
+     * Ollama (HTTP 429 con weekly limit, o el wrapper devolvio 200/502 con
+     * body que envuelve el 429 upstream).
+     */
+    private function esCloudLimitBody(string $body): bool
+    {
+        return stripos($body, 'weekly usage limit') !== false
+            || stripos($body, 'usage limit') !== false
+            || stripos($body, 'upgrade for higher limits') !== false
+            || (stripos($body, 'ollama_http') !== false && stripos($body, '429') !== false);
     }
 
     /**
@@ -279,8 +335,28 @@ class CheckIaHealth extends Command
                     'options'  => ['num_predict' => 5, 'temperature' => 0.1],
                 ]);
 
-            if (!$resp->successful()) {
-                return "HTTP {$resp->status()}: " . mb_substr($resp->body(), 0, 120);
+            $rawBody = (string) $resp->body();
+
+            if (!$resp->successful() || $this->esCloudLimitBody($rawBody)) {
+                // [2026-04-30] Si es modelo *-cloud y el error es weekly
+                // limit / 429, NO es fallo critico siempre que el modelo
+                // local fallback responda. Distinguimos cloud-limit (degradado
+                // pero operativo) de cloud-down (alerta urgente).
+                $esCloud = str_ends_with($modelo, '-cloud');
+                $esLimit = $this->esCloudLimitBody($rawBody) || $resp->status() === 429;
+
+                if ($esCloud && $esLimit) {
+                    $modeloLocal = $this->modeloLocalEquivalente($modelo);
+                    if ($modeloLocal && $this->probarInferenciaSolo($ollamaBaseUrl, $modeloLocal)) {
+                        Log::info('[ia:healthcheck] Cloud agotado, fallback local OK — sin alerta', [
+                            'modelo_cloud' => $modelo,
+                            'modelo_local' => $modeloLocal,
+                        ]);
+                        return null; // sano (degradado pero operativo)
+                    }
+                    return "cloud agotado (429/weekly limit) Y fallback local {$modeloLocal} tambien fallo";
+                }
+                return "HTTP {$resp->status()}: " . mb_substr($rawBody, 0, 120);
             }
             $data = $resp->json();
             $content = $data['message']['content'] ?? '';
@@ -290,12 +366,50 @@ class CheckIaHealth extends Command
             // que responden con whitespace a "ping"). Solo fallamos si no genero
             // absolutamente nada.
             if ($evalCount < 1 && $content === '') {
-                return "no genero tokens: " . mb_substr((string) $resp->body(), 0, 120);
+                return "no genero tokens: " . mb_substr($rawBody, 0, 120);
             }
             return null;
         } catch (\Throwable $e) {
             return "excepcion: " . mb_substr($e->getMessage(), 0, 150);
         }
+    }
+
+    /**
+     * [2026-04-30] Variante minima de probarInferencia para usar como
+     * verificacion de fallback (sin recursion).
+     */
+    private function probarInferenciaSolo(string $ollamaBaseUrl, string $modelo): bool
+    {
+        try {
+            $resp = Http::timeout(45)
+                ->withoutVerifying()
+                ->post(rtrim($ollamaBaseUrl, '/') . '/api/chat', [
+                    'model' => $modelo,
+                    'messages' => [['role' => 'user', 'content' => 'ping']],
+                    'stream' => false,
+                    'options' => ['num_predict' => 5, 'temperature' => 0.1],
+                ]);
+            if (!$resp->successful()) return false;
+            $data = $resp->json();
+            return ($data['eval_count'] ?? 0) >= 1 || !empty($data['message']['content'] ?? '');
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
+     * [2026-04-30] Mapea un modelo cloud al local equivalente que actua de
+     * fallback en runtime (segun env vars del CRM).
+     */
+    private function modeloLocalEquivalente(string $modeloCloud): ?string
+    {
+        if (str_starts_with($modeloCloud, 'gpt-oss:')) {
+            return env('HAWKINS_AI_CHAT_FALLBACK_MODEL', 'gpt-oss:20b');
+        }
+        if (str_starts_with($modeloCloud, 'qwen3-vl:')) {
+            return env('FALLBACK_VISION_MODEL_LOCAL', 'qwen3-vl:8b-thinking');
+        }
+        return null;
     }
 
     private function notificarWhatsapp(string $texto): void
