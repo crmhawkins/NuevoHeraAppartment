@@ -70,9 +70,11 @@ class RevenueScrapeMulti extends Command
         Cache::put($cacheKey, $state, 3600);
         $startedAt = now();
 
-        $apartamentos = Apartamento::orderBy('nombre')->get();
+        // [2026-04-30] Solo apartamentos comerciables. Excluye zonas comunes
+        // (escaleras, oficina, lavanderia) y registros de test.
+        $apartamentos = Apartamento::apartamentosReales()->orderBy('nombre')->get();
 
-        Log::info("[Revenue] scrape-multi iniciado", ['job_id' => $jobId, 'dias' => $dias]);
+        Log::info("[Revenue] scrape-multi iniciado", ['job_id' => $jobId, 'dias' => $dias, 'apartamentos' => $apartamentos->count()]);
 
         for ($i = 0; $i < $dias; $i++) {
             $fechaNoche = $fechaDesde->copy()->addDays($i);

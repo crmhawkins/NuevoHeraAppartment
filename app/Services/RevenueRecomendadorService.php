@@ -37,7 +37,9 @@ class RevenueRecomendadorService
      */
     public function apartamentosEnFecha(Carbon $fecha): array
     {
-        $apartamentos = Apartamento::orderBy('nombre')->get();
+        // [2026-04-30] Solo apartamentos comerciables. Excluye zonas comunes
+        // (escaleras, oficina, lavanderia) y registros de test.
+        $apartamentos = Apartamento::apartamentosReales()->orderBy('nombre')->get();
 
         // Reservas activas (no canceladas) que solapen esa fecha
         $reservas = Reserva::query()

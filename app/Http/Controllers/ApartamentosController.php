@@ -39,17 +39,28 @@ class ApartamentosController extends Controller
         $order = $request->get('order', 'asc');
         $edificioId = $request->get('edificio_id');
         $apartamentoId = $request->get('apartamento_id');
-        
+        // [2026-04-30] Tipo de uso. Default: 'apartamento' (oculta zonas comunes
+        // y tests). Otros valores: 'zona_comun', 'test', 'todos'.
+        $tipoUso = $request->get('tipo_uso', 'apartamento');
+
         // Log the search operation
         $this->logRead('APARTAMENTOS', null, [
             'search' => $search,
             'sort' => $sort,
             'order' => $order,
             'edificio_id' => $edificioId,
-            'apartamento_id' => $apartamentoId
+            'apartamento_id' => $apartamentoId,
+            'tipo_uso' => $tipoUso,
         ]);
-        
-        $apartamentoslist = Apartamento::all();
+
+        // [2026-04-30] Lista para el dropdown del filtro: respeta el tipo
+        // seleccionado para que no aparezcan zonas comunes en el selector
+        // si el usuario esta viendo apartamentos.
+        $apartamentoslist = Apartamento::query()
+            ->when($tipoUso !== 'todos', fn($q) => $q->where('tipo_uso', $tipoUso))
+            ->orderBy('nombre')
+            ->get();
+
         $apartamentos = Apartamento::when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('nombre', 'like', '%' . $search . '%')
@@ -63,8 +74,11 @@ class ApartamentosController extends Controller
             ->when($apartamentoId, function ($query, $apartamentoId) {
                 $query->where('id', $apartamentoId);
             })
+            // [2026-04-30] Filtro tipo_uso. 'todos' = sin filtro.
+            ->when($tipoUso !== 'todos', fn($q) => $q->where('tipo_uso', $tipoUso))
             ->orderBy($sort, $order)
-            ->paginate(20);
+            ->paginate(20)
+            ->withQueryString();  // mantiene el filtro al paginar
 
         $edificios = Edificio::all();
 
@@ -82,7 +96,7 @@ class ApartamentosController extends Controller
             ];
         }
 
-        return view('admin.apartamentos.index', compact('apartamentoslist', 'apartamentos', 'edificios', 'search', 'sort', 'order', 'estadisticasApartamentos', 'añoActual'));
+        return view('admin.apartamentos.index', compact('apartamentoslist', 'apartamentos', 'edificios', 'search', 'sort', 'order', 'estadisticasApartamentos', 'añoActual', 'tipoUso'));
     }
 
     public function createAdmin()

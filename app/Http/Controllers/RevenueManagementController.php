@@ -414,7 +414,9 @@ class RevenueManagementController extends Controller
         $diasVista = (int) $request->input('dias', 30);
         $diasVista = max(7, min(60, $diasVista)); // entre 7 y 60
 
-        $apartamentos = Apartamento::query()
+        // [2026-04-30] Solo apartamentos comerciables. Excluye zonas comunes
+        // (escaleras, oficina, lavanderia) y registros de test.
+        $apartamentos = Apartamento::apartamentosReales()
             ->when(!empty($apartamentoIds), fn($q) => $q->whereIn('id', $apartamentoIds))
             ->orderBy('nombre')
             ->get();

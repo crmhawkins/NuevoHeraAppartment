@@ -71,7 +71,8 @@ class ReservasController extends Controller
     }
     // Si es 'todas', no aplicamos filtro de estado
 
-    $apartamentos = Apartamento::all();
+    // [2026-04-30] Solo apartamentos comerciables (excluye zonas comunes y test).
+    $apartamentos = Apartamento::apartamentosReales()->get();
 
    // Aplicar filtros de fechas solo si se proporcionan
    if (!empty($fechaEntrada) && !empty($fechaSalida)) {
@@ -168,7 +169,8 @@ class ReservasController extends Controller
     }
 
     public function obtenerApartamentos(){
-        $apartamentos = Apartamento::all();
+        // [2026-04-30] Solo apartamentos comerciables (excluye zonas comunes y test).
+        $apartamentos = Apartamento::apartamentosReales()->get();
         return response()->json($apartamentos);
     }
 
@@ -192,7 +194,8 @@ class ReservasController extends Controller
     public function create()
     {
         $clientes = Cliente::all();
-        $apartamentos = Apartamento::with('roomTypes')->get(); // Incluir roomTypes en la consulta
+        // [2026-04-30] Solo apartamentos comerciables: las zonas comunes no se reservan.
+        $apartamentos = Apartamento::apartamentosReales()->with('roomTypes')->get();
         $ratePlans = RatePlan::all();
         $estados = Estado::all();
 
@@ -825,7 +828,8 @@ class ReservasController extends Controller
     public function edit(string $id)
     {
         $reserva = Reserva::where('id', $id)->first();
-        $apartamentos = Apartamento::all();
+        // [2026-04-30] Solo apartamentos comerciables (excluye zonas comunes y test).
+        $apartamentos = Apartamento::apartamentosReales()->get();
         return view('reservas.edit', compact('reserva', 'apartamentos'));
     }
 
@@ -1314,8 +1318,9 @@ class ReservasController extends Controller
         return $matrix[$len1][$len2];
     }
     public function findClosestMatch($searchQuery) {
-        // Obtener todos los nombres de apartamentos de la base de datos
-        $apartments = Apartamento::all();
+        // [2026-04-30] Solo apartamentos comerciables: el matching difuso de
+        // nombres no debe sugerir zonas comunes (escaleras, oficina, etc).
+        $apartments = Apartamento::apartamentosReales()->get();
 
         $closestMatch = null;
         $shortestDistance = PHP_INT_MAX;

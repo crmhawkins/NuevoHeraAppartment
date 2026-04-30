@@ -17,6 +17,7 @@ class Apartamento extends Model
      */
     protected $fillable = [
         'nombre',
+        'tipo_uso',
         'id_booking',
         'id_airbnb',
         'id_web',
@@ -140,7 +141,28 @@ class Apartamento extends Model
      *
      * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
      */
-     /**
+
+    /**
+     * [2026-04-30] Scope: solo apartamentos comerciables (tipo_uso = 'apartamento').
+     * Excluye zonas comunes (escaleras, oficina, lavanderia) y registros de
+     * test del dev anterior. Usar en Revenue, listados publicos, selectores
+     * de reserva. NO usar en limpieza (alli queremos ver tambien las zonas
+     * comunes para que las limpiadoras las marquen).
+     */
+    public function scopeApartamentosReales($query)
+    {
+        return $query->where('tipo_uso', 'apartamento');
+    }
+
+    /**
+     * [2026-04-30] Helper booleano: true si es apartamento comerciable.
+     */
+    public function esApartamentoReal(): bool
+    {
+        return ($this->tipo_uso ?? 'apartamento') === 'apartamento';
+    }
+
+    /**
      * Relación con las fotos del apartamento.
      */
     public function photos()

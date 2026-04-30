@@ -74,7 +74,41 @@
         </div>
         <div class="card-body">
             <form action="{{ route('apartamentos.admin.index') }}" method="GET" id="search_form">
+                {{-- [2026-04-30] Selector "Ver" para distinguir apartamentos comerciables
+                     de zonas comunes (escaleras, oficina, lavanderia) y registros de test
+                     del dev anterior. Default: Apartamentos (oculta el resto). --}}
+                <div class="row g-3 mb-2">
+                    <div class="col-md-12">
+                        <label class="form-label fw-semibold mb-2">
+                            <i class="fas fa-eye me-1 text-primary"></i>Ver
+                        </label>
+                        <div class="btn-group" role="group" aria-label="Filtro tipo de uso">
+                            @php $tipoUsoActual = $tipoUso ?? 'apartamento'; @endphp
+                            <a href="{{ route('apartamentos.admin.index', ['tipo_uso' => 'apartamento']) }}"
+                               class="btn btn-{{ $tipoUsoActual === 'apartamento' ? 'primary' : 'outline-primary' }}">
+                                <i class="fas fa-home me-1"></i>Apartamentos
+                            </a>
+                            <a href="{{ route('apartamentos.admin.index', ['tipo_uso' => 'zona_comun']) }}"
+                               class="btn btn-{{ $tipoUsoActual === 'zona_comun' ? 'primary' : 'outline-primary' }}">
+                                <i class="fas fa-broom me-1"></i>Zonas comunes
+                            </a>
+                            <a href="{{ route('apartamentos.admin.index', ['tipo_uso' => 'test']) }}"
+                               class="btn btn-{{ $tipoUsoActual === 'test' ? 'primary' : 'outline-primary' }}">
+                                <i class="fas fa-flask me-1"></i>Test
+                            </a>
+                            <a href="{{ route('apartamentos.admin.index', ['tipo_uso' => 'todos']) }}"
+                               class="btn btn-{{ $tipoUsoActual === 'todos' ? 'primary' : 'outline-primary' }}">
+                                <i class="fas fa-list me-1"></i>Todos
+                            </a>
+                        </div>
+                        <small class="text-muted d-block mt-1">
+                            Las zonas comunes (escaleras, oficina, lavandería) siguen apareciendo en limpieza. Aquí solo cambia la vista del listado.
+                        </small>
+                    </div>
+                </div>
                 <div class="row g-3">
+                    {{-- Mantener tipo_uso al filtrar --}}
+                    <input type="hidden" name="tipo_uso" value="{{ $tipoUsoActual }}">
                     <div class="col-md-4">
                         <label for="apartamento_id" class="form-label fw-semibold">
                             <i class="fas fa-home me-1 text-primary"></i>Apartamento
