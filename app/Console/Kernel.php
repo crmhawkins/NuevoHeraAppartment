@@ -171,11 +171,11 @@ class Kernel extends ConsoleKernel
                 'dias' => 30,
             ]);
         })
+            ->name('revenue:scrape-nocturno')
             ->dailyAt('06:30')
             ->timezone('Europe/Madrid')
             ->withoutOverlapping()
-            ->runInBackground()
-            ->name('revenue:scrape-nocturno');
+            ->runInBackground();
 
         // Tarea programada de Nacionalidad del cliente ejecutada con éxito.
         $schedule->call(function (ClienteService $clienteService) {
