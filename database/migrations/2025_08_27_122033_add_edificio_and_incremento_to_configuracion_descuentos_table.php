@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // [2026-04-30] Si la tabla aun no existe (orden de migraciones),
+        // saltar — la posterior _143000_ la creara con los campos completos
+        // (que tambien hay que hacer idempotente).
+        if (!Schema::hasTable('configuracion_descuentos')) return;
         Schema::table('configuracion_descuentos', function (Blueprint $table) {
             $table->foreignId('edificio_id')->nullable()->constrained('edificios')->onDelete('cascade');
             $table->decimal('porcentaje_incremento', 5, 2)->default(0)->after('porcentaje_descuento');

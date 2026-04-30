@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('clientes')) return; // [2026-04-30] idempotente
         Schema::table('clientes', function (Blueprint $table) {
             // Campos específicos para facturación (datos del receptor)
             $table->string('facturacion_nombre_razon_social')->nullable()->comment('Nombre o razón social para facturación');

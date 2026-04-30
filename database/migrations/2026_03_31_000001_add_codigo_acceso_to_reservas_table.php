@@ -8,6 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (!Schema::hasTable('reservas')) return; // [2026-04-30] idempotente
         Schema::table('reservas', function (Blueprint $table) {
             $table->string('codigo_acceso', 6)->nullable()->after('token');
             $table->string('ttlock_pin_id')->nullable()->after('codigo_acceso');

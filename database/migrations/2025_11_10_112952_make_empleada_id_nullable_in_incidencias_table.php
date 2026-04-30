@@ -11,6 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('incidencias')) return;
+        // [2026-04-30] SQLite no soporta ALTER COLUMN. Skipped en local; produccion MySQL OK.
+        if (\DB::connection()->getDriverName() === 'sqlite') return; // [2026-04-30] idempotente
         Schema::table('incidencias', function (Blueprint $table) {
             // Hacer empleada_id nullable para permitir incidencias desde WhatsApp
             $table->unsignedBigInteger('empleada_id')->nullable()->change();

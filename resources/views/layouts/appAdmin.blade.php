@@ -350,7 +350,7 @@
 
                                 <!-- Tarifas -->
                                 <li class="nav-item dropdown">
-                                    <a class="nav-link dropdown-toggle {{ request()->is('tarifas*') ? 'active' : '' }}" href="#" data-bs-toggle="dropdown" role="button" aria-expanded="false">
+                                    <a class="nav-link dropdown-toggle {{ request()->is('tarifas*') || request()->is('admin/revenue*') ? 'active' : '' }}" href="#" data-bs-toggle="dropdown" role="button" aria-expanded="false">
                                         <i class="fas fa-tags me-1"></i>Tarifas
                                     </a>
                                     <ul class="dropdown-menu">
@@ -359,6 +359,18 @@
                                         </a></li>
                                         <li><a class="dropdown-item" href="{{ route('tarifas.create') }}">
                                             <i class="fas fa-plus me-2"></i>Crear Tarifa
+                                        </a></li>
+                                        {{-- [2026-04-30] Revenue Management --}}
+                                        <li><hr class="dropdown-divider"></li>
+                                        <li><h6 class="dropdown-header"><i class="fas fa-chart-line me-1"></i>Revenue Management</h6></li>
+                                        <li><a class="dropdown-item" href="{{ route('revenue.hoy') }}">
+                                            <i class="fas fa-bolt me-2 text-warning"></i>Calcular Revenue (hoy)
+                                        </a></li>
+                                        <li><a class="dropdown-item" href="{{ route('revenue.matriz') }}">
+                                            <i class="fas fa-th me-2 text-primary"></i>Matriz multi-día
+                                        </a></li>
+                                        <li><a class="dropdown-item" href="{{ route('revenue.historial') }}">
+                                            <i class="fas fa-history me-2 text-secondary"></i>Histórico cambios
                                         </a></li>
                                     </ul>
                                 </li>

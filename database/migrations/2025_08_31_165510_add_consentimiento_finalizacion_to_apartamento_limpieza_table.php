@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('apartamento_limpieza')) return; // [2026-04-30] idempotente
         Schema::table('apartamento_limpieza', function (Blueprint $table) {
             $table->boolean('consentimiento_finalizacion')->default(false)->after('observacion');
             $table->text('motivo_consentimiento')->nullable()->after('consentimiento_finalizacion');

@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('historial_descuentos')) return; // [2026-04-30] idempotente
         Schema::table('historial_descuentos', function (Blueprint $table) {
             $table->json('datos_momento')->nullable()->after('datos_channex')->comment('Datos completos del momento de aplicación');
         });

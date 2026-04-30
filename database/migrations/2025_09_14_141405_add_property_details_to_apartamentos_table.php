@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('apartamentos')) return; // [2026-04-30] idempotente
         Schema::table('apartamentos', function (Blueprint $table) {
             $table->integer('bedrooms')->nullable()->comment('Número de habitaciones');
             $table->decimal('bathrooms', 3, 1)->nullable()->comment('Número de baños (permite decimales como 1.5)');

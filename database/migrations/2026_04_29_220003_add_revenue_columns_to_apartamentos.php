@@ -20,6 +20,7 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (!Schema::hasTable('apartamentos')) return; // [2026-04-30] idempotente
         Schema::table('apartamentos', function (Blueprint $table) {
             $table->decimal('revenue_min_precio', 10, 2)->nullable()->after('claves');
             $table->decimal('revenue_max_precio', 10, 2)->nullable()->after('revenue_min_precio');

@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('emails')) return; // [2026-04-30] idempotente
         Schema::table('emails', function (Blueprint $table) {
             
             $table->tinyInteger('response')->nullable();

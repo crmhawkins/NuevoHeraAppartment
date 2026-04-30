@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up()
     {
+        if (!Schema::hasTable('presupuesto_conceptos')) return; // [2026-04-30] idempotente
         Schema::table('presupuesto_conceptos', function (Blueprint $table) {
             $table->date('fecha_entrada')->nullable();
             $table->date('fecha_salida')->nullable();

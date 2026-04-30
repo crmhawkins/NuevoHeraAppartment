@@ -11,6 +11,7 @@ use App\Services\RevenueRecomendadorService;
 use App\Services\RevenueScraperClient;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -139,22 +140,34 @@ class RevenueManagementController extends Controller
             );
 
             // Guardar/actualizar en BD
+            // [2026-04-30] Usar whereDate para que SQLite compare por fecha
+            // (no datetime). El cast 'fecha' => 'date' del modelo guarda
+            // datetimes con hora 00:00:00 en SQLite, lo que rompe el match
+            // exacto que hace updateOrCreate.
             if ($rec['precio_recomendado'] !== null) {
-                RevenueRecomendacion::updateOrCreate(
-                    ['apartamento_id' => $apt->id, 'fecha' => $fecha->toDateString()],
-                    [
-                        'precio_recomendado' => $rec['precio_recomendado'],
-                        'competencia_media' => $statsCombinado['media'] ?? null,
-                        'competencia_min' => $statsCombinado['min'] ?? null,
-                        'competencia_max' => $statsCombinado['max'] ?? null,
-                        'competidores_count' => $statsCombinado['n'] ?? 0,
-                        'ocupacion_nuestra_pct' => $rec['ocupacion_pct'],
-                        'es_finde' => $rec['es_finde'],
-                        'es_festivo' => $rec['es_festivo'],
-                        'razonamiento' => $rec['razonamiento'],
-                        'calculado_at' => now(),
-                    ]
-                );
+                $valoresNuevos = [
+                    'precio_recomendado' => $rec['precio_recomendado'],
+                    'competencia_media' => $statsCombinado['media'] ?? null,
+                    'competencia_min' => $statsCombinado['min'] ?? null,
+                    'competencia_max' => $statsCombinado['max'] ?? null,
+                    'competidores_count' => $statsCombinado['n'] ?? 0,
+                    'ocupacion_nuestra_pct' => $rec['ocupacion_pct'],
+                    'es_finde' => $rec['es_finde'],
+                    'es_festivo' => $rec['es_festivo'],
+                    'razonamiento' => $rec['razonamiento'],
+                    'calculado_at' => now(),
+                ];
+                $existente = RevenueRecomendacion::where('apartamento_id', $apt->id)
+                    ->whereDate('fecha', $fecha)
+                    ->first();
+                if ($existente) {
+                    $existente->update($valoresNuevos);
+                } else {
+                    RevenueRecomendacion::create(array_merge($valoresNuevos, [
+                        'apartamento_id' => $apt->id,
+                        'fecha' => $fecha->toDateString(),
+                    ]));
+                }
             }
 
             $resultados[] = [
@@ -186,6 +199,151 @@ class RevenueManagementController extends Controller
                 ->values()
                 ->all(),
         ]);
+    }
+
+    /**
+     * POST /admin/revenue/estrategias
+     * Devuelve N estrategias de pricing comparadas para la fecha y zona dadas.
+     * Ejecuta el scrape (con caché) y aplica varios escenarios sin tocar BD.
+     */
+    public function estrategias(Request $request)
+    {
+        $request->validate([
+            'fecha' => 'required|date',
+            'zona' => 'nullable|in:algeciras_centro,algeciras_costa,bahia_completa',
+            'adultos' => 'nullable|integer|between:1,10',
+        ]);
+        $fecha = Carbon::parse($request->input('fecha'));
+        $checkout = $fecha->copy()->addDay();
+        $zona = $request->input('zona', 'algeciras_centro');
+        $adultos = (int) $request->input('adultos', 2);
+
+        try {
+            $datos = $this->scraper->scrapeMercado(
+                fechaDesde: $fecha->toDateString(),
+                fechaHasta: $checkout->toDateString(),
+                zona: $zona,
+                adultos: $adultos,
+                useCache: true,
+            );
+        } catch (\Throwable $e) {
+            return response()->json(['error' => $e->getMessage()], 503);
+        }
+
+        $situacion = $this->recomendador->apartamentosEnFecha($fecha);
+        $resultado = $this->recomendador->compararEstrategias(
+            $situacion, $fecha, $datos['listings'] ?? []
+        );
+
+        return response()->json([
+            'fecha' => $fecha->toDateString(),
+            'zona' => $zona,
+            'adultos' => $adultos,
+            'estadisticas' => $resultado['estadisticas'],
+            'estrategias' => $resultado['estrategias'],
+            'listings' => collect($datos['listings'] ?? [])
+                ->whereNotNull('precio')
+                ->sortBy('precio')
+                ->values()
+                ->all(),
+            'cached' => $datos['cached'] ?? false,
+            'cache_age_minutes' => $datos['cache_age_minutes'] ?? null,
+        ]);
+    }
+
+    /**
+     * POST /admin/revenue/scrape-multi
+     * Lanza el comando revenue:scrape-multi en background y devuelve el job_id.
+     * El frontend hace polling a /admin/revenue/scrape-progress/{jobId}.
+     */
+    public function scrapeMulti(Request $request)
+    {
+        $request->validate([
+            'fecha_desde' => 'required|date',
+            'dias' => 'required|integer|between:1,90',
+            'zona' => 'nullable|in:algeciras_centro,algeciras_costa,bahia_completa',
+            'adultos' => 'nullable|integer|between:1,10',
+        ]);
+
+        $jobId = 'scrape_' . bin2hex(random_bytes(8));
+        $fechaDesde = Carbon::parse($request->input('fecha_desde'))->toDateString();
+        $dias = (int) $request->input('dias');
+        $zona = $request->input('zona', 'algeciras_centro');
+        $adultos = (int) $request->input('adultos', 2);
+
+        // Estado inicial en cache (para que el frontend vea algo desde el primer poll)
+        Cache::put("revenue:scrape:{$jobId}", [
+            'job_id' => $jobId,
+            'started_at' => now()->toIso8601String(),
+            'fecha_desde' => $fechaDesde,
+            'dias' => $dias,
+            'step' => 0,
+            'total' => $dias,
+            'fase' => 'arrancando',
+            'fase_texto' => 'Arrancando proceso en background...',
+            'segundos_transcurridos' => 0,
+            'segundos_estimados' => $dias * 5,
+            'apartamentos_actualizados' => 0,
+            'completed' => false,
+            'errores' => [],
+        ], 3600);
+
+        // Lanzar comando Artisan en BACKGROUND (no bloquea la peticion HTTP)
+        $phpBin = PHP_BINARY;
+        $artisan = base_path('artisan');
+        $logFile = storage_path("logs/scrape-multi-{$jobId}.log");
+        $cmd = sprintf(
+            '"%s" "%s" revenue:scrape-multi %s %s %d %s %d',
+            $phpBin,
+            $artisan,
+            escapeshellarg($jobId),
+            escapeshellarg($fechaDesde),
+            $dias,
+            escapeshellarg($zona),
+            $adultos
+        );
+
+        if (PHP_OS_FAMILY === 'Windows') {
+            // Windows: usar proc_open con DETACHED_PROCESS+CREATE_NEW_CONSOLE para
+            // realmente desacoplar el proceso del padre. start /B desde popen no
+            // siempre funciona desde el php server built-in.
+            $descriptorspec = [
+                0 => ['file', 'NUL', 'r'],
+                1 => ['file', $logFile, 'w'],
+                2 => ['file', $logFile, 'a'],
+            ];
+            $proc = proc_open($cmd, $descriptorspec, $pipes, base_path(), null, [
+                'bypass_shell' => false,
+                'create_new_console' => true,
+                'create_process_group' => true,
+            ]);
+            if (is_resource($proc)) {
+                proc_close($proc);  // close handle pero el proceso sigue vivo
+            }
+        } else {
+            exec("nohup {$cmd} > {$logFile} 2>&1 &");
+        }
+
+        Log::info('[Revenue] scrape-multi job lanzado', ['job_id' => $jobId, 'dias' => $dias]);
+
+        return response()->json([
+            'job_id' => $jobId,
+            'segundos_estimados' => $dias * 5,
+            'mensaje' => "Job lanzado. Consultar progreso en /admin/revenue/scrape-progress/{$jobId}",
+        ]);
+    }
+
+    /**
+     * GET /admin/revenue/scrape-progress/{jobId}
+     * Devuelve el estado actual del job (para polling desde el frontend).
+     */
+    public function scrapeProgress(string $jobId)
+    {
+        $state = Cache::get("revenue:scrape:{$jobId}");
+        if (!$state) {
+            return response()->json(['error' => 'Job no existe o ha expirado'], 404);
+        }
+        return response()->json($state);
     }
 
     /**

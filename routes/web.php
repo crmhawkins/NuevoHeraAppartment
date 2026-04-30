@@ -258,6 +258,9 @@ Route::middleware(['auth', 'role:ADMIN'])->group(function () {
         // Pantalla principal "Calcular Revenue" (la del boton del panel reservas)
         Route::get('/hoy', [App\Http\Controllers\RevenueManagementController::class, 'hoy'])->name('hoy');
         Route::post('/scrape', [App\Http\Controllers\RevenueManagementController::class, 'scrape'])->name('scrape');
+        Route::post('/scrape-multi', [App\Http\Controllers\RevenueManagementController::class, 'scrapeMulti'])->name('scrapeMulti');
+        Route::get('/scrape-progress/{jobId}', [App\Http\Controllers\RevenueManagementController::class, 'scrapeProgress'])->name('scrapeProgress');
+        Route::post('/estrategias', [App\Http\Controllers\RevenueManagementController::class, 'estrategias'])->name('estrategias');
         Route::post('/aplicar-libres-hoy', [App\Http\Controllers\RevenueManagementController::class, 'aplicarLibresHoy'])->name('aplicarLibresHoy');
 
         // Vistas avanzadas (matriz multi-dia, historial, configuracion)

@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('tarifas')) return; // [2026-04-30] idempotente
         Schema::table('tarifas', function (Blueprint $table) {
             // Agregar columnas faltantes para el modelo Tarifa
             $table->string('nombre')->nullable()->after('id');

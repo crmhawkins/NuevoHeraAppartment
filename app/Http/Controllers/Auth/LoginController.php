@@ -18,9 +18,16 @@ class LoginController extends Controller
      */
     protected function redirectTo()
     {
+        // [2026-04-30] Override por env (util en local cuando el dashboard
+        // tiene queries pesadas / depende de tablas no presentes). En
+        // produccion, LOGIN_REDIRECT_PATH no se define -> nada cambia.
+        if ($override = env('LOGIN_REDIRECT_PATH')) {
+            return $override;
+        }
+
         if (auth()->check()) {
             $user = auth()->user();
-            
+
             if ($user->role === 'ADMIN') {
                 // Para administradores, siempre ir al dashboard
                 return '/dashboard';

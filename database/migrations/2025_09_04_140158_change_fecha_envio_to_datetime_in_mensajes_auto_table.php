@@ -11,6 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('mensajes_auto')) return;
+        // [2026-04-30] SQLite no soporta ALTER COLUMN. Skipped en local; produccion MySQL OK.
+        if (\DB::connection()->getDriverName() === 'sqlite') return; // [2026-04-30] idempotente
         Schema::table('mensajes_auto', function (Blueprint $table) {
             $table->datetime('fecha_envio')->nullable()->change();
         });

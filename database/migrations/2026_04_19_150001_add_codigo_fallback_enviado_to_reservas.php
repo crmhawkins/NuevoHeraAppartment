@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
+        if (!Schema::hasTable('reservas')) return; // [2026-04-30] idempotente
         Schema::table('reservas', function (Blueprint $t) {
             if (!Schema::hasColumn('reservas', 'codigo_fallback_enviado')) {
                 $t->boolean('codigo_fallback_enviado')->default(false)->after('codigo_acceso_enviado');

@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('reservas')) return; // [2026-04-30] idempotente
         Schema::table('reservas', function (Blueprint $table) {
             $table->integer('numero_ninos')->default(0)->after('numero_personas');
             $table->json('edades_ninos')->nullable()->after('numero_ninos');

@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('users')) return; // [2026-04-30] idempotente
         Schema::table('users', function (Blueprint $table) {
             $table->string('stripe_customer_id')->nullable()->after('email');
             $table->json('stripe_payment_methods')->nullable()->after('stripe_customer_id');

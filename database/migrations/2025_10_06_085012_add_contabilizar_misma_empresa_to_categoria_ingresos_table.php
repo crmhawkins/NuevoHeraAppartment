@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('categoria_ingresos')) return; // [2026-04-30] idempotente
         Schema::table('categoria_ingresos', function (Blueprint $table) {
             $table->boolean('contabilizar_misma_empresa')->default(false)->after('nombre');
         });

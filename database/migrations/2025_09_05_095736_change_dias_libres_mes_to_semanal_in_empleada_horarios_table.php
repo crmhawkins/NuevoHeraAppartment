@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('empleada_horarios')) return; // [2026-04-30] idempotente
         Schema::table('empleada_horarios', function (Blueprint $table) {
             // Eliminar la columna dias_libres_mes
             $table->dropColumn('dias_libres_mes');

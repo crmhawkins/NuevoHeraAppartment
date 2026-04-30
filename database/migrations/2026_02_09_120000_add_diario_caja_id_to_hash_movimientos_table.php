@@ -12,6 +12,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('hash_movimientos')) return; // [2026-04-30] idempotente
         Schema::table('hash_movimientos', function (Blueprint $table) {
             $table->unsignedBigInteger('diario_caja_id')->nullable()->after('hash');
             $table->foreign('diario_caja_id')->references('id')->on('diario_caja')->nullOnDelete();

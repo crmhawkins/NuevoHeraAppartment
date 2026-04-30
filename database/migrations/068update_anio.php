@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('anio')) return; // [2026-04-30] idempotente
         Schema::table('anio', function (Blueprint $table) {
             $table->double('saldo_inicial', 10, 2)->nullable();
         });

@@ -166,6 +166,134 @@ class RevenueRecomendadorService
     }
 
     /**
+     * Calcula varios escenarios de pricing en paralelo para que el admin
+     * pueda comparar antes de decidir cuál aplicar.
+     *
+     * @param array $listings  Listings crudos del scraper (con plataforma/precio/tipo)
+     * @return array  Array de estrategias con precios por apartamento + ingreso esperado
+     */
+    public function compararEstrategias(array $apartamentos, Carbon $fecha, array $listings): array
+    {
+        // Filtrar listings con precio
+        $conPrecio = array_filter($listings, fn($l) => isset($l['precio']) && $l['precio'] > 0);
+
+        // Mediana TODOS los listings (mercado entero, mezcla hostales+habitaciones+apartamentos)
+        $todosPrecios = array_values(array_map(fn($l) => (float) $l['precio'], $conPrecio));
+        sort($todosPrecios);
+        $medianaTodos = $this->mediana($todosPrecios);
+
+        // Solo apartamentos/casas enteras (filtrar hostales y habitaciones)
+        $premiumOnly = array_filter($conPrecio, function ($l) {
+            $tipo = strtolower((string) ($l['tipo'] ?? ''));
+            $titulo = strtolower((string) ($l['titulo'] ?? ''));
+            $esHabitacion = str_contains($tipo, 'hotel') || str_contains($tipo, 'hostal') ||
+                           str_contains($titulo, 'habitación') || str_contains($titulo, 'habitacion');
+            $esApartamento = str_contains($tipo, 'apartamento') || str_contains($tipo, 'casa') ||
+                            str_contains($tipo, 'estudio') || str_contains($tipo, 'vivienda') ||
+                            str_contains($tipo, 'entire') || str_contains($titulo, 'apartamento');
+            return $esApartamento && !$esHabitacion;
+        });
+        $premiumPrecios = array_values(array_map(fn($l) => (float) $l['precio'], $premiumOnly));
+        sort($premiumPrecios);
+        $medianaPremium = $this->mediana($premiumPrecios);
+
+        $statsAll = ['mediana' => $medianaTodos, 'media' => count($todosPrecios) ? array_sum($todosPrecios)/count($todosPrecios) : 0];
+        $statsPremium = ['mediana' => $medianaPremium, 'media' => count($premiumPrecios) ? array_sum($premiumPrecios)/count($premiumPrecios) : 0];
+
+        $estrategias = [];
+
+        // === Estrategia 1: CONSERVADORA — mediana del mercado, sin tocar segmento ===
+        $estrategias[] = $this->aplicarEstrategiaTodos(
+            'A. Conservadora (mediana mercado completo)',
+            'Mediana de TODOS los listings (incluye hostales y habitaciones que bajan el precio). Factor segmento del apartamento. Riesgo: dejas dinero sobre la mesa.',
+            $apartamentos, $fecha, $statsAll, [], 'red'
+        );
+
+        // === Estrategia 2: PREMIUM EN TODOS — fuerza factor 1.10 ===
+        $estrategias[] = $this->aplicarEstrategiaTodos(
+            'B. Premium uniforme (+10% sobre mediana mercado)',
+            'Mediana del mercado entero × 1.10 en todos. Asume que todos tus apartamentos son premium vs hostales/habitaciones.',
+            $apartamentos, $fecha, $statsAll, ['factor_override' => 1.10], 'orange'
+        );
+
+        // === Estrategia 3: COMP SET REAL — solo apartamentos enteros ===
+        $estrategias[] = $this->aplicarEstrategiaTodos(
+            'C. Comp Set real (solo apartamentos enteros)',
+            "Solo mediana de los apartamentos enteros realmente comparables (no hostales ni habitaciones). N=" . count($premiumPrecios) . " competidores reales. Mediana: " . round($medianaPremium) . "€.",
+            $apartamentos, $fecha, $statsPremium, [], 'green'
+        );
+
+        // === Estrategia 4: PRICING INTELIGENTE — comp set + factor + finde + cap mínimo ===
+        $estrategias[] = $this->aplicarEstrategiaTodos(
+            'D. Pricing inteligente (recomendada)',
+            'Comp set real + factor segmento del apartamento + ajustes finde/festivo/ocupación + clamp mín-máx. Lo que de verdad debería usarse.',
+            $apartamentos, $fecha, $statsPremium, [], 'blue'
+        );
+
+        return [
+            'estadisticas' => [
+                'todos' => array_merge($statsAll, ['n' => count($todosPrecios)]),
+                'premium_only' => array_merge($statsPremium, ['n' => count($premiumPrecios)]),
+            ],
+            'estrategias' => $estrategias,
+        ];
+    }
+
+    private function aplicarEstrategiaTodos(string $nombre, string $descripcion, array $apartamentos, Carbon $fecha, array $stats, array $opts, string $color): array
+    {
+        $precios = [];
+        $totalDia = 0;
+        foreach ($apartamentos as $row) {
+            /** @var \App\Models\Apartamento $apt */
+            $apt = is_array($row) ? $row['apartamento'] : $row;
+            $libre = is_array($row) ? ($row['libre'] ?? true) : true;
+
+            // Si hay factor_override, lo seteamos temporal
+            $factorOriginal = $apt->revenue_factor_segmento;
+            if (!empty($opts['factor_override'])) {
+                // calculamos manualmente sin guardar
+                $factor = $opts['factor_override'];
+                $precio = ($stats['mediana'] ?? 0) * $factor;
+                if ($apt->revenue_min_precio && $precio < $apt->revenue_min_precio) $precio = $apt->revenue_min_precio;
+                if ($apt->revenue_max_precio && $precio > $apt->revenue_max_precio) $precio = $apt->revenue_max_precio;
+                $precio = round($precio, 0);
+            } else {
+                $rec = $this->calcularRecomendacion($apt, $fecha, $stats);
+                $precio = $rec['precio_recomendado'] ?? 0;
+            }
+
+            $precios[$apt->id] = [
+                'apartamento' => $apt->nombre,
+                'libre' => $libre,
+                'precio' => $precio,
+                'min' => $apt->revenue_min_precio,
+                'max' => $apt->revenue_max_precio,
+                'segmento' => $factorOriginal,
+            ];
+            if ($libre) $totalDia += $precio;
+        }
+        return [
+            'nombre' => $nombre,
+            'descripcion' => $descripcion,
+            'color' => $color,
+            'precios' => $precios,
+            'total_dia' => $totalDia,
+            'mes_70pct' => round($totalDia * 30 * 0.70, 0),
+            'mes_85pct' => round($totalDia * 30 * 0.85, 0),
+        ];
+    }
+
+    private function mediana(array $valores): float
+    {
+        if (empty($valores)) return 0;
+        $n = count($valores);
+        $mid = (int) ($n / 2);
+        return $n % 2 === 0
+            ? ($valores[$mid - 1] + $valores[$mid]) / 2
+            : $valores[$mid];
+    }
+
+    /**
      * Festivos hardcodeados Andalucía 2026. Ampliable a tabla en BD.
      */
     public function esFestivoLocal(Carbon $fecha): bool

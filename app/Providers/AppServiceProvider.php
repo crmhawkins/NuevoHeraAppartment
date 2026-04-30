@@ -7,6 +7,7 @@ use App\Observers\ReservaObserver;
 use App\Services\ChatGptService;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Pagination\Paginator;
+use Laravel\Sanctum\Sanctum;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -15,10 +16,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        // [2026-04-30] Sanctum publica una migracion identica a la migracion
+        // local 005create_personal_access_tokens_table. Ignoramos la del
+        // vendor para evitar 'table already exists' en migrate:fresh local.
+        Sanctum::ignoreMigrations();
+
         // $this->app->singleton(ChatGptService::class, function ($app) {
         //     return new ChatGptService();
         // });
-    
+
     }
 
     /**

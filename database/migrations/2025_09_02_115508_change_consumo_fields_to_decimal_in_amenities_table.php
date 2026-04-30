@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('amenities')) return; // [2026-04-30] idempotente
+        // [2026-04-30] SQLite local no soporta ALTER COLUMN sin doctrine/dbal.
+        // En produccion (MySQL) sigue ejecutando normalmente.
+        if (\DB::connection()->getDriverName() === 'sqlite') return;
         Schema::table('amenities', function (Blueprint $table) {
             // Cambiar campos de consumo de integer a decimal
             $table->decimal('consumo_por_reserva', 8, 2)->nullable()->change();

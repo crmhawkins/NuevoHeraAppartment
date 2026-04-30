@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('reparacion')) return; // [2026-04-30] idempotente
         Schema::table('reparacion', function (Blueprint $table) {
             $table->tinyInteger('lunes')->nullable();
             $table->tinyInteger('martes')->nullable();

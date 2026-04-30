@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('items_checklists')) return; // [2026-04-30] idempotente
         Schema::table('items_checklists', function (Blueprint $table) {
             $table->boolean('tiene_stock')->default(false)->after('checklist_id');
             $table->foreignId('articulo_id')->nullable()->constrained('articulos')->onDelete('set null')->after('tiene_stock');

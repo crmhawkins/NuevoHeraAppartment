@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('mensajes')) return; // [2026-04-30] idempotente
         Schema::table('mensajes', function (Blueprint $table) {
             $table->string('openai_thread_id')->nullable();  // Nuevo campo para almacenar el ID del hilo de OpenAI
         });

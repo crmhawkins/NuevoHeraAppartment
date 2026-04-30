@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('apartamentos')) return; // [2026-04-30] idempotente
         Schema::table('apartamentos', function (Blueprint $table) {
             // Check-in/Check-out
             $table->time('check_in_time')->nullable()->comment('Hora de entrada (ej: 15:00)');

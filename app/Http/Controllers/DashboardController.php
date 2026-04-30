@@ -227,20 +227,31 @@ class DashboardController extends Controller
             $secuencias[] = "SELECT $i as seq";
         }
         $secuenciasSQL = implode(' UNION ', $secuencias);
-        
+
+        // [2026-04-30] Multi-driver: MySQL usa DATE_ADD/INTERVAL, SQLite usa date(base, '+N days').
+        // En produccion sigue ejecutando la query MySQL original (sin cambios).
+        $driver = DB::connection()->getDriverName();
+        if ($driver === 'sqlite') {
+            $diaExpr = "date(?, '+' || seq.seq || ' days')";
+            $whereDiaExpr = "date(?, '+' || seq.seq || ' days') <= ?";
+        } else {
+            $diaExpr = "DATE_ADD(?, INTERVAL seq.seq DAY)";
+            $whereDiaExpr = "DATE_ADD(?, INTERVAL seq.seq DAY) <= ?";
+        }
+
         $result = DB::select("
             SELECT COUNT(*) as noches_ocupadas
             FROM (
-                SELECT DISTINCT 
+                SELECT DISTINCT
                     r.apartamento_id,
                     d.dia
                 FROM reservas r
                 CROSS JOIN (
-                    SELECT DATE_ADD(?, INTERVAL seq.seq DAY) as dia
+                    SELECT $diaExpr as dia
                     FROM (
                         $secuenciasSQL
                     ) seq
-                    WHERE DATE_ADD(?, INTERVAL seq.seq DAY) <= ?
+                    WHERE $whereDiaExpr
                 ) d
                 WHERE r.estado_id != 4
                 AND r.apartamento_id IN (SELECT id FROM apartamentos WHERE id_channex IS NOT NULL)
@@ -851,15 +862,24 @@ class DashboardController extends Controller
             $capacidadMaxima = $totalApartamentos * $diasEnMes;
             
             // **Optimización: Usar consulta SQL directa para calcular ocupación mensual**
+            // [2026-04-30] Multi-driver: SQLite vs MySQL para DATE_ADD.
+            $driver2 = DB::connection()->getDriverName();
+            if ($driver2 === 'sqlite') {
+                $diaExpr2 = "date(?, '+' || seq.seq || ' days')";
+                $whereDiaExpr2 = "date(?, '+' || seq.seq || ' days') <= ?";
+            } else {
+                $diaExpr2 = "DATE_ADD(?, INTERVAL seq.seq DAY)";
+                $whereDiaExpr2 = "DATE_ADD(?, INTERVAL seq.seq DAY) <= ?";
+            }
             $nochesOcupadas = DB::select("
                 SELECT COUNT(*) as noches_ocupadas
                 FROM (
-                    SELECT DISTINCT 
+                    SELECT DISTINCT
                         r.apartamento_id,
                         d.dia
                     FROM reservas r
                     CROSS JOIN (
-                        SELECT DATE_ADD(?, INTERVAL seq.seq DAY) as dia
+                        SELECT $diaExpr2 as dia
                         FROM (
                             SELECT 0 as seq UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9 UNION
                             SELECT 10 UNION SELECT 11 UNION SELECT 12 UNION SELECT 13 UNION SELECT 14 UNION SELECT 15 UNION SELECT 16 UNION SELECT 17 UNION SELECT 18 UNION SELECT 19 UNION
@@ -872,7 +892,7 @@ class DashboardController extends Controller
                             SELECT 80 UNION SELECT 81 UNION SELECT 82 UNION SELECT 83 UNION SELECT 84 UNION SELECT 85 UNION SELECT 86 UNION SELECT 87 UNION SELECT 88 UNION SELECT 89 UNION
                             SELECT 90 UNION SELECT 91 UNION SELECT 92 UNION SELECT 93 UNION SELECT 94 UNION SELECT 95 UNION SELECT 96 UNION SELECT 97 UNION SELECT 98 UNION SELECT 99
                         ) seq
-                        WHERE DATE_ADD(?, INTERVAL seq.seq DAY) <= ?
+                        WHERE $whereDiaExpr2
                     ) d
                     WHERE r.estado_id != 4
                     AND r.apartamento_id IN (SELECT id FROM apartamentos WHERE id_channex IS NOT NULL)

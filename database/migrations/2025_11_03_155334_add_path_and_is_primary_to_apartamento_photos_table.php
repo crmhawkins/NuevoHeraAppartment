@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('apartamento_photos')) return; // [2026-04-30] idempotente
         Schema::table('apartamento_photos', function (Blueprint $table) {
             $table->string('path')->nullable()->after('url')->comment('Ruta en storage');
             $table->boolean('is_primary')->default(false)->after('position')->comment('Foto principal');

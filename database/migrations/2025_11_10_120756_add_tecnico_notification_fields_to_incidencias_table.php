@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('incidencias')) return; // [2026-04-30] idempotente
         Schema::table('incidencias', function (Blueprint $table) {
             $table->timestamp('tecnico_notificado_at')->nullable()->after('fecha_resolucion');
             $table->text('tecnicos_notificados')->nullable()->after('tecnico_notificado_at')->comment('JSON array con IDs de técnicos notificados');

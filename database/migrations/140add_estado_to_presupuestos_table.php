@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up()
     {
+        if (!Schema::hasTable('presupuestos')) return; // [2026-04-30] idempotente
         Schema::table('presupuestos', function (Blueprint $table) {
             $table->string('estado')->after('total')->default('pendiente');
         });

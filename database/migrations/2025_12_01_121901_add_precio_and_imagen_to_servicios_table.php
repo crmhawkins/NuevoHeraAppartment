@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('servicios')) return; // [2026-04-30] idempotente
         Schema::table('servicios', function (Blueprint $table) {
             $table->decimal('precio', 12, 2)->nullable()->after('descripcion')->comment('Precio del servicio extra');
             $table->string('imagen')->nullable()->after('precio')->comment('URL o path de la imagen del servicio');

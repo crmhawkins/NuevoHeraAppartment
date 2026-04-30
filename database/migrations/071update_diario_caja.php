@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('diario_caja')) return; // [2026-04-30] idempotente
         Schema::table('diario_caja', function (Blueprint $table) {
             $table->unsignedBigInteger('estado_id')->nullable();
 

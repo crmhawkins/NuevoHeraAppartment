@@ -41,7 +41,10 @@
                 @if($es_festivo)
                     <span class="badge bg-danger">Festivo (+15%)</span>
                 @endif
-                <span class="badge bg-info">Ocupación nuestra: {{ $ocupacion_pct }}%</span>
+                <span class="badge bg-info" data-bs-toggle="tooltip"
+                    title="% de tus apartamentos ocupados (con reserva activa) en esa fecha. Hoy {{ collect($situacion)->where('libre', false)->count() }} de {{ count($situacion) }} = {{ $ocupacion_pct }}%. El sistema baja precios automáticamente si está <30% y faltan <14 días.">
+                    Ocupación nuestra: {{ $ocupacion_pct }}%
+                </span>
             </div>
         </div>
     </form>
@@ -123,17 +126,82 @@
     {{-- Errores y mensajes --}}
     <div id="msg-area"></div>
 
+    {{-- BLOQUE DE ESTRATEGIAS — siempre visible, se rellena al cargar --}}
+    <div class="card mb-3" id="card-estrategias" style="display: none">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>
+                <i class="fas fa-balance-scale me-1"></i>
+                <strong>¿Qué precio aplico?</strong>
+                Compara estrategias y elige la que más te convenza.
+            </span>
+            <div class="d-flex gap-2 align-items-center">
+                <small class="text-muted" id="estrategias-stats"></small>
+                <button id="btn-ver-fuentes" class="btn btn-sm btn-outline-secondary"
+                        data-bs-toggle="collapse" data-bs-target="#fuentes-panel">
+                    <i class="fas fa-list me-1"></i>Ver fuentes
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row g-3" id="estrategias-tarjetas">
+                {{-- 4 tarjetas se rellenan por JS --}}
+            </div>
+
+            {{-- Panel colapsable con TODOS los listings competencia --}}
+            <div class="collapse mt-3" id="fuentes-panel">
+                <div class="card border-secondary">
+                    <div class="card-header bg-light">
+                        <strong>Fuentes — listings reales scrapeados HOY</strong>
+                        <small class="text-muted ms-2">(esto es la base de cálculo de las estrategias)</small>
+                    </div>
+                    <div class="card-body p-0" style="max-height: 400px; overflow-y: auto">
+                        <table class="table table-sm table-striped mb-0" id="tabla-fuentes">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>#</th>
+                                    <th>Plataforma</th>
+                                    <th>Tipo</th>
+                                    <th>Título</th>
+                                    <th class="text-end">Precio/noche</th>
+                                    <th>Rating</th>
+                                    <th>Ver</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tbody-fuentes"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert alert-light mt-3 mb-0 small" style="border-left: 4px solid #0d6efd">
+                <strong>💡 Cómo funciona esto:</strong>
+                <ol class="mb-0 mt-2">
+                    <li><strong>1. Eliges una estrategia</strong> de las 4 tarjetas pulsando "Pre-rellenar tabla".</li>
+                    <li><strong>2. La tabla de abajo</strong> se rellena con esos precios. Puedes desmarcar apartamentos individuales.</li>
+                    <li><strong>3. Pulsas "Aplicar precios a Channex"</strong> abajo para empujarlos de verdad.</li>
+                    <li>Hasta el paso 3 NO se modifica nada en producción. Todo es preview.</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
     {{-- Tabla apartamentos --}}
     <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
             <span>Apartamentos · noche {{ $fecha->format('d/m/Y') }} → {{ $checkout->format('d/m/Y') }}</span>
-            <small class="text-muted" id="ultima-recomendacion">
-                @if($recomendaciones->isNotEmpty())
-                    Última recomendación calculada: {{ $recomendaciones->first()->calculado_at?->diffForHumans() }}
-                @else
-                    Pulsa "Calcular precios competencia" para empezar
-                @endif
-            </small>
+            <div class="d-flex gap-2 align-items-center">
+                <small class="text-muted me-2" id="ultima-recomendacion">
+                    @if($recomendaciones->isNotEmpty())
+                        Última calculada: {{ $recomendaciones->first()->calculado_at?->diffForHumans() }}
+                    @endif
+                </small>
+                <label class="small text-muted mb-0 me-1">Ver:</label>
+                <select id="filtro-vista" class="form-select form-select-sm" style="width: auto">
+                    <option value="todos">Todos ({{ $libres_count + $ocupados_count }})</option>
+                    <option value="libres" selected>Solo disponibles ({{ $libres_count }})</option>
+                    <option value="ocupados">Solo ocupados ({{ $ocupados_count }})</option>
+                </select>
+            </div>
         </div>
         <div class="card-body p-0">
             <table class="table table-hover mb-0">
@@ -393,6 +461,177 @@
     });
 
     actualizarContador();
+
+    // === ESTRATEGIAS — carga automatica al abrir la pagina ===
+    const urlEstrategias = '{{ route("revenue.estrategias") }}';
+    const cardEstrategias = document.getElementById('card-estrategias');
+    const tarjetasContainer = document.getElementById('estrategias-tarjetas');
+    const statsLabel = document.getElementById('estrategias-stats');
+
+    async function cargarEstrategias() {
+        const zona = document.getElementById('zona-select').value;
+        const adultos = parseInt(document.getElementById('adultos-select').value);
+        cardEstrategias.style.display = '';
+        tarjetasContainer.innerHTML = `<div class="col-12 text-center py-4"><div class="spinner-border text-primary"></div><p class="text-muted mt-2 mb-0">Cargando estrategias con datos en cache...</p></div>`;
+
+        try {
+            const r = await fetch(urlEstrategias, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf},
+                body: JSON.stringify({fecha, zona, adultos})
+            });
+            const data = await r.json();
+            if (!r.ok) {
+                tarjetasContainer.innerHTML = `<div class="col-12"><div class="alert alert-warning mb-0"><strong>Sin datos todavía.</strong> Pulsa "Calcular precios competencia" arriba primero. ${data.error || ''}</div></div>`;
+                return;
+            }
+            renderTarjetas(data);
+        } catch (e) {
+            tarjetasContainer.innerHTML = `<div class="col-12"><div class="alert alert-danger mb-0">Error: ${e.message}</div></div>`;
+        }
+    }
+
+    function renderTarjetas(data) {
+        const stats = data.estadisticas;
+        const cacheLabel = data.cached
+            ? `<span class="badge bg-secondary ms-1" title="Datos en caché. Pulsa 'Calcular precios competencia' para refrescar.">caché ${data.cache_age_minutes?.toFixed(0)}min</span>`
+            : '<span class="badge bg-success ms-1">en vivo</span>';
+        statsLabel.innerHTML = `Tu competencia real: <strong>${stats.premium_only.n} apartamentos</strong> · mediana <strong class="text-success">${stats.premium_only.mediana?.toFixed(0)}€</strong>${cacheLabel}`;
+
+        // Pintar fuentes (listings)
+        const tbodyFuentes = document.getElementById('tbody-fuentes');
+        if (tbodyFuentes && data.listings) {
+            tbodyFuentes.innerHTML = data.listings.map((l, i) => {
+                const platBadge = l.plataforma === 'booking'
+                    ? '<span class="badge bg-primary">Booking</span>'
+                    : '<span class="badge bg-danger">Airbnb</span>';
+                const tipo = (l.tipo || '').toLowerCase();
+                const esEntero = tipo.includes('apartamento') || tipo.includes('casa') ||
+                                 tipo.includes('estudio') || tipo.includes('vivienda') ||
+                                 tipo.includes('entire');
+                const enteroIcon = esEntero
+                    ? '<i class="fas fa-star text-success" title="Apartamento entero (compite contigo)"></i>'
+                    : '<i class="fas fa-bed text-muted" title="Hotel/Hostal/Habitación"></i>';
+                const verLink = l.url
+                    ? `<a href="${l.url}" target="_blank" class="btn btn-sm btn-outline-secondary py-0"><i class="fas fa-external-link-alt"></i></a>`
+                    : '';
+                return `<tr>
+                    <td class="text-muted">${i+1}</td>
+                    <td>${platBadge}</td>
+                    <td>${enteroIcon} <small>${(l.tipo||'?').slice(0,25)}</small></td>
+                    <td><small>${(l.titulo||'?').slice(0,55)}</small></td>
+                    <td class="text-end fw-bold">${l.precio.toFixed(0)}€</td>
+                    <td>${l.rating ? `<small>${l.rating.toFixed(1)}⭐</small>` : '-'}</td>
+                    <td>${verLink}</td>
+                </tr>`;
+            }).join('');
+        }
+
+        const colors = {
+            red:    {border:'border-danger',    badge:'bg-danger',    btn:'btn-outline-danger'},
+            orange: {border:'border-warning',   badge:'bg-warning text-dark', btn:'btn-outline-warning'},
+            green:  {border:'border-success',   badge:'bg-success',   btn:'btn-success'},
+            blue:   {border:'border-primary',   badge:'bg-primary',   btn:'btn-primary'},
+        };
+        const etiquetas = {
+            red:    'LO QUE TIENES AHORA',
+            orange: 'OPCIÓN INTERMEDIA',
+            green:  'RECOMENDADA',
+            blue:   'RECOMENDADA + AJUSTE FINDES',
+        };
+
+        const totalA = data.estrategias[0].mes_70pct;
+        let html = '';
+        data.estrategias.forEach((e, idx) => {
+            const c = colors[e.color] || colors.blue;
+            const diff = e.mes_70pct - totalA;
+            const diffStr = idx === 0 ? 'punto de partida' : (diff > 0 ? `+${diff.toLocaleString()}€/mes` : `${diff.toLocaleString()}€/mes`);
+            const diffClass = idx === 0 ? 'text-muted' : (diff > 0 ? 'text-success fw-bold' : 'text-danger');
+            const letra = e.nombre.charAt(0);
+
+            // Lista precios apartamentos
+            let preciosHtml = '<div class="small mt-2">';
+            Object.values(e.precios).forEach(p => {
+                if (p.libre) {
+                    preciosHtml += `<div class="d-flex justify-content-between"><span>${p.apartamento}:</span> <strong>${p.precio}€</strong></div>`;
+                } else {
+                    preciosHtml += `<div class="d-flex justify-content-between text-muted"><span>${p.apartamento}:</span> <span>${p.precio}€ (ocupado)</span></div>`;
+                }
+            });
+            preciosHtml += '</div>';
+
+            html += `
+            <div class="col-md-6 col-lg-3">
+                <div class="card h-100 ${c.border}" style="border-width: 2px">
+                    <div class="card-body d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge ${c.badge}">${etiquetas[e.color]}</span>
+                            <span class="text-muted small">${letra}</span>
+                        </div>
+                        <h6 class="card-title">${e.nombre.replace(/^[A-D]\.\s*/, '')}</h6>
+                        <div class="my-3 text-center">
+                            <div class="display-6 fw-bold">${e.mes_70pct.toLocaleString()}€</div>
+                            <small class="text-muted">por mes (al 70% ocupación)</small>
+                            <div class="${diffClass} small mt-1">${diffStr}</div>
+                        </div>
+                        ${preciosHtml}
+                        <p class="small text-muted mt-2 mb-3 flex-grow-1">${e.descripcion}</p>
+                        <button class="btn btn-sm ${c.btn} aplicar-estrategia"
+                                data-estrategia="${e.color}"
+                                data-precios='${JSON.stringify(e.precios).replaceAll("'", "&apos;")}'
+                                title="Rellena la tabla de abajo con estos precios. NO los aplica a Channex aún — para eso pulsa después el botón verde 'Aplicar precios a Channex'.">
+                            <i class="fas fa-arrow-down me-1"></i>Pre-rellenar tabla con esta estrategia
+                        </button>
+                    </div>
+                </div>
+            </div>`;
+        });
+        tarjetasContainer.innerHTML = html;
+
+        // Listener "Usar esta estrategia" — pre-rellena la tabla de abajo
+        document.querySelectorAll('.aplicar-estrategia').forEach(btn => {
+            btn.addEventListener('click', e => {
+                const precios = JSON.parse(btn.dataset.precios.replaceAll("&apos;", "'"));
+                Object.entries(precios).forEach(([aptId, p]) => {
+                    if (!p.libre) return;
+                    const cellPrecio = document.getElementById('precio-' + aptId);
+                    const check = document.querySelector('.cambio-check[data-apt="' + aptId + '"]');
+                    if (cellPrecio) {
+                        cellPrecio.innerHTML = `<span class="text-success fw-bold">${p.precio}€</span>`;
+                    }
+                    if (check) {
+                        check.dataset.precio = p.precio;
+                        check.checked = true;
+                    }
+                });
+                actualizarContador();
+                showMsg(`<strong>Estrategia "${btn.closest('.card').querySelector('.card-title').textContent.trim()}"</strong> aplicada a la tabla. Marca/desmarca apartamentos abajo y pulsa "Aplicar precios a Channex" para empujarlos.`, 'success');
+                document.getElementById('btn-aplicar').scrollIntoView({behavior: 'smooth', block: 'center'});
+            });
+        });
+    }
+
+    // Cargar al abrir la pagina (si hay datos previos en cache, sale rapido)
+    cargarEstrategias();
+
+    // Recargar estrategias cuando cambia zona o adultos
+    document.getElementById('zona-select').addEventListener('change', cargarEstrategias);
+    document.getElementById('adultos-select').addEventListener('change', cargarEstrategias);
+
+    // === FILTRO Ver: todos / libres / ocupados ===
+    const filtroVista = document.getElementById('filtro-vista');
+    function aplicarFiltroVista() {
+        const v = filtroVista.value;
+        document.querySelectorAll('tr[data-libre]').forEach(tr => {
+            const libre = tr.dataset.libre === '1';
+            const mostrar = v === 'todos' || (v === 'libres' && libre) || (v === 'ocupados' && !libre);
+            tr.style.display = mostrar ? '' : 'none';
+        });
+        // Actualizar contador de seleccionados (solo cuenta los visibles+marcados)
+        actualizarContador();
+    }
+    filtroVista.addEventListener('change', aplicarFiltroVista);
+    aplicarFiltroVista();  // aplicar el filtro default ("libres")
 })();
 </script>
 @endsection

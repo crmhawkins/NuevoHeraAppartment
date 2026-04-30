@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('tareas_asignadas')) return; // [2026-04-30] idempotente
         Schema::table('tareas_asignadas', function (Blueprint $table) {
             $table->unsignedBigInteger('reserva_id')->nullable()->after('apartamento_id');
             $table->foreign('reserva_id')->references('id')->on('reservas')->onDelete('cascade');

@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
+        if (!Schema::hasTable('edificios')) return; // [2026-04-30] idempotente
         Schema::table('edificios', function (Blueprint $t) {
             $t->string('codigo_emergencia_portal', 10)->nullable()->after('clave');
 

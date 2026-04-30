@@ -473,7 +473,9 @@
                         </button>
                     </div>
 
-                    <div id="loginFallbackPanel" style="display: none; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--gray-200);">
+                    {{-- [2026-04-30] En local mostramos directamente el form email/password (sin toggle).
+                         En produccion sigue oculto detras del toggle como antes. --}}
+                    <div id="loginFallbackPanel" style="display: {{ env('LOGIN_FALLBACK_VISIBLE', false) ? 'block' : 'none' }}; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--gray-200);">
                         <form method="POST" action="{{ route('login') }}" id="loginForm">
                             @csrf
                             <div class="form-group">

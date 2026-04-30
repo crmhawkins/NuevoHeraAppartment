@@ -11,6 +11,7 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('items_checklists')) return; // [2026-04-30] idempotente
         Schema::table('items_checklists', function (Blueprint $table) {
             $table->boolean('activo')->default(true)->after('checklist_id');
         });

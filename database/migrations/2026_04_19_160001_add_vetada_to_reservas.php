@@ -18,6 +18,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
+        if (!Schema::hasTable('reservas')) return; // [2026-04-30] idempotente
         Schema::table('reservas', function (Blueprint $t) {
             $t->boolean('vetada')->default(false)->after('estado_id');
             $t->timestamp('veto_detectado_at')->nullable()->after('vetada');
