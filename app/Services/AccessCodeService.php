@@ -104,8 +104,10 @@ class AccessCodeService
 
         // [2026-04-19] Deteccion cerradura exterior (portal) vs interior (puerta):
         //   - Si el mismo lock_id aparece en varios apartamentos -> es PORTAL
-        //     (compartida) -> patron 000xxxx (3 ceros + 4 digitos) para que el
-        //     huesped la teclee facilmente varias veces al dia.
+        //     (compartida) -> patron 00xxxx (2 ceros + 4 digitos = 6 digitos
+        //     total) para que el huesped la teclee facilmente varias veces al
+        //     dia. Ademas la cerradura del portal santisimo (Tuya WiFi Access
+        //     'mk') solo acepta 6 digitos, asi que esto es REQUISITO no estilo.
         //   - Si aparece solo en este apartamento -> es INTERIOR -> 7 digitos
         //     aleatorios (solo se usa 1 vez/dia, copia-pega desde movil).
         $esPortal = false;
@@ -197,7 +199,7 @@ class AccessCodeService
         }
 
         $codigo = $esPortal
-            ? $this->generarCodigoPortal()      // 000 + 4 digitos variables
+            ? $this->generarCodigoPortal()      // 00 + 4 digitos variables (6 digitos total)
             : $this->generarCodigoUnico();       // 7 digitos aleatorios
 
         // Validación: reservas de un solo día
@@ -663,11 +665,12 @@ class AccessCodeService
     }
 
     /**
-     * [2026-04-19] Genera PIN con patron portal '000xxxx':
-     *   - Prefijo fijo '000' (3 ceros) para que el huesped identifique que
-     *     es el codigo del portal exterior y lo teclee rapido.
+     * [2026-04-19] [2026-05-01 ACTUALIZADO] Genera PIN con patron portal '00xxxx':
+     *   - Prefijo fijo '00' (2 ceros) para que el huesped identifique que es
+     *     el codigo del portal exterior y lo teclee rapido.
      *   - Sufijo de 4 digitos variables (10.000 combinaciones: 0000-9999).
-     *   - Total 7 digitos (cumple requisito Tuya Smart Lock X7).
+     *   - Total 6 digitos. La cerradura WiFi Access del portal santisimo
+     *     (Tuya category 'mk') SOLO acepta 6 digitos, por eso el cambio.
      *
      * Solo se usa para cerraduras COMPARTIDAS (portal de un edificio). Para
      * cerraduras de puerta individual usamos generarCodigoUnico() con 7
@@ -683,7 +686,7 @@ class AccessCodeService
         $maxIntentos = 100;
         do {
             $sufijo = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
-            $codigo = '000' . $sufijo;
+            $codigo = '00' . $sufijo;
             $existe = Reserva::where('codigo_acceso', $codigo)
                 ->where('fecha_salida', '>=', now()->toDateString())
                 ->whereNotNull('codigo_acceso')
@@ -692,7 +695,7 @@ class AccessCodeService
         } while ($existe && $intentos < $maxIntentos);
 
         if ($existe) {
-            throw new \Exception('No se pudo generar un código de portal único después de ' . $maxIntentos . ' intentos. Espacio 000xxxx saturado, considera migrar a 7 digitos aleatorios.');
+            throw new \Exception('No se pudo generar un código de portal único después de ' . $maxIntentos . ' intentos. Espacio 00xxxx saturado (10.000 combinaciones).');
         }
 
         return $codigo;
