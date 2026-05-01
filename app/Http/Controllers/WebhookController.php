@@ -224,6 +224,26 @@ class WebhookController extends Controller
                 // Usar booking_id como remitente (no 'guest') para que cada conversación tenga su propio historial
                 $remitente = 'channex_' . ($payload['booking_id'] ?? $payload['sender']);
                 $enviaChatGPT = $this->enviarMensajeOpenAiChatCompletions($mensajeChat->id, $messageText, $remitente);
+
+                // [2026-05-01] Guard contra mensaje vacio: si la IA fallo (cloud
+                // y local), $enviaChatGPT puede ser null. Channex rechaza con
+                // bad_request "message must be specified" si lo enviamos vacio.
+                // Mejor no responder y alertar al equipo para que conteste a mano.
+                if (empty($enviaChatGPT) || trim($enviaChatGPT) === '') {
+                    Log::warning('[Booking IA] Respuesta vacia/null - no se envia a Channex', [
+                        'booking_id' => $payload['booking_id'] ?? null,
+                        'mensaje_huesped' => mb_substr($messageText, 0, 200),
+                    ]);
+                    \App\Services\AlertaEquipoService::enviarWhatsApp(
+                        "🤖❌ IA no pudo responder a huesped Booking/Airbnb\n\n"
+                        . "Booking ID: " . ($payload['booking_id'] ?? '?') . "\n"
+                        . "Mensaje del huesped: " . mb_substr($messageText, 0, 250) . "\n\n"
+                        . "Por favor responde a mano desde Channex.",
+                        'booking_ia_fallida'
+                    );
+                    return response()->json(['status' => true, 'message' => 'Mensaje registrado pero IA no respondio', 'ignored' => true]);
+                }
+
                 // Enviar la respuesta a Channex
                 $this->enviarRespuestaAChannex($enviaChatGPT, $payload['booking_id']);
 
@@ -777,25 +797,17 @@ class WebhookController extends Controller
 
         $promptCompleto .= "\n\nUsuario: " . $nuevoMensaje . "\n\nAsistente:";
 
-        // Llamar a Hawkins AI (SSL verify desactivado porque el certificado
-        // de aiapi.hawkins.es puede estar caducado/FNMT y el cert bundle del
-        // contenedor no lo reconoce)
-        $response = Http::withHeaders([
-            'x-api-key' => $apiKey, 'Content-Type' => 'application/json',
-        ])->timeout(60)->withoutVerifying()->post($endpoint, ['prompt' => $promptCompleto, 'modelo' => $modelo]);
-
-        if ($response->failed()) {
-            Log::error('[Booking IA] Error al enviar a Hawkins AI: ' . $response->body());
-            return null;
-        }
-
-        $respuestaTexto = $response->json('respuesta') ?? null;
+        // [2026-05-01] Llamar con fallback cloud->local. Si el modelo cloud
+        // (gpt-oss:120b-cloud) ha agotado cuota semanal, conmuta a local
+        // (gpt-oss:20b en GPU 5090). Antes esto fallaba en silencio y se
+        // enviaba mensaje vacio a Channex -> bad_request.
+        $respuestaTexto = $this->llamarHawkinsConFallback($endpoint, $apiKey, $modelo, $promptCompleto);
         if (!$respuestaTexto) {
-            Log::warning('[Booking IA] Respuesta vacía', ['data' => $response->json()]);
+            Log::warning('[Booking IA] Hawkins AI no devolvio respuesta (cloud y local)', ['booking_remitente' => $remitente]);
             return null;
         }
 
-        Log::info('[Booking IA] Respuesta recibida', ['preview' => substr($respuestaTexto, 0, 100)]);
+        Log::info('[Booking IA] Respuesta recibida', ['preview' => mb_substr($respuestaTexto, 0, 100)]);
 
         // DETECTAR Y EJECUTAR FUNCIONES [FUNCION:...]
         if (preg_match('/\[FUNCION:([^:\]]+):?(.*?)\]/', $respuestaTexto, $matches)) {
@@ -904,18 +916,100 @@ class WebhookController extends Controller
         $promptCompleto .= "\n\nUsuario: " . $mensaje;
         $promptCompleto .= "\nAsistente: [He ejecutado una función: " . $resultadoFuncion . "]\n\nAsistente:";
 
-        $response = Http::withHeaders([
-            'x-api-key' => $apiKey, 'Content-Type' => 'application/json',
-        ])->timeout(60)->post($endpoint, ['prompt' => $promptCompleto, 'modelo' => $modelo]);
-
-        if ($response->failed()) {
-            Log::error('[Booking IA] Error en segunda llamada: ' . $response->body());
+        // [2026-05-01] Misma logica de fallback cloud->local que la 1a llamada.
+        $respuesta = $this->llamarHawkinsConFallback($endpoint, $apiKey, $modelo, $promptCompleto);
+        if (!$respuesta) {
+            Log::warning('[Booking IA] Segunda llamada (post funcion) sin respuesta, devolvemos resultadoFuncion plano');
             return $resultadoFuncion;
         }
 
-        $respuesta = $response->json('respuesta') ?? $resultadoFuncion;
         $respuesta = preg_replace('/\[FUNCION:[^\]]+\]/', '', $respuesta);
         return trim($respuesta) ?: $resultadoFuncion;
+    }
+
+    /**
+     * [2026-05-01] Llama a Hawkins AI con fallback cloud->local automatico.
+     *
+     * Si el modelo primario (cloud, ej. gpt-oss:120b-cloud) devuelve weekly
+     * limit/429, reintenta con el modelo local definido en
+     * HAWKINS_AI_CHAT_FALLBACK_MODEL (default gpt-oss:20b en GPU 5090).
+     *
+     * Antes este flujo (Booking/Airbnb via Channex) no tenia fallback y
+     * cuando se agotaba el cloud Ollama, devolvia null y el huesped no
+     * recibia respuesta.
+     *
+     * @return string|null Texto de respuesta, o null si ambos modelos fallaron.
+     */
+    private function llamarHawkinsConFallback(string $endpoint, string $apiKey, string $modeloPrimario, string $prompt): ?string
+    {
+        $modeloLocal = env('HAWKINS_AI_CHAT_FALLBACK_MODEL', 'gpt-oss:20b');
+
+        $http = Http::withHeaders([
+            'x-api-key' => $apiKey,
+            'Content-Type' => 'application/json',
+        ])->timeout(60)->withoutVerifying();
+
+        $modelo = $modeloPrimario;
+        for ($intento = 1; $intento <= 2; $intento++) {
+            $response = $http->post($endpoint, [
+                'prompt' => $prompt,
+                'modelo' => $modelo,
+            ]);
+
+            $bodyRaw = (string) $response->body();
+            $body = $response->json();
+            $status = $response->status();
+
+            // Detectar limit cloud:
+            //  - HTTP 429 directo
+            //  - HTTP 502 con body { error: ollama_http, status: 429, detail: "...weekly usage limit..." }
+            //  - cualquier body con texto "weekly usage limit" / "weekly_limit"
+            $esCloudLimit = false;
+            if ($status === 429) {
+                $esCloudLimit = true;
+            } elseif ($status === 502 && is_array($body)) {
+                $detail = (string) ($body['detail'] ?? '');
+                $err = (string) ($body['error'] ?? '');
+                if (stripos($detail, 'weekly') !== false || stripos($detail, 'limit') !== false || stripos($err, 'ollama_http') !== false) {
+                    $esCloudLimit = true;
+                }
+            } elseif (stripos($bodyRaw, 'weekly usage limit') !== false || stripos($bodyRaw, 'weekly_limit') !== false) {
+                $esCloudLimit = true;
+            }
+
+            if ($esCloudLimit && $intento === 1 && $modelo !== $modeloLocal) {
+                Log::warning('[Booking IA] Cloud limit detectado, conmutando a modelo LOCAL', [
+                    'modelo_cloud' => $modelo,
+                    'modelo_local' => $modeloLocal,
+                    'status' => $status,
+                    'body_preview' => mb_substr($bodyRaw, 0, 200),
+                ]);
+                $modelo = $modeloLocal;
+                continue;
+            }
+
+            if ($response->failed()) {
+                Log::error('[Booking IA] Error Hawkins AI', [
+                    'modelo' => $modelo,
+                    'status' => $status,
+                    'body_preview' => mb_substr($bodyRaw, 0, 300),
+                ]);
+                return null;
+            }
+
+            $texto = is_array($body) ? ($body['respuesta'] ?? null) : null;
+            if (empty($texto)) {
+                Log::warning('[Booking IA] Respuesta sin campo respuesta', ['modelo' => $modelo, 'data' => $body]);
+                return null;
+            }
+
+            if ($intento === 2) {
+                Log::info('[Booking IA] Respuesta OK con fallback local', ['modelo' => $modelo, 'chars' => strlen($texto)]);
+            }
+            return $texto;
+        }
+
+        return null;
     }
 
     private function bookingGestionarAveria($remitente, $descripcion)

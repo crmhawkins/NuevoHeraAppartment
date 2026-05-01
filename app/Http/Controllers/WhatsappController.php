@@ -982,10 +982,21 @@ class WhatsappController extends Controller
     }
 
     /**
-     * Helper para hacer peticiones HTTP a la IA local con manejo de SSL
+     * Helper para hacer peticiones HTTP a la IA local con manejo de SSL.
+     *
+     * [2026-05-01] Anadido fallback automatico cloud -> local. Si el modelo
+     * primario (gpt-oss:120b-cloud) devuelve 429/502 weekly_limit, reintenta
+     * automaticamente con el modelo definido en HAWKINS_AI_CHAT_FALLBACK_MODEL
+     * (default gpt-oss:20b en GPU 5090). Los callers siguen recibiendo un
+     * objeto Response identico al anterior — drop-in compatible.
+     *
+     * Antes este flujo (WhatsApp del huesped) caia en silencio cuando el
+     * cloud agotaba cuota semanal.
      */
     private function hacerPeticionIALocal($endpoint, $apiKey, $prompt, $modelo, $timeout = 60)
     {
+        $modeloFallback = env('HAWKINS_AI_CHAT_FALLBACK_MODEL', 'gpt-oss:20b');
+
         $httpClient = Http::withHeaders([
             'x-api-key' => $apiKey,
             'Content-Type' => 'application/json'
@@ -996,17 +1007,52 @@ class WhatsappController extends Controller
         // - aiapi.hawkins.es (dominio propio, certificado FNMT puede caducar)
         if (preg_match('/192\.168\./', $endpoint)
             || preg_match('/127\.0\.0\.1/', $endpoint)
+            || preg_match('/10\.0\.0\./', $endpoint)
             || preg_match('/localhost/', $endpoint)
             || preg_match('/aiapi\.hawkins\.es/', $endpoint)) {
             $httpClient = $httpClient->withoutVerifying();
         }
 
-        // Si la URL es HTTP pero el servidor redirige a HTTPS, seguir la redirección
-        // Laravel Http client sigue redirecciones automáticamente, pero podemos forzarlo
-        return $httpClient->timeout($timeout)->post($endpoint, [
-            'prompt' => $prompt,
-            'modelo' => $modelo
-        ]);
+        $modeloActual = $modelo;
+        $response = null;
+        for ($intento = 1; $intento <= 2; $intento++) {
+            $response = $httpClient->timeout($timeout)->post($endpoint, [
+                'prompt' => $prompt,
+                'modelo' => $modeloActual,
+            ]);
+
+            $bodyRaw = (string) $response->body();
+            $body = $response->json();
+            $status = $response->status();
+
+            // Detectar limit cloud (ver HawkinsAIHelper para detalle).
+            $esCloudLimit = false;
+            if ($status === 429) {
+                $esCloudLimit = true;
+            } elseif ($status === 502 && is_array($body)) {
+                $detail = (string) ($body['detail'] ?? '');
+                $err = (string) ($body['error'] ?? '');
+                if (stripos($detail, 'weekly') !== false || stripos($detail, 'limit') !== false || stripos($err, 'ollama_http') !== false) {
+                    $esCloudLimit = true;
+                }
+            } elseif (stripos($bodyRaw, 'weekly usage limit') !== false || stripos($bodyRaw, 'weekly_limit') !== false) {
+                $esCloudLimit = true;
+            }
+
+            if ($esCloudLimit && $intento === 1 && $modeloActual !== $modeloFallback) {
+                \Illuminate\Support\Facades\Log::warning('[WhatsApp IA] Cloud limit detectado, conmutando a LOCAL', [
+                    'modelo_cloud' => $modeloActual,
+                    'modelo_local' => $modeloFallback,
+                    'status' => $status,
+                ]);
+                $modeloActual = $modeloFallback;
+                continue;
+            }
+
+            return $response;
+        }
+
+        return $response;
     }
 
     /**

@@ -77,19 +77,28 @@ class TranslationService
 
             $prompt = "Traduceme esto a {$targetLang}: {$text}";
 
-            $response = Http::timeout(30)
-                ->withoutVerifying() // Deshabilitar verificación SSL para desarrollo
-                ->withHeaders([
-                    'X-API-Key' => $this->apiKey,
-                    'Content-Type' => 'application/json',
-                ])
-                ->post($this->apiUrl, [
-                    'model' => $this->model,
-                    'prompt' => $prompt
+            // [2026-05-01] Fallback automatico cloud->local. Si el modelo
+            // configurado (gpt-oss:120b-cloud por defecto) agota cuota
+            // semanal, reintentamos con gpt-oss:20b local. Antes esto fallaba
+            // en silencio y el huesped recibia textos sin traducir.
+            $response = $this->doTranslateRequest($prompt, $this->model);
+            $usedFallback = false;
+            if ($this->isCloudLimit($response)) {
+                $modeloLocal = env('HAWKINS_AI_CHAT_FALLBACK_MODEL', 'gpt-oss:20b');
+                Log::warning('TranslationService: cloud limit detectado, conmutando a LOCAL', [
+                    'modelo_cloud' => $this->model,
+                    'modelo_local' => $modeloLocal,
+                    'status' => $response ? $response->status() : null,
                 ]);
+                $response = $this->doTranslateRequest($prompt, $modeloLocal);
+                $usedFallback = true;
+            }
 
-            if ($response->successful()) {
+            if ($response && $response->successful()) {
                 $result = $response->json();
+                if ($usedFallback) {
+                    Log::info('TranslationService: traduccion OK con fallback local', ['target' => $targetLocale]);
+                }
                 
                 // Log para debugging
                 Log::debug('Respuesta de API de traducción', [
@@ -222,8 +231,8 @@ class TranslationService
             }
 
             Log::warning('Error en traducción', [
-                'status' => $response->status(),
-                'response' => $response->body(),
+                'status' => $response ? $response->status() : null,
+                'response' => $response ? $response->body() : null,
                 'text' => $text,
                 'locale' => $targetLocale
             ]);
@@ -237,6 +246,62 @@ class TranslationService
             ]);
             return null;
         }
+    }
+
+    /**
+     * [2026-05-01] Hace una peticion individual de traduccion con un modelo
+     * concreto. Aislado para reutilizarlo en el flujo cloud->local.
+     */
+    private function doTranslateRequest(string $prompt, string $modelo)
+    {
+        try {
+            return Http::timeout(30)
+                ->withoutVerifying()
+                ->withHeaders([
+                    'X-API-Key' => $this->apiKey,
+                    'Content-Type' => 'application/json',
+                ])
+                ->post($this->apiUrl, [
+                    'model' => $modelo,
+                    'modelo' => $modelo, // Compatibilidad con wrappers que esperan 'modelo'
+                    'prompt' => $prompt,
+                ]);
+        } catch (\Throwable $e) {
+            Log::warning('TranslationService: excepcion en POST', [
+                'modelo' => $modelo,
+                'error' => $e->getMessage(),
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * [2026-05-01] Detecta si una respuesta indica que el modelo cloud agoto
+     * cuota semanal (Ollama Cloud weekly limit).
+     */
+    private function isCloudLimit($response): bool
+    {
+        if (!$response) {
+            return false;
+        }
+        $status = $response->status();
+        $bodyRaw = (string) $response->body();
+        $body = $response->json();
+
+        if ($status === 429) {
+            return true;
+        }
+        if ($status === 502 && is_array($body)) {
+            $detail = (string) ($body['detail'] ?? '');
+            $err = (string) ($body['error'] ?? '');
+            if (stripos($detail, 'weekly') !== false || stripos($detail, 'limit') !== false || stripos($err, 'ollama_http') !== false) {
+                return true;
+            }
+        }
+        if (stripos($bodyRaw, 'weekly usage limit') !== false || stripos($bodyRaw, 'weekly_limit') !== false) {
+            return true;
+        }
+        return false;
     }
 
     /**
