@@ -275,8 +275,24 @@ class CheckInPublicController extends Controller
             $this->updateHuesped($huesped, $guestData, $reserva->id);
         }
 
+        // [2026-04-30 LOGGING DEBUG] Capturar el estado pre/post update para
+        // diagnosticar el bug observado en reserva 5525 (Gloria Morales): los
+        // datos del huesped sí se guardaron pero `dni_entregado` quedó NULL.
+        Log::info('[CheckInPublic] Pre-update dni_entregado', [
+            'reserva_id' => $reserva->id,
+            'dni_entregado_actual' => $reserva->dni_entregado,
+            'guests_count' => count($guestsData),
+            'huespedes_creados' => Huesped::where('reserva_id', $reserva->id)->count(),
+        ]);
+
         // Mark reservation as DNI submitted
-        $reserva->update(['dni_entregado' => true]);
+        $updResult = $reserva->update(['dni_entregado' => true]);
+
+        Log::info('[CheckInPublic] Post-update dni_entregado', [
+            'reserva_id' => $reserva->id,
+            'update_result' => $updResult,
+            'dni_entregado_post' => $reserva->fresh()->dni_entregado,
+        ]);
 
         // Check if all MIR data is complete
         $cliente->refresh();
