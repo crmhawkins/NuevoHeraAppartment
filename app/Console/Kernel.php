@@ -328,8 +328,13 @@ class Kernel extends ConsoleKernel
             ->weeklyOn(1, '09:00') // 1 = lunes
             ->withoutOverlapping();
 
-        // Verificar que las reservas de hoy tienen todo preparado para el check-in
-        $schedule->command('checkin:verificar-hoy')->dailyAt('08:00')->withoutOverlapping();
+        // [2026-05-01] DESHABILITADO: este cron a las 08:00 era un eco del
+        // resumen MIR de las 11:00 (95% de las incidencias eran "MIR no
+        // enviado"). El resto de checks (sin codigo de acceso, sin telefono,
+        // sin email, datos huesped sin rellenar) se gestionan por alertas
+        // inmediatas o por el cron de claves (`dni_dia_entrada`). El comando
+        // sigue existiendo para ejecutar a mano si hace falta.
+        // $schedule->command('checkin:verificar-hoy')->dailyAt('08:00')->withoutOverlapping();
 
         // Verificar fichajes de limpiadoras (a las 10:00 tras inicio de turnos, y a las 17:30 tras fin)
         $schedule->command('fichajes:verificar-limpiadoras')->dailyAt('10:00');
