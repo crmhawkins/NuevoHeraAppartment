@@ -787,14 +787,19 @@ class Kernel extends ConsoleKernel
                             ]);
                         }
 
-                        // Verificar que el DNI esté subido antes de enviar las claves
-                        if (empty($reserva->dni_entregado) || $reserva->dni_entregado != true) {
-                            Log::warning('⚠️ No se pueden enviar claves: el DNI no ha sido subido', [
+                        // [2026-05-04 HOTFIX] NO bloqueamos por dni_entregado.
+                        // Las claves SIEMPRE se envian. Si el DNI no esta
+                        // subido, ademas se envia un AVISO ADICIONAL con la URL
+                        // para subirlo (ver bloque tras el envio). Mismo
+                        // criterio que el comando ari:enviar-claves-channex.
+                        // Antes este cron rechazaba reservas sin DNI, dejandolas
+                        // sin claves cuando el huesped subia el DNI tarde
+                        // (caso Isabel Maldonado #6487 04/05).
+                        $sinDni = empty($reserva->dni_entregado) || $reserva->dni_entregado != true;
+                        if ($sinDni) {
+                            Log::info('[Kernel] Reserva sin DNI: enviamos claves de todas formas + aviso DNI', [
                                 'reserva_id' => $reserva->id,
-                                'dni_entregado' => $reserva->dni_entregado,
-                                'dni_entregado_tipo' => gettype($reserva->dni_entregado)
                             ]);
-                            continue; // Saltar esta reserva y continuar con la siguiente
                         }
 
                         // Verificar que el teléfono no esté vacío
@@ -961,6 +966,11 @@ class Kernel extends ConsoleKernel
                             ['reserva_id' => $reserva->id, 'categoria_id' => 3],
                             ['cliente_id' => $reserva->cliente_id, 'fecha_envio' => Carbon::now()]
                         );
+
+                        // [2026-05-04 HOTFIX] Aviso DNI extra si no entregado
+                        if (!empty($sinDni)) {
+                            $this->enviarAvisoDniDiaEntrada($reserva, $idiomaCliente);
+                        }
 
                         if ($reserva->apartamento_id === 1) {
                             $mensaje = $this->clavesEmailAtico(
@@ -3300,15 +3310,10 @@ class Kernel extends ConsoleKernel
                return false;
            }
 
-           // Verificar que el DNI esté subido antes de enviar las claves
-           if (empty($reserva->dni_entregado) || $reserva->dni_entregado != true) {
-               Log::info('No se puede enviar claves por Channex: el DNI no ha sido subido', [
-                   'reserva_id' => $reserva->id,
-                   'dni_entregado' => $reserva->dni_entregado,
-                   'dni_entregado_tipo' => gettype($reserva->dni_entregado)
-               ]);
-               return false;
-           }
+           // [2026-05-04 HOTFIX] NO bloqueamos por dni_entregado.
+           // Las claves SIEMPRE se envian. Si falta DNI, se manda un aviso
+           // adicional pero las claves no se omiten.
+           $sinDniLocal = empty($reserva->dni_entregado) || $reserva->dni_entregado != true;
 
            // Verificar que no se hayan enviado ya las claves
            $mensajeClaves = MensajeAuto::where('reserva_id', $reserva->id)
@@ -3382,6 +3387,11 @@ class Kernel extends ConsoleKernel
                    'id_channex' => $reserva->id_channex,
                    'codigo_reserva' => $reserva->codigo_reserva
                ]);
+
+               // [2026-05-04 HOTFIX] Aviso DNI extra si la reserva no entrego DNI
+               if (!empty($sinDniLocal)) {
+                   $this->enviarAvisoDniDiaEntrada($reserva, $idiomaCliente);
+               }
 
                return true;
            } else {
@@ -3471,19 +3481,16 @@ class Kernel extends ConsoleKernel
                'dni_entregado_es_1' => $reserva->dni_entregado == 1
            ]);
 
+           // [2026-05-04 HOTFIX] NO bloqueamos por dni_entregado.
+           // Las claves se envian SIEMPRE; si falta DNI se envia ademas un
+           // aviso adicional. NUNCA dejamos al huesped sin claves.
            if (empty($reserva->dni_entregado) || $reserva->dni_entregado != true) {
-               Log::warning('❌ No se puede enviar claves por Channex: el DNI no ha sido subido', [
+               Log::info('[Kernel/Channex] Reserva sin DNI: claves se envian igualmente, aviso DNI tambien', [
                    'reserva_id' => $reserva->id,
                    'codigo_reserva' => $reserva->codigo_reserva,
-                   'dni_entregado' => $reserva->dni_entregado,
-                   'dni_entregado_tipo' => gettype($reserva->dni_entregado)
                ]);
-               return false;
+               // No return false — seguimos
            }
-
-           Log::info('✅ DNI entregado verificado correctamente', [
-               'reserva_id' => $reserva->id
-           ]);
 
            // Preparar datos para el mensaje de claves
            $datosClaves = [
@@ -3557,6 +3564,12 @@ class Kernel extends ConsoleKernel
                    'mensaje_auto_id' => $mensajeAuto->id,
                    'fecha_envio' => $mensajeAuto->fecha_envio
                ]);
+
+               // [2026-05-04 HOTFIX] Aviso DNI extra si la reserva no entrego DNI
+               $sinDni = empty($reserva->dni_entregado) || $reserva->dni_entregado != true;
+               if ($sinDni) {
+                   $this->enviarAvisoDniDiaEntrada($reserva, $idiomaCliente);
+               }
 
                return true;
            } else {
@@ -3651,4 +3664,53 @@ class Kernel extends ConsoleKernel
        });
    }
 
+    /**
+     * [2026-05-04 HOTFIX] Envia el aviso "dni_dia_entrada" via Channex
+     * cuando una reserva recibe las claves SIN haber subido el DNI.
+     *
+     * Las claves se envian SIEMPRE pero a los huespedes sin DNI tambien
+     * les llega este aviso adicional con la URL para subirlo y el
+     * recordatorio legal.
+     *
+     * Reusa la misma logica que App\Console\Commands\EnviarClavesChannexCommand.
+     */
+    protected function enviarAvisoDniDiaEntrada($reserva, string $idiomaCliente): bool
+    {
+        if (empty($reserva->id_channex)) {
+            return false;
+        }
+        try {
+            $url = url("/dni-scanner/" . ($reserva->token ?? ''));
+            $idi = substr((string) $idiomaCliente, 0, 2);
+            $msg = match ($idi) {
+                'es' => "📋 IMPORTANTE — sube tu DNI/Pasaporte\n\nLa legislación española exige que registremos tu documento antes de tu llegada. Sin DNI no puedes alojarte legalmente.\n\nSube tu documento aquí: {$url}\n\nGracias.",
+                'fr' => "📋 IMPORTANT — téléverse ton DNI/Passeport\n\nLa législation espagnole nous oblige à enregistrer ton document avant ton arrivée. Sans DNI, l'hébergement n'est pas possible.\n\nTélécharge ton document ici : {$url}\n\nMerci.",
+                'de' => "📋 WICHTIG — DNI/Reisepass hochladen\n\nDie spanische Gesetzgebung verlangt, dass wir Ihr Dokument vor Ihrer Ankunft registrieren. Ohne DNI ist eine Unterbringung nicht möglich.\n\nLaden Sie Ihr Dokument hier hoch: {$url}\n\nDanke.",
+                'it' => "📋 IMPORTANTE — carica il tuo DNI/Passaporto\n\nLa legislazione spagnola richiede che registriamo il tuo documento prima del tuo arrivo. Senza DNI non e' possibile alloggiare.\n\nCarica il tuo documento qui: {$url}\n\nGrazie.",
+                'pt' => "📋 IMPORTANTE — envie o seu DNI/Passaporte\n\nA legislação espanhola exige que registemos o seu documento antes da chegada. Sem DNI não é possível alojar-se.\n\nEnvie o seu documento aqui: {$url}\n\nObrigado.",
+                'ar' => "📋 مهم — حمّل وثيقة هويتك أو جواز سفرك\n\nالقانون الإسباني يلزمنا بتسجيل وثيقتك قبل وصولك. بدون وثيقة هوية لا يمكنك الإقامة قانونياً.\n\nارفع وثيقتك هنا: {$url}\n\nشكراً.",
+                default => "📋 IMPORTANT — upload your ID/Passport\n\nSpanish law requires us to register your ID before your arrival. Without it, you cannot legally stay.\n\nUpload your document here: {$url}\n\nThank you.",
+            };
+            $rAviso = \App\Http\Controllers\WebhookController::enviarMensajeAutomaticoAChannex($msg, $reserva->id_channex);
+            if ($rAviso) {
+                \App\Models\MensajeAuto::updateOrCreate(
+                    ['reserva_id' => $reserva->id, 'categoria_id' => 5], // 5 = aviso DNI dia entrada
+                    ['cliente_id' => $reserva->cliente_id, 'fecha_envio' => \Carbon\Carbon::now()]
+                );
+                Log::info('[Kernel] Aviso dni_dia_entrada enviado tras claves', [
+                    'reserva_id' => $reserva->id,
+                    'id_channex' => $reserva->id_channex,
+                    'idioma' => $idiomaCliente,
+                ]);
+                return true;
+            }
+            Log::warning('[Kernel] Aviso dni_dia_entrada fallo', ['reserva_id' => $reserva->id]);
+        } catch (\Throwable $e) {
+            Log::error('[Kernel] Excepcion enviando aviso dni_dia_entrada', [
+                'reserva_id' => $reserva->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+        return false;
+    }
 }
