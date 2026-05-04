@@ -62,6 +62,13 @@ class Reserva extends Model
         'ttlock_pin_id',
         'codigo_enviado_cerradura',
         'codigo_acceso_enviado',
+        // [2026-05-03 HOTFIX 2] Campos canonicos del refactor 26/04 — antes
+        // no estaban en $fillable y los update() masivos los ignoraban en
+        // silencio. Esto causo que algunas reservas quedaran con codigo_portal
+        // y codigo_apartamento null aunque el codigo se intentaba escribir.
+        'codigo_portal',
+        'codigo_apartamento',
+        'codigo_fallback_enviado',
     ];
 
     /**

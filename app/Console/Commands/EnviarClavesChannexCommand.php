@@ -177,30 +177,84 @@ class EnviarClavesChannexCommand extends Command
                         }
                     }
 
-                    $pinReal = $reserva->codigo_acceso ?: null;
-                    if ($pinReal && $reserva->codigo_enviado_cerradura) {
+                    // [2026-05-03 HOTFIX 1] Bug grave: leer SIEMPRE codigo_portal
+                    // (canonico) y NO codigo_acceso (legacy). El campo legacy
+                    // codigo_acceso a veces contiene la clave fija del piso
+                    // (cuando AccessCodeService cae a fallback manual). Eso
+                    // hizo que el dia 03/05/2026 a las 14:00 a Malak Nechnach
+                    // (Suite 1B, reserva 6470) le llegara "codigo del portal:
+                    // 123456#" cuando 123456# es la clave del APARTAMENTO.
+                    //
+                    // Ahora preferimos codigo_portal y caemos a codigo_acceso
+                    // solo si codigo_portal esta vacio. Ademas el mensaje
+                    // SIEMPRE incluye la clave del apartamento al lado para
+                    // que el huesped no se quede a la puerta del piso.
+                    $pinPortal = $reserva->codigo_portal ?: $reserva->codigo_acceso ?: null;
+                    $claveApartamento = $reserva->codigo_apartamento
+                        ?: ($reserva->apartamento->claves ?? null);
+                    if ($pinPortal && $reserva->codigo_enviado_cerradura) {
                         $fechaEntradaFmt = \Carbon\Carbon::parse($reserva->fecha_entrada)->format('d/m/Y');
                         $fechaSalidaFmt  = \Carbon\Carbon::parse($reserva->fecha_salida)->format('d/m/Y');
                         $enlaceLimpio = $esEdificio1 ? 'goo.gl/maps/qb7AxP1JAxx5yg3N9' : 'maps.app.goo.gl/t81tgLXnNYxKFGW4A';
 
-                        $mensajeChat = match (substr((string) $idiomaCliente, 0, 2)) {
-                            'es' => "🔐 Acceso al portal\n\nTu código de acceso único: *{$pinReal}* (pulsa # después)\n\nVálido del {$fechaEntradaFmt} a las 15:00h hasta el {$fechaSalidaFmt} a las 11:00h.\n\nDirección: {$enlaceLimpio}\n\nCualquier duda, estamos a tu disposición.",
-                            'fr' => "🔐 Accès au portail\n\nVotre code d'accès unique : *{$pinReal}* (appuyez sur # après)\n\nValable du {$fechaEntradaFmt} à 15:00h jusqu'au {$fechaSalidaFmt} à 11:00h.\n\nAdresse : {$enlaceLimpio}",
-                            'de' => "🔐 Zugang zum Portal\n\nIhr einmaliger Zugangscode: *{$pinReal}* (anschließend # drücken)\n\nGültig vom {$fechaEntradaFmt} ab 15:00 Uhr bis {$fechaSalidaFmt} um 11:00 Uhr.\n\nAdresse: {$enlaceLimpio}",
-                            default => "🔐 Access to the portal\n\nYour unique access code: *{$pinReal}* (press # after)\n\nValid from {$fechaEntradaFmt} at 15:00 until {$fechaSalidaFmt} at 11:00.\n\nAddress: {$enlaceLimpio}",
+                        // Bloque clave apartamento (solo si la tenemos)
+                        $bloqueApto = function ($idioma) use ($claveApartamento) {
+                            if (empty($claveApartamento)) return '';
+                            return match ($idioma) {
+                                'es' => "\nCódigo APARTAMENTO (puerta del piso): *{$claveApartamento}*\n",
+                                'fr' => "\nCode APPARTEMENT (porte de l'étage) : *{$claveApartamento}*\n",
+                                'de' => "\nWohnungscode (Türcode): *{$claveApartamento}*\n",
+                                'it' => "\nCodice APPARTAMENTO (porta del piano): *{$claveApartamento}*\n",
+                                'pt' => "\nCódigo APARTAMENTO (porta do andar): *{$claveApartamento}*\n",
+                                'ar' => "\nرمز الشقة (باب الطابق): *{$claveApartamento}*\n",
+                                default => "\nAPARTMENT code (flat door): *{$claveApartamento}*\n",
+                            };
+                        };
+                        $idi = substr((string) $idiomaCliente, 0, 2);
+
+                        $mensajeChat = match ($idi) {
+                            'es' => "🔐 Acceso a tu apartamento\n\nCódigo PORTAL del edificio: *{$pinPortal}* (pulsa # después)" . $bloqueApto('es') . "\nVálido del {$fechaEntradaFmt} a las 15:00h hasta el {$fechaSalidaFmt} a las 11:00h.\n\nDirección: {$enlaceLimpio}\n\nCualquier duda, estamos a tu disposición.",
+                            'fr' => "🔐 Accès à votre appartement\n\nCode PORTAIL du bâtiment : *{$pinPortal}* (appuyez sur # après)" . $bloqueApto('fr') . "\nValable du {$fechaEntradaFmt} à 15h00 jusqu'au {$fechaSalidaFmt} à 11h00.\n\nAdresse : {$enlaceLimpio}",
+                            'de' => "🔐 Zugang zu Ihrer Wohnung\n\nGEBÄUDE-PORTAL Code: *{$pinPortal}* (anschließend # drücken)" . $bloqueApto('de') . "\nGültig vom {$fechaEntradaFmt} ab 15:00 Uhr bis {$fechaSalidaFmt} um 11:00 Uhr.\n\nAdresse: {$enlaceLimpio}",
+                            'it' => "🔐 Accesso al tuo appartamento\n\nCodice PORTONE dell'edificio: *{$pinPortal}* (premi # dopo)" . $bloqueApto('it') . "\nValido dal {$fechaEntradaFmt} alle 15:00 fino al {$fechaSalidaFmt} alle 11:00.\n\nIndirizzo: {$enlaceLimpio}",
+                            'pt' => "🔐 Acesso ao seu apartamento\n\nCódigo PORTAL do edifício: *{$pinPortal}* (pressione # depois)" . $bloqueApto('pt') . "\nVálido do {$fechaEntradaFmt} às 15:00h até {$fechaSalidaFmt} às 11:00h.\n\nEndereço: {$enlaceLimpio}",
+                            'ar' => "🔐 الدخول إلى شقتك\n\nرمز بوابة المبنى: *{$pinPortal}* (اضغط # بعد ذلك)" . $bloqueApto('ar') . "\nصالح من {$fechaEntradaFmt} الساعة 15:00 حتى {$fechaSalidaFmt} الساعة 11:00.\n\nالعنوان: {$enlaceLimpio}",
+                            default => "🔐 Access to your apartment\n\nBUILDING ENTRANCE code: *{$pinPortal}* (press # after)" . $bloqueApto('en') . "\nValid from {$fechaEntradaFmt} at 15:00 until {$fechaSalidaFmt} at 11:00.\n\nAddress: {$enlaceLimpio}",
                         };
                     } else {
-                        // Aun no hay PIN listo — placeholder temporal
-                        $mensajeChat = match (substr((string) $idiomaCliente, 0, 2)) {
-                            'es' => "Tu acceso será mediante cerradura digital. Estamos preparando tu código — te llegará antes de tu llegada. Si no lo recibes 6h antes, escríbenos.",
-                            'fr' => "Votre accès se fera via serrure digitale. Nous préparons votre code — il arrivera avant votre arrivée.",
-                            'de' => "Ihr Zugang erfolgt über ein digitales Schloss. Ihr Code wird vor der Ankunft zugestellt.",
-                            default => "Your access will be via a digital lock. Your code is being prepared — it will arrive before your check-in.",
+                        // [2026-05-03 HOTFIX 1.b] Aun no hay PIN del portal listo
+                        // — placeholder temporal pero INCLUIMOS la clave del piso si
+                        // la tenemos (antes el huesped llegaba sin saberla y se
+                        // quedaba a la puerta del apartamento aunque por suerte
+                        // alguien le hubiera dicho como abrir el portal).
+                        $idi = substr((string) $idiomaCliente, 0, 2);
+                        $bloquePisoTmp = '';
+                        if (!empty($claveApartamento)) {
+                            $bloquePisoTmp = match ($idi) {
+                                'es' => "\n\nMientras tanto, tu código del APARTAMENTO (puerta del piso) es: *{$claveApartamento}*",
+                                'fr' => "\n\nEntretemps, votre code APPARTEMENT (porte du piso) est : *{$claveApartamento}*",
+                                'de' => "\n\nIn der Zwischenzeit, Ihr WOHNUNGS-Code (Türcode) lautet: *{$claveApartamento}*",
+                                'it' => "\n\nNel frattempo, il tuo codice APPARTAMENTO (porta del piano) è: *{$claveApartamento}*",
+                                'pt' => "\n\nEnquanto isso, o código do seu APARTAMENTO (porta do andar) é: *{$claveApartamento}*",
+                                'ar' => "\n\nفي هذه الأثناء، رمز شقتك (باب الطابق) هو: *{$claveApartamento}*",
+                                default => "\n\nMeanwhile, your APARTMENT code (flat door) is: *{$claveApartamento}*",
+                            };
+                        }
+                        $mensajeChat = match ($idi) {
+                            'es' => "Tu acceso será mediante cerradura digital. Estamos preparando tu código del portal — te llegará antes de tu llegada. Si no lo recibes 6h antes, escríbenos." . $bloquePisoTmp,
+                            'fr' => "Votre accès se fera via serrure digitale. Nous préparons votre code du portail — il arrivera avant votre arrivée." . $bloquePisoTmp,
+                            'de' => "Ihr Zugang erfolgt über ein digitales Schloss. Ihr Portal-Code wird vor der Ankunft zugestellt." . $bloquePisoTmp,
+                            'it' => "Il tuo accesso sarà tramite serratura digitale. Stiamo preparando il codice del portone — arriverà prima del tuo arrivo." . $bloquePisoTmp,
+                            'pt' => "O seu acesso será via fechadura digital. Estamos a preparar o código do portal — receberá antes da chegada." . $bloquePisoTmp,
+                            'ar' => "سيكون دخولك عبر قفل رقمي. نقوم بإعداد رمز البوابة — ستستلمه قبل وصولك." . $bloquePisoTmp,
+                            default => "Your access will be via a digital lock. We're preparing your portal code — it will arrive before your check-in." . $bloquePisoTmp,
                         };
                         Log::warning('[EnviarClavesChannex] Flujo digital sin PIN listo', [
                             'reserva_id' => $reserva->id,
+                            'codigo_portal' => $reserva->codigo_portal,
                             'codigo_acceso' => $reserva->codigo_acceso,
                             'enviado_cerradura' => $reserva->codigo_enviado_cerradura,
+                            'tiene_clave_piso' => !empty($claveApartamento),
                         ]);
                     }
                 } else {

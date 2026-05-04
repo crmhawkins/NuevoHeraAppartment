@@ -949,10 +949,28 @@ class WhatsappController extends Controller
                 return $this->llamarIALocalConContexto($promptSystem, $historial, $nuevoMensaje, $mensajeFuncion, $endpoint, $apiKey, $modelo);
             }
 
-            $clave = $reserva->apartamento->claves ?? 'No asignada aún';
-            $clave2 = $reserva->apartamento->edificioName->clave ?? 'No asignada aún';
+            // [2026-05-03 HOTFIX 3] Leer SIEMPRE codigo_portal y codigo_apartamento
+            // (canonicos del refactor 26/04). Antes leia apartamento->claves y
+            // edificioName->clave (estaticas), ignorando el PIN dinamico que el
+            // CRM acababa de programar y el codigo de emergencia en modo
+            // fallback. Resultado: el chatbot daba codigos que NO funcionaban
+            // si la cerradura tenia PIN dinamico.
+            //
+            // Prioridad de lectura:
+            //  1. codigo_portal       (canonico, dinamico)
+            //  2. codigo_acceso       (legacy, puede estar)
+            //  3. edificioName->clave (estatica del edificio, ultimo recurso)
+            $clavePortal = $reserva->codigo_portal
+                ?: $reserva->codigo_acceso
+                ?: ($reserva->apartamento->edificioName->clave ?? null);
+            $claveApartamento = $reserva->codigo_apartamento
+                ?: ($reserva->apartamento->claves ?? null);
+
+            $clavePortalTxt = $clavePortal ?: 'No asignada aún';
+            $claveApartamentoTxt = $claveApartamento ?: 'No asignada aún';
+
             // Solo proporcionar los códigos, sin información adicional a menos que se solicite
-            $mensajeFuncion = "Código de la puerta del edificio: *{$clave2}*\nCódigo del apartamento: *{$clave}*";
+            $mensajeFuncion = "Código de la puerta del edificio: *{$clavePortalTxt}*\nCódigo del apartamento: *{$claveApartamentoTxt}*";
             return $this->llamarIALocalConContexto($promptSystem, $historial, $nuevoMensaje, $mensajeFuncion, $endpoint, $apiKey, $modelo);
         } else {
             $mensajeFuncion = "Las claves solo se entregan el día de entrada. Tu reserva es para el {$fechaEntrada->format('d/m/Y')}.";
