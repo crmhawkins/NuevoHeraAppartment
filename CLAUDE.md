@@ -1,30 +1,35 @@
 # NuevoHeraAppartment — Memoria del proyecto
 
 Archivo de memoria local para retomar contexto en conversaciones futuras.
-Última actualización: 2026-04-29.
+Última actualización: **2026-05-05**.
 
 ---
 
-## VERSIÓN ESTABLE DE REFERENCIA
+## VERSIONES ESTABLES DE REFERENCIA
 
-**Tag git: `stable-2026-04-29`** en ambos repos:
-- `crmhawkins/NuevoHeraAppartment` → tag en commit `e478878`
-- `crmhawkins/tuya-ttlocl-laravel` → tag en commit `17eb5fd`
+### Repo `crmhawkins/NuevoHeraAppartment` (CRM)
 
-Esta es la versión que el cliente confirmó estable al final del 29/04/2026
-tras una jornada de incidentes (cache root:root, URL Channex/IA muertas,
-cerraduras saturadas con WhatsApp masivo de emergencia, checkin público
-mostrando códigos duplicados, 2 reservas perdidas).
+| Tag | Commit | Lo que añade |
+|---|---|---|
+| `stable-2026-04-29` | `e478878` | Base de la jornada catastrófica del 29/04 (cache root:root, etc.) |
+| `stable-2026-05-01` | `5f55deb` | PIN portal 6 dígitos `00XXXX`, fallback IA cloud→local en flujos críticos, MIR consolidado 11h, cron `checkin:verificar-hoy` deshabilitado |
+| `stable-2026-05-04` | `0b15ec0` | Cámara DNI con overlay SVG, 3 hotfixes claves canónicos, no bloquear claves por falta de DNI, admin marca ticks limpieza sin turno propio |
+
+### Repo `crmhawkins/tuya-ttlocl-laravel` (servicio cerraduras)
+
+| Tag | Commit | Lo que añade |
+|---|---|---|
+| `stable-2026-05-02` | `6c0e732` | Soporte categoría `mk` con 6 dígitos, validación HTTP `digits:6` cuando `metadata.category=mk` |
+| `stable-2026-05-05` | `6f09745` | **Hardening mk**: verificación post-creación + 3 reintentos + activa fallback automático si Tuya cloud da `success` falso |
 
 **Si algo se rompe en futuras sesiones y no se identifica claramente la
 causa, volver aquí**:
 ```bash
-git checkout stable-2026-04-29
-# o como referencia para diff:
-git diff stable-2026-04-29..HEAD -- ruta/a/fichero.php
+git checkout stable-2026-05-04   # CRM
+git checkout stable-2026-05-05   # tuyalaravel
 ```
 
-Nunca borrar este tag sin acuerdo con el cliente.
+Nunca borrar estos tags sin acuerdo con el cliente.
 
 ---
 
@@ -435,6 +440,439 @@ credenciales SSH y detalles de otros contenedores.
 
 ---
 
+## 13. INFRAESTRUCTURA — referencia rápida
+
+### Servidores (SSH)
+
+| Alias | IP | Comando |
+|---|---|---|
+| Externo (Coolify, ~220 contenedores) | `217.160.39.81` | `ssh -i ~/.ssh/hawcert_server claude@217.160.39.81` |
+| **Interno (este proyecto)** | `217.160.39.79` | `ssh -i ~/.ssh/hawcert_server claude@217.160.39.79` |
+| IA Pruebas (RTX 4080) | `192.168.1.250` | `ssh servidor-ia-prueba@192.168.1.250` (red Hawkins/VPN) |
+| IA Producción (5090) | `192.168.1.45` | `ssh hawkins@192.168.1.45` (red Hawkins/VPN) |
+
+Usuario `claude` tiene sudo sin password, grupo docker.
+
+### Contenedores que toca este proyecto (servidor 217.160.39.79)
+
+| Contenedor | Rol | Path raíz | Bind mount host |
+|---|---|---|---|
+| `laravel-f6irzmls5je67llxtivpv7lx` | **CRM Hawkins Apartments** (`crm.apartamentosalgeciras.com`) | `/var/www/html` | (Coolify, no bind) |
+| `nginx-f6irzmls5je67llxtivpv7lx` | Nginx del CRM | — | — |
+| `mariadb-f6irzmls5je67llxtivpv7lx` | BD MariaDB del CRM (`crm_apartamentos`) | — | — |
+| **`tuyalaravel-app`** | Servicio HTTP cerraduras (Tuya + TTLock) | `/var/www` | `/home/claude/tuyalaravel/app → /var/www` |
+| `tuyalaravel-db` | Postgres 16 BD del servicio cerraduras | — | — |
+| `tuyalaravel-redis` | Redis cache | — | — |
+| `aiapi` | Hawkins AI wrapper (puerto 11435) | — | — |
+
+**IMPORTANTE — bind mount tuyalaravel**: el código del servicio de cerraduras
+está en el host (`/home/claude/tuyalaravel/app/`), no dentro del contenedor.
+Para editar: tocar el host directamente, el contenedor lo ve en tiempo real.
+Para git: `cd /home/claude/tuyalaravel/app && git ...`
+
+### IPs de red interna (entre contenedores)
+
+- Hawkins AI (cloud→local fallback): `http://10.0.0.1:11435/chat/chat`
+- Tuyalaravel desde el CRM: `http://tuyalaravel-app:8000/api/...`
+- Channex (externo): `https://app.channex.io/api/v1/...`
+- Tuya cloud (externo): `https://openapi.tuyaeu.com/v1.0/...`
+
+---
+
+## 14. CERRADURAS TUYA — endpoints, cifrado, verificación
+
+### Categorías de cerradura (campo `metadata.category` en `locks`)
+
+Tuya tiene varias categorías y CADA UNA usa endpoints distintos:
+
+| Categoría | Tipo físico | API correcta | Long. PIN |
+|---|---|---|---|
+| **`ms`** | Smart Lock tradicional (BLE/Zigbee + módulo WiFi gateway) | `/v1.0/devices/{id}/door-lock/temp-password` (POST con cifrado AES) | 7 dígitos |
+| **`mk`** | **WiFi Access Control** (puerta del portal santísimo) | `unlock_method_create` via `/v1.0/devices/{id}/commands` | **6 dígitos** |
+| `ttlock` | TTLock (no Tuya) | API distinta TTLock | 4-8 dígitos |
+
+`Lock::getPinMinLengthAttribute()` y `getPinMaxLengthAttribute()` en
+`tuyalaravel/app/Models/Lock.php` calculan la longitud según provider +
+metadata.category.
+
+### Cerraduras existentes (BD postgres `tuyalaravel`)
+
+| lock_id | Nombre | device_id Tuya | Categoría | PIN físico permanente |
+|---|---|---|---|---|
+| 1 | Portal Hawkins Suites (interior 1B, NO usar) | `bfb9c80d3fa0b59b6daugi` | (default) | — |
+| **2** | **Portal Hawkins Suites (real)** | `bfc3cba82e8969736bxqhr` | **`mk`** | `001981` (Elena, user_id `4iosly`) |
+
+El user permanente `4iosly` lo creó el cliente desde la app Tuya Smart
+como red de seguridad. **El sistema NUNCA borra ese PIN.**
+
+### Endpoints de Tuya cloud que SÍ funcionan para `mk`
+
+Toda llamada requiere `client_id`, `access_token`, `t` (timestamp ms),
+`sign` (HMAC-SHA256), `sign_method: HMAC-SHA256`.
+
+```
+# Token
+GET    /v1.0/token?grant_type=1                              → access_token
+
+# Detalles del device
+GET    /v1.0/devices/{deviceId}                              → name, online, category
+GET    /v1.0/devices/{deviceId}/users                        → users permanentes (no PINs temporales)
+GET    /v1.0/iot-03/devices/{deviceId}/status                → DPs raw del device (base64 binario)
+GET    /v1.0/iot-03/devices/{deviceId}/specifications        → funciones soportadas
+GET    /v1.0/iot-03/devices/{deviceId}/functions             → funciones con tipos
+
+# Crear/borrar PIN — ÚNICA vía que funciona en mk
+POST   /v1.0/devices/{deviceId}/commands
+  body: {"commands":[{"code":"unlock_method_create","value":"<JSON string>"}]}
+  value: {"userid":<int32>,"type":0,"code":"<PIN>","name":"<≤20 chars>","starttime":<ts>,"endtime":<ts>}
+
+POST   /v1.0/devices/{deviceId}/commands
+  body: {"commands":[{"code":"unlock_method_delete","value":"{\"userid\":<int>}"}]}
+
+# VERIFICAR que el PIN se publicó al device (clave del hardening 5/5)
+GET    /v1.0/devices/{deviceId}/logs?end_time=<ms>&size=50&start_time=<ms>&type=5
+       (params ORDENADOS alfabéticamente para el sign)
+       → result.logs[] con events de tipo "unlock_method_create" / "unlock_method_delete"
+       → verificar que el log contiene el `userid` del PIN recién creado
+```
+
+### Endpoints que NO funcionan para `mk` (sí para `ms`)
+
+```
+GET    /v1.0/devices/{id}/door-lock/temp-passwords     → devuelve [] aunque haya PINs (es para ms)
+POST   /v1.0/devices/{id}/door-lock/temp-password      → 500 system error (no soporta mk)
+POST   /v1.0/devices/{id}/door-lock/password-ticket    → funciona pero el ticket no sirve para mk
+```
+
+### Cifrado de PIN (solo para cerraduras `ms` — no aplica a `mk`)
+
+Para cerraduras `ms` que sí usan `door-lock/temp-password`:
+
+```
+1. POST /v1.0/devices/{id}/door-lock/password-ticket
+   → response.result = {ticket_id, ticket_key (HEX 64 chars = 32 bytes), expire_time}
+
+2. ticket_bytes = hex2bin(ticket_key)
+
+3. derived = AES-{secLen*8}-ECB-DECRYPT(ticket_bytes, client_secret)
+   - secLen=16 → AES-128-ECB
+   - secLen=24 → AES-192-ECB
+   - secLen=32 → AES-256-ECB (lo habitual en Tuya)
+
+4. key16 = derived[:16]   # primeros 16 bytes
+
+5. encrypted = AES-128-ECB-ENCRYPT(pin, key16)   # PKCS7 padding (default OpenSSL)
+
+6. password_field = strtoupper(bin2hex(encrypted))
+```
+
+Para `mk` NO se cifra el PIN: va en claro dentro del JSON del comando
+`unlock_method_create`.
+
+### Hardening mk implementado el 05/05/2026 (`createTempPasswordMK`)
+
+El flujo nuevo verifica que el PIN realmente llegó al hardware:
+
+```
+1. enviar unlock_method_create
+2. esperar 5s
+3. consultar /v1.0/devices/{id}/logs?type=5 con el rango temporal
+4. buscar log unlock_method_create cuyo value contenga el userid asignado
+5. si SÍ → return id
+6. si NO → reintentar con userid distinto, hasta 3 veces
+7. tras 3 fallos → throw Exception
+   → AccessCodeService captura, suma 1 al contador del edificio
+   → al 3er fallo del edificio se activa modo fallback
+   → todos los huéspedes reciben código emergencia (`001981`)
+```
+
+Esto resuelve el caso silencioso donde Tuya cloud devolvía
+`success: true` pero el PIN no se sincronizaba al device físico.
+
+### Sistema de fallback (`CerraduraFallbackService`)
+
+Constantes:
+- `UMBRAL_FALLOS = 3` (fallos consecutivos para activar)
+- `VENTANA_REENVIO_DIAS = 7` (notifica a reservas con check-in dentro de 7d)
+
+Campos en tabla `edificios`:
+- `fallback_tuya_activo` (bool)
+- `fallback_tuya_activado_at` (timestamp)
+- `fallos_consecutivos_tuya` (int)
+- `codigo_emergencia_portal` (string) ← el PIN que se manda en fallback
+- (mismas variantes con `_ttlock_`)
+
+Para activar/desactivar manualmente:
+```bash
+docker exec -u www-data laravel-f6irzmls5je67llxtivpv7lx \
+    php artisan cerraduras:desactivar-fallback {edificio_id} {tuya|ttlock}
+```
+
+**OJO**: al activarse el fallback, se reenvía automáticamente el código
+de emergencia a TODOS los huéspedes con check-in en los próximos 7 días
+(template Meta `cambio_clave_emergencia`). Pueden ser 17+ mensajes.
+
+---
+
+## 15. CRONS RELEVANTES (Kernel.php)
+
+```
+0   *   * * *  cerraduras:programar-proximas        # cada hora
+0,30 *  * * *  cerraduras:healthcheck-pins          # cada 30 min
+0   *   * * *  cerraduras:probar-recuperacion       # cada hora
+5   11  * * *  cerraduras:rotacion-diaria           # 11:05 todos los días
+0   3   * * 1  cerraduras:purgar-zombies            # lunes 3 AM
+
+0   14  * * *  ari:enviar-claves-channex            # claves a huéspedes
+0   10,22 * * * mir:enviar-pendientes               # MIR pendientes
+*/10 * * * *   mir:reintentar-revalidacion          # cada 10 min
+0,30 *  * * *  mir:auto-rescate                     # cada 30 min
+0   11  * * *  mir:resumen-pendientes               # ÚNICA alerta MIR del día (consolidada)
+
+0   10  * * *  fichajes:verificar-limpiadoras       # 10:00
+30  17  * * *  fichajes:verificar-limpiadoras       # 17:30
+6   30  * * *  revenue:scrape-nocturno              # 06:30
+```
+
+**Cron `checkin:verificar-hoy` (08:00) DESHABILITADO el 01/05** porque era
+un eco del resumen MIR de las 11:00.
+
+---
+
+## 16. CAMPOS CANÓNICOS DE LA RESERVA (post-refactor 26/04)
+
+```
+codigo_acceso       — LEGACY, no usar para nuevos flujos
+codigo_portal       — PIN del PORTAL del edificio (dinámico de cerradura, o emergencia)
+codigo_apartamento  — Clave fija del piso (mecánica, en codigo_acceso o claves)
+codigo_enviado_cerradura — bool, indica si se programó en cerradura física
+codigo_fallback_enviado  — bool, indica si recibió mensaje de cambio por fallback
+ttlock_pin_id       — ID en BD tuyalaravel (mal nombrado, sirve para ambos providers)
+dni_entregado       — bool, NO bloquea envío de claves (regla 30/04)
+```
+
+**HOTFIX 03/05** (`Reserva::$fillable`): añadidos `codigo_portal`,
+`codigo_apartamento` y `codigo_fallback_enviado` que faltaban → `update()`
+masivo los ignoraba en silencio.
+
+**HOTFIX 03/05** mensajes de claves (3 sitios — `EnviarClavesChannexCommand`,
+`Kernel.php`, `WhatsappController` IA): leer SIEMPRE `codigo_portal`
+(canónico), nunca `codigo_acceso`. El mensaje incluye los DOS códigos
+etiquetados claramente:
+
+```
+🔐 Acceso a tu apartamento
+
+Código PORTAL del edificio: *XXXXXX* (pulsa # después)
+Código APARTAMENTO (puerta del piso): *YYYY*
+```
+
+Soporte 7 idiomas: `es, en, fr, de, it, pt, ar`.
+
+---
+
+## 17. ENVÍO DE CLAVES — REGLA 30/04
+
+**Las claves SIEMPRE se envían**, aunque falte DNI. Si falta DNI, se envía
+ADEMÁS un aviso adicional (`dni_dia_entrada` template) con la URL para
+subirlo:
+
+```
+https://crm.apartamentosalgeciras.com/dni-scanner/{token}
+```
+
+3 sitios en Kernel.php que tenían el bloqueo viejo (`if dni != true return false`)
+fueron arreglados el 04/05 (commit `8e05927`).
+
+---
+
+## 18. CÁMARA DNI CON OVERLAY (vista `step1.blade.php`, 04/05)
+
+Vista pública del check-in (`/dni-scanner/{token}` → `CheckInPublicController`).
+Implementa cámara WebRTC con overlay SVG si el navegador lo soporta, y
+fallback automático a `<input capture=environment>` si no:
+
+- **Móviles modernos HTTPS**: cámara dentro del navegador, marco verde
+  marcando dónde encajar el DNI horizontal (ratio 1.58:1)
+- **Webviews limitados** (Booking app, Instagram, WhatsApp, etc.):
+  detecta y cae al input file que abre la cámara nativa del SO
+- **Validación post-captura**: si el aspect ratio no es horizontal,
+  avisa al huésped antes de subir
+
+Compatible con TODOS los móviles. Fallback siempre disponible.
+
+---
+
+## 19. IA — FALLBACK CLOUD→LOCAL (commit `f3d0301` del 02/05)
+
+Hawkins AI tiene 2 modelos en producción:
+- **Primario**: `gpt-oss:120b-cloud` (Ollama Cloud, rate limit semanal)
+- **Secundario**: `gpt-oss:20b` (local en GPU 5090, sin rate limit)
+- **Visión**: `qwen3-vl:8b-thinking` (cloud) → `qwen3-vl:8b` (local fallback)
+
+Cuando el cloud agota cuota semanal devuelve `HTTP 502` con body
+`{"error":"ollama_http","status":429,"detail":"weekly usage limit..."}`.
+
+3 servicios con fallback automático cloud→local implementado:
+
+| Servicio | Camino |
+|---|---|
+| `WebhookController::llamarHawkinsConFallback()` | Booking/Channex chat |
+| `WhatsappController::hacerPeticionIALocal()` | WhatsApp huésped (drop-in) |
+| `TranslationService::doTranslateRequest()` + `isCloudLimit()` | Traducciones |
+| `App\Services\HawkinsAIHelper::chat()` | Helper centralizado para nuevos flujos |
+| `App\Services\AIGatewayService::chatCompletion()` | Gateway oficial OpenAI→Hawkins |
+| `App\Services\OpenAIVisionFallbackService` | Visión (DNI/facturas) |
+
+**Variables de entorno**:
+- `HAWKINS_AI_URL` (default `http://10.0.0.1:11435/`)
+- `HAWKINS_AI_API_KEY`
+- `HAWKINS_AI_CHAT_MODEL` (default `gpt-oss:120b-cloud`)
+- `HAWKINS_AI_CHAT_FALLBACK_MODEL` (default `gpt-oss:20b`)
+- `FALLBACK_VISION_MODEL_LOCAL` (default `qwen3-vl:8b-thinking`)
+- `HAWKINS_WHATSAPP_AI` (default `gpt-oss:120b-cloud`)
+
+Detección de cloud-limit (mismo en los 3 servicios): HTTP 429, o HTTP 502
+con body que contiene `"weekly usage limit"`, `"weekly_limit"` o `"ollama_http"`.
+
+---
+
+## 20. APARTAMENTOS — clasificación tipo_uso (migración 30/04)
+
+Los apartamentos tienen un campo `tipo_uso` en la tabla `apartamentos`:
+- `apartamento` — uso normal turístico
+- `zona_comun` — escaleras, oficina, lavandería (IDs 16-20)
+- `test` — pruebas internas (IDs 22-23, ej. "Apartamento Planta Baja.A test")
+
+Scope: `Apartamento::apartamentosReales()` filtra por `tipo_uso='apartamento'`.
+
+---
+
+## 21. DEPLOY workflow para `tuya-ttlocl-laravel` (servidor 217.160.39.79)
+
+El proyecto tiene un **bind mount** especial: el código del contenedor
+es directamente el host. Por eso el flujo es ligeramente distinto al CRM:
+
+```bash
+# 1. Editar local (en D:\proyectos\programasivan\tuya-ttlocl-laravel)
+# 2. Subir al host
+scp -i ~/.ssh/hawcert_server archivo.php \
+    claude@217.160.39.79:/home/claude/tuyalaravel/app/app/Services/archivo.php
+
+# 3. Lint dentro del contenedor (lee del bind mount, ya tiene los cambios)
+ssh ... "docker exec -u www-data tuyalaravel-app php -l /var/www/app/Services/archivo.php"
+
+# 4. NO hace falta reiniciar el contenedor (PHP-FPM relee el archivo en cada request)
+
+# 5. Commit + push DESDE EL SERVIDOR (porque ahí está el repo git):
+ssh ... "cd /home/claude/tuyalaravel/app && git add ... && git commit ... && git push"
+```
+
+**Si Permission denied al hacer git en el servidor**: hay archivos en
+`.git/` con owner root por operaciones antiguas. Corregir con:
+```bash
+sudo chown -R claude:claude /home/claude/tuyalaravel/app/.git
+```
+
+**Si fileMode warnings al hacer git**: configurar el repo para ignorar mode bits:
+```bash
+git -C /home/claude/tuyalaravel/app config core.fileMode false
+```
+
+---
+
+## 22. DEPLOY workflow para CRM `NuevoHeraAppartment`
+
+NO tiene bind mount. Hay que copiar al contenedor explícitamente:
+
+```bash
+# 1. Editar local
+# 2. Subir al host
+scp ... archivo.php claude@217.160.39.79:/tmp/archivo.php
+
+# 3. Backup forense + copy + ownership (rule #1: no romper PHP-FPM)
+ssh ... "
+  docker exec -u www-data laravel-f6irzmls5je67llxtivpv7lx \
+    cp /var/www/html/app/X.php /var/www/html/app/X.php.bak.YYYYMMDD-descripcion;
+  docker cp /tmp/archivo.php laravel-f6irzmls5je67llxtivpv7lx:/var/www/html/app/X.php;
+  docker exec laravel-f6irzmls5je67llxtivpv7lx \
+    chown www-data:www-data /var/www/html/app/X.php;
+"
+
+# 4. Lint
+ssh ... "docker exec -u www-data laravel-f6irzmls5je67llxtivpv7lx php -l /var/www/html/app/X.php"
+
+# 5. Limpiar caches si es blade/route/config
+ssh ... "docker exec -u www-data laravel-f6irzmls5je67llxtivpv7lx php artisan view:clear"
+
+# 6. Commit + push desde local
+git add ... && git commit ... && git push origin main
+```
+
+---
+
+## 23. SCRIPTS PHP DE DIAGNÓSTICO RÁPIDO
+
+Plantilla mínima que carga Laravel:
+
+```php
+<?php
+require "/var/www/html/vendor/autoload.php";   // CRM
+// require "/var/www/vendor/autoload.php";     // tuyalaravel-app
+$app = require "/var/www/html/bootstrap/app.php";
+$app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+
+// ya puedes usar facade DB, modelos, etc.
+$reserva = \App\Models\Reserva::find(6478);
+echo $reserva->codigo_portal;
+```
+
+Ejecutar con `docker cp`:
+```bash
+scp script.php claude@servidor:/tmp/
+ssh claude@servidor "docker cp /tmp/script.php CONTAINER:/tmp/script.php && docker exec -u www-data CONTAINER php /tmp/script.php"
+```
+
+---
+
+## 24. CASOS HISTÓRICOS RELEVANTES (para no repetir errores)
+
+### Mohamed Boubarkat (Suite 1B, 05/05) — PIN no funcionaba
+- Tuya cloud devolvió `success: true` pero el comando `unlock_method_create`
+  no se sincronizó al hardware
+- **Fix sistémico**: hardening del 05/05 con verificación via logs type=5
+  y reintentos. Ahora si pasa, el sistema activa fallback automáticamente.
+
+### Isabel Maldonado (Suite 2B, 04/05) — entró sin claves del portal
+- Subió el DNI tarde (después del cron 14:00)
+- 3 sitios en Kernel.php tenían bloqueo `if !dni return false` → no
+  reintentaban tras subir DNI
+- **Fix**: 30/04 + 04/05 — claves se envían SIEMPRE, aviso DNI extra
+
+### Malak Nechnach (Suite 1B, 03/05) — recibió clave equivocada
+- `EnviarClavesChannexCommand:180` leía `codigo_acceso` (legacy) que tenía
+  la CLAVE DEL PISO, no el código del portal
+- **Fix**: leer `codigo_portal` (canónico) con fallback a `codigo_acceso`
+
+### Saturación cerraduras (29/04) → 17 WhatsApp masivos por error
+- `cerraduras:programar-proximas` programaba con 7 días de antelación
+- Se llenaban los 9 slots con PINs futuros
+- Llegaba el día y no había sitio para los actuales
+- 3 fallos consecutivos → activó fallback → 17 huéspedes recibieron código
+  emergencia que NO podían usar (cerradura saturada)
+- **Regla nueva**: prohibido programar PINs con > 1 día de antelación
+
+### iPoint alquiler atrasado distorsionando contabilidad
+- En abril se pagaron €9.475 a iPoint que correspondían a alquileres
+  de enero/febrero/marzo
+- Eso hace parecer que apartamentos tienen pérdidas cuando realmente
+  son ~€6.000 de beneficio mensual
+- Análisis con `categoria_id=42` (ALQUILER A IPOINT) requiere mirar
+  texto del concepto para detectar pagos retroactivos
+
+---
+
 _Este archivo debe actualizarse tras cada sesión importante. Cuando
 añadas una feature nueva, añádela en §7. Cuando aprendas una regla
-operacional, añádela en §8._
+operacional, añádela en §8. Endpoints nuevos descubiertos van a §14.
+Crons nuevos a §15._
