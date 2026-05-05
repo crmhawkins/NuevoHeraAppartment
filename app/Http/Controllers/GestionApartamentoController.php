@@ -2693,7 +2693,19 @@ public function updateZonaComun(Request $request, ApartamentoLimpieza $apartamen
 
     /**
      * Resuelve una TareaAsignada para la limpieza cuando no tiene tarea_asignada_id.
-     * Busca una tarea del usuario actual para el mismo apartamento (turno de hoy, activo o con tarea pendiente/en_progreso).
+     *
+     * 1. Busca tarea del usuario actual para el apartamento (turno de hoy).
+     * 2. Si no encuentra Y el usuario es ADMIN, busca cualquier tarea del
+     *    apartamento HOY (de cualquier limpiadora). Caso tipico: el admin
+     *    abre la limpieza para revisar/regañar y no tiene turno propio.
+     * 3. Si tampoco hay tarea ese dia Y el usuario es ADMIN, crea
+     *    automaticamente un turno y tarea "admin" para que el flujo de
+     *    checklist funcione (tarea_checklist_completados requiere
+     *    tarea_asignada_id como FK).
+     *
+     * [2026-05-05 HOTFIX] Antes solo paso 1 -> el admin no podia marcar
+     * ticks de limpieza desde el panel. Reportado por Ivan: "esta dando
+     * error en los tick de la limpieza... y da error al guardar".
      */
     protected function resolverTareaParaLimpieza(ApartamentoLimpieza $apartamentoLimpieza): ?TareaAsignada
     {
@@ -2705,7 +2717,7 @@ public function updateZonaComun(Request $request, ApartamentoLimpieza $apartamen
             $query->whereIn('estado', ['pendiente', 'en_progreso'])->orWhereNull('estado');
         };
 
-        // Turno de hoy del usuario: programado, en_progreso (cuando ya activó el turno) o activo
+        // 1. Turno de hoy del usuario: programado, en_progreso o activo
         $turnoHoy = TurnoTrabajo::where('user_id', $userId)
             ->where('fecha', $hoy)
             ->whereIn('estado', ['activo', 'programado', 'en_progreso'])
@@ -2721,7 +2733,7 @@ public function updateZonaComun(Request $request, ApartamentoLimpieza $apartamen
             }
         }
 
-        // Cualquier turno de hoy del usuario con tarea para este apartamento (por si el estado del turno difiere)
+        // 2. Cualquier turno de hoy del usuario con tarea para este apartamento
         $tarea = TareaAsignada::whereHas('turno', function ($q) use ($userId, $hoy) {
             $q->where('user_id', $userId)->where('fecha', $hoy);
         })
@@ -2729,17 +2741,81 @@ public function updateZonaComun(Request $request, ApartamentoLimpieza $apartamen
             ->where($estadosTareaValidos)
             ->first();
 
-        if (!$tarea) {
-            Log::warning('resolverTareaParaLimpieza: no se encontró tarea', [
-                'user_id' => $userId,
-                'apartamento_id' => $apartamentoId,
-                'limpieza_id' => $apartamentoLimpieza->id,
-                'hoy' => $hoy->toDateString(),
-                'turno_encontrado' => $turnoHoy ? $turnoHoy->id : null,
-            ]);
+        if ($tarea) {
+            return $tarea;
         }
 
-        return $tarea;
+        // 3. [2026-05-05] Si el usuario es ADMIN, ampliamos la busqueda y
+        //    creamos tarea automatica si hace falta.
+        $user = Auth::user();
+        $esAdmin = $user && strtoupper(trim($user->role ?? '')) === 'ADMIN';
+
+        if ($esAdmin) {
+            // 3a. Buscar cualquier tarea para ese apartamento HOY (otro limpiador)
+            $tareaCualquiera = TareaAsignada::whereHas('turno', function ($q) use ($hoy) {
+                $q->where('fecha', $hoy);
+            })
+                ->where('apartamento_id', $apartamentoId)
+                ->where($estadosTareaValidos)
+                ->first();
+            if ($tareaCualquiera) {
+                Log::info('resolverTareaParaLimpieza: admin reusa tarea de limpiador', [
+                    'admin_id' => $userId,
+                    'tarea_id' => $tareaCualquiera->id,
+                    'limpieza_id' => $apartamentoLimpieza->id,
+                ]);
+                return $tareaCualquiera;
+            }
+
+            // 3b. No hay nada -> crear turno + tarea automatica para el admin
+            try {
+                $turnoAdmin = TurnoTrabajo::firstOrCreate(
+                    ['user_id' => $userId, 'fecha' => $hoy],
+                    [
+                        // ENUM valido: programado, en_progreso, completado, ausente
+                        'estado' => 'en_progreso',
+                        'hora_inicio' => '00:00',
+                        'hora_fin' => '23:59',
+                        'observaciones' => 'Turno auto-generado para admin (revision limpiezas)',
+                    ]
+                );
+                // tipo_tarea_id es obligatorio. Para apartamento usamos
+                // 1 (Limpieza de Apartamento). Para zona comun se podria
+                // diferenciar mas adelante.
+                $tareaAdmin = TareaAsignada::create([
+                    'turno_id' => $turnoAdmin->id,
+                    'apartamento_id' => $apartamentoId,
+                    'tipo_tarea_id' => 1, // Limpieza de Apartamento
+                    'estado' => 'en_progreso',
+                    'observaciones' => 'Tarea auto-generada admin (limpieza_id ' . $apartamentoLimpieza->id . ')',
+                ]);
+                Log::info('resolverTareaParaLimpieza: admin auto-creo tarea', [
+                    'admin_id' => $userId,
+                    'turno_id' => $turnoAdmin->id,
+                    'tarea_id' => $tareaAdmin->id,
+                    'limpieza_id' => $apartamentoLimpieza->id,
+                ]);
+                return $tareaAdmin;
+            } catch (\Throwable $e) {
+                Log::error('resolverTareaParaLimpieza: error creando tarea admin', [
+                    'admin_id' => $userId,
+                    'apartamento_id' => $apartamentoId,
+                    'limpieza_id' => $apartamentoLimpieza->id,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        Log::warning('resolverTareaParaLimpieza: no se encontró tarea', [
+            'user_id' => $userId,
+            'apartamento_id' => $apartamentoId,
+            'limpieza_id' => $apartamentoLimpieza->id,
+            'hoy' => $hoy->toDateString(),
+            'turno_encontrado' => $turnoHoy ? $turnoHoy->id : null,
+            'es_admin' => $esAdmin,
+        ]);
+
+        return null;
     }
 
     /**
@@ -2836,8 +2912,12 @@ public function updateZonaComun(Request $request, ApartamentoLimpieza $apartamen
                 return response()->json(['success' => false, 'message' => 'Tarea no encontrada'], 404);
             }
 
-            // Verificar que la tarea pertenece al usuario autenticado
-            if ($tarea->turno && $tarea->turno->user_id !== Auth::id()) {
+            // [2026-05-05 HOTFIX] El ADMIN puede marcar items de cualquier
+            // tarea aunque el turno sea de otra limpiadora (caso "regañar").
+            // Resto de usuarios solo pueden tocar sus propias tareas.
+            $authUser = Auth::user();
+            $esAdmin = $authUser && strtoupper(trim($authUser->role ?? '')) === 'ADMIN';
+            if (!$esAdmin && $tarea->turno && $tarea->turno->user_id !== Auth::id()) {
                 Log::error('Usuario no autorizado para esta tarea', [
                     'tarea_id' => $tareaId,
                     'user_id' => Auth::id(),
