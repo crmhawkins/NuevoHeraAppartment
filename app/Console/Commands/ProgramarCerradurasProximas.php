@@ -37,8 +37,11 @@ class ProgramarCerradurasProximas extends Command
         // 'cerraduras:rotacion-diaria' que se ejecuta cada dia. Este
         // comando queda como red de seguridad para reservas que entran
         // hoy o manana y por algun motivo no se programaron en la rotacion.
+        // [2026-05-05] Ventana ajustada a SOLO HOY para Tuya (categoria mk
+        // del Portal Hawkins Suites tiene 9 slots, no podemos pre-programar
+        // futuros porque saturariamos la cerradura). TTLock mantiene 1 dia.
         $limiteTTLock = Carbon::now()->addDay()->toDateString();
-        $limiteTuya   = Carbon::now()->addDay()->toDateString();
+        $limiteTuya   = Carbon::today()->toDateString(); // solo HOY (no manana)
 
         // Reservas candidatas: con PIN generado pero no enviado, no canceladas,
         // entrada dentro de la ventana de su proveedor.
@@ -55,7 +58,7 @@ class ProgramarCerradurasProximas extends Command
                             ->where('ttlock_lock_id', '!=', '')
                             ->whereHas('reservas', fn($r) => $r->where('fecha_entrada', '<=', $limiteTTLock), '>=', 1);
                     })
-                    // Tuya: ventana 7d
+                    // Tuya: ventana SOLO HOY (regla CLAUDE.md §0.2)
                     ->orWhere(function ($sub) use ($limiteTuya) {
                         $sub->whereNotNull('tuyalaravel_lock_id')
                             ->whereHas('reservas', fn($r) => $r->where('fecha_entrada', '<=', $limiteTuya), '>=', 1);

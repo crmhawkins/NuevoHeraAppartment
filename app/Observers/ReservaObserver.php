@@ -59,6 +59,68 @@ class ReservaObserver
         }
     }
 
+    /**
+     * [2026-05-05] Hook al CREAR una reserva nueva. Si la reserva entra HOY
+     * y son despues de la rotacion-diaria (>= 11:05) o despues del cron de
+     * claves (>= 14:00), programar+enviar inmediatamente sin esperar al
+     * proximo cron horario. Esto cubre reservas de ultima hora (Booking
+     * de noche, walk-in, etc.) que de otra forma se quedarian sin PIN
+     * hasta el siguiente tick del cron.
+     *
+     * NO se ejecuta si la reserva entra manana o despues — esas se programan
+     * solas el dia de su entrada (regla §0.2: solo programar el dia mismo).
+     */
+    public function created(Reserva $reserva): void
+    {
+        try {
+            if (!$reserva->fecha_entrada) return;
+
+            $fechaEntrada = \Carbon\Carbon::parse($reserva->fecha_entrada);
+            $hoy = \Carbon\Carbon::today();
+            $ahora = \Carbon\Carbon::now();
+
+            // Solo procesar si la reserva entra HOY mismo
+            if (!$fechaEntrada->isSameDay($hoy)) {
+                return;
+            }
+
+            // Si esta cancelada al crearse (raro pero posible), no hacer nada
+            if (in_array($reserva->estado_id, [4, 9], true)) {
+                return;
+            }
+
+            Log::info('[ReservaObserver] Reserva nueva con entrada HOY — programar inmediatamente', [
+                'reserva_id' => $reserva->id,
+                'hora' => $ahora->format('H:i'),
+            ]);
+
+            // Programar PIN ahora si el cron de rotacion ya paso (11:05+)
+            // o si simplemente queremos garantizar que esta listo cuanto antes.
+            if ($ahora->format('H:i') >= '11:00') {
+                try {
+                    app(\App\Services\AccessCodeService::class)->generarYProgramar($reserva);
+                    $reserva->refresh();
+                    Log::info('[ReservaObserver] PIN programado inmediatamente para reserva nueva HOY', [
+                        'reserva_id' => $reserva->id,
+                        'codigo_enviado_cerradura' => $reserva->codigo_enviado_cerradura,
+                    ]);
+                } catch (\Throwable $e) {
+                    Log::warning('[ReservaObserver] Error programando PIN de reserva nueva HOY', [
+                        'reserva_id' => $reserva->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+            // (Si son antes de las 11, se programara con la rotacion-diaria
+            // a las 11:05, no hace falta hacer nada aqui)
+
+        } catch (\Throwable $e) {
+            Log::warning('[ReservaObserver] Excepcion en created: ' . $e->getMessage(), [
+                'reserva_id' => $reserva->id ?? null,
+            ]);
+        }
+    }
+
     private function reencolarBorradoConNuevaFecha(Reserva $reserva): void
     {
         try {

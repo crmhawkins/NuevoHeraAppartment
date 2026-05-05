@@ -217,15 +217,26 @@ class AccessCodeService
             return $codigo;
         }
 
-        // [2026-04-20] Ventana de programacion segun proveedor:
-        //  - TTLock: hasta 150 dias (limite de su cloud ~180d)
-        //  - Tuya:   hasta 7 dias (la cerradura del portal es compartida y el
-        //            slot de temp_passwords es limitado ~10; si programamos
-        //            con meses de antelacion saturamos la cerradura y las
-        //            reservas inmediatas no pueden crearse).
-        // Si falta mas, guardamos el PIN en BD pero no lo enviamos aun. El
-        // cron 'cerraduras:programar-proximas' lo enviara cuando toque.
-        $ventanaDias = ($tipoCerradura === 'tuya') ? 7 : 150;
+        // [2026-05-05] Ventana = SOLO HOY para Tuya (no pre-programar futuros).
+        //
+        // La cerradura mk del Portal Hawkins Suites tiene 9 slots fisicos:
+        // 2 fijos permanentes (fallback 001981 + limpieza) + 7 dinamicos
+        // para 7 apartamentos. Si pre-programamos PINs de manana, podemos
+        // saturar la cerradura cuando entre una reserva de ultima hora HOY.
+        //
+        // Caso de saturacion vivido (29/04/2026):
+        //   - 5 huespedes alojados (5 slots ocupados)
+        //   - Cron veia 2 huecos libres → pre-programaba reservas de manana
+        //   - Entraba reserva de ultima hora HOY → no habia slot
+        //   - 3 fallos consecutivos → activaba fallback masivo (17 WhatsApp)
+        //
+        // Solucion: SOLO programar PINs el mismo dia de la entrada. Asi en
+        // todo momento los slots ocupados = solo huespedes alojados HOY ≤ 7.
+        // El cron diario de rotacion (11:05) borra los salientes y luego el
+        // cron horario programa los entrantes.
+        //
+        // TTLock mantiene 150d (su limite de cloud).
+        $ventanaDias = ($tipoCerradura === 'tuya') ? 0 : 150;
         $diasHastaEntrada = Carbon::now()->diffInDays(Carbon::parse($reserva->fecha_entrada), false);
         if ($diasHastaEntrada > $ventanaDias) {
             $this->guardarPinGenerado($reserva, $apartamento, $codigo, $esPortal, false);
